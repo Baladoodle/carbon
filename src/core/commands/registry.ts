@@ -2,6 +2,7 @@ import type { z } from 'zod';
 import type { CommandDef } from './define';
 import { entityCommands } from './entity-commands';
 import { worldCommands } from './world-commands';
+import { placementCommands } from '../placement/commands';
 
 /**
  * Every command carbon knows. A package adds its commands by defining them in
@@ -10,6 +11,7 @@ import { worldCommands } from './world-commands';
 export const COMMANDS = {
   ...entityCommands,
   ...worldCommands,
+  ...placementCommands,
 } as const;
 
 export type CommandMap = typeof COMMANDS;
