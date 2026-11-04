@@ -31,7 +31,7 @@ export function formatOf(files: FileMap): number {
   try {
     const raw: unknown = JSON.parse(text);
     if (raw && typeof raw === 'object' && 'format' in raw) {
-      const f = (raw).format;
+      const f = raw.format;
       if (typeof f === 'number' && Number.isInteger(f) && f > 0) return f;
     }
   } catch {

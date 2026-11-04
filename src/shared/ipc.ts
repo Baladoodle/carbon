@@ -111,6 +111,57 @@ export const AiRunResponseSchema = z.discriminatedUnion('ok', [
 ]);
 export const AiPartialEventSchema = z.object({ requestId: z.string(), partial: z.unknown() });
 
+// ── Platform (W6): store, notes, export ────────────────────────────────────
+
+/** A conflict between an external edit and carbon's unsaved edit of the same file. */
+export const StoreConflictSchema = z.object({
+  id: z.string(),
+  path: z.string(),
+  entity: z.object({ id: z.string(), name: z.string(), kind: z.string() }).optional(),
+  fields: z.array(z.object({ key: z.string(), ours: z.unknown(), theirs: z.unknown() })),
+});
+export type StoreConflict = z.infer<typeof StoreConflictSchema>;
+
+/** Something the store tells the user once (a migration, a quarantine, snapshots unavailable). */
+export const StoreNoticeSchema = z.object({
+  id: z.string(),
+  tone: z.enum(['info', 'error']),
+  text: z.string(),
+});
+export type StoreNotice = z.infer<typeof StoreNoticeSchema>;
+
+export const SnapshotResultSchema = z.discriminatedUnion('status', [
+  z.object({
+    status: z.literal('committed'),
+    sha: z.string(),
+    message: z.string(),
+    files: z.number(),
+  }),
+  z.object({ status: z.literal('clean') }),
+  z.object({ status: z.literal('unavailable'), reason: z.string() }),
+  z.object({ status: z.literal('failed'), message: z.string() }),
+]);
+
+/** Dismissed notes: note id → the inputs hash it was dismissed for. */
+export const DismissalsSchema = z.record(z.string(), z.string());
+
+export const ExportWriteRequestSchema = z.object({
+  name: z.string().min(1).max(120),
+  markdown: z.string(),
+  entityIds: z.array(z.string()).min(1),
+});
+export const ExportWriteResultSchema = z.discriminatedUnion('ok', [
+  z.object({ ok: z.literal(true), path: z.string(), marked: z.number().int() }),
+  z.object({ ok: z.literal(false), error: CoreErrorSchema }),
+]);
+export const ExportRecordSchema = z.object({
+  path: z.string(),
+  name: z.string(),
+  date: z.string(),
+  entities: z.array(z.string()),
+});
+export type ExportRecord = z.infer<typeof ExportRecordSchema>;
+
 const none = z.null();
 const done = z.object({ ok: z.literal(true) });
 
@@ -129,6 +180,21 @@ export const INVOKE = {
     request: z.object({ limit: z.number().int().min(1).max(5000).optional() }),
     response: z.array(AiLogEntrySchema),
   },
+  'store:notices': { request: none, response: z.array(StoreNoticeSchema) },
+  'store:conflicts': { request: none, response: z.array(StoreConflictSchema) },
+  'store:resolveConflict': {
+    request: z.object({ id: z.string(), keep: z.enum(['ours', 'theirs']) }),
+    response: z.object({ ok: z.boolean() }),
+  },
+  'store:openQuarantine': { request: none, response: z.object({ ok: z.boolean() }) },
+  'store:snapshotNow': { request: none, response: SnapshotResultSchema },
+  'notes:dismissals': { request: none, response: DismissalsSchema },
+  'notes:setDismissal': {
+    request: z.object({ id: z.string(), hash: z.string().nullable() }),
+    response: done,
+  },
+  'export:write': { request: ExportWriteRequestSchema, response: ExportWriteResultSchema },
+  'export:list': { request: none, response: z.array(ExportRecordSchema) },
   'window:control': {
     request: z.enum(['minimize', 'maximize', 'close', 'devtools']),
     response: done,
@@ -142,6 +208,8 @@ export const EVENTS = {
   'store:status': SaveStatusSchema,
   'ai:partial': AiPartialEventSchema,
   'ai:status': AiStatusSchema,
+  'store:conflicts': z.array(StoreConflictSchema),
+  'store:notice': StoreNoticeSchema,
 } as const satisfies Record<string, z.ZodType>;
 
 export type InvokeChannel = keyof typeof INVOKE;
