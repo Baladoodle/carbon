@@ -82,7 +82,7 @@ describe('settings and pricing', () => {
     expect(s.effort.spread).toBe('high');
     expect(priceFor(s, MODEL)).toMatchObject({ inputPerMTok: 0.1, outputPerMTok: 1 });
     expect(priceFor(s, 'other-model')).toEqual(DEFAULT_PRICING[MODEL]);
-    w.settings.ai = { budget: { sessionUsd: -1 } };
+    w.settings.ai = { budget: { sessionUsd: -1, monthUsd: 20 } };
     expect(aiSettings(w.settings).budget.sessionUsd).toBe(2);
   });
 
