@@ -4,7 +4,7 @@ import { fallbackPatternsBuilder, fallbackSpreadBuilder } from './fallback-sprea
 import { fillBuilder } from './fill';
 import { specBuilder } from './spec';
 import { suggestOneBuilder, suggestThreeBuilder } from './suggest';
-import type { PromptBuilder } from './types';
+import type { AnyPromptBuilder, PromptBuilder } from './types';
 
 /**
  * The prompt-builder registry: one builder per AI moment. The real gateway
@@ -14,7 +14,7 @@ import type { PromptBuilder } from './types';
  * Export your builders from your own folder, e.g.
  *
  *   // src/core/spreads/prompts.ts
- *   export const spreadPromptBuilders: PromptBuilder[] = [spreadBuilder, patternsBuilder];
+ *   export const spreadPromptBuilders: AnyPromptBuilder[] = [spreadBuilder, patternsBuilder];
  *
  * and add ONE line to `PACKAGE_BUILDERS` below: `...spreadPromptBuilders,`.
  * A package builder replaces the built-in builder for its moment. Build your
@@ -23,7 +23,7 @@ import type { PromptBuilder } from './types';
  */
 
 /** Builders owned by W4 (`ai`), plus fallbacks for `spread` and `patterns`. */
-export const BUILTIN_BUILDERS: readonly PromptBuilder[] = [
+export const BUILTIN_BUILDERS: readonly AnyPromptBuilder[] = [
   suggestOneBuilder,
   suggestThreeBuilder,
   fillBuilder,
@@ -31,16 +31,16 @@ export const BUILTIN_BUILDERS: readonly PromptBuilder[] = [
   specBuilder,
   fallbackSpreadBuilder,
   fallbackPatternsBuilder,
-] as PromptBuilder[];
+];
 
 /** Builders registered by other packages; each replaces the built-in one for its moment. */
-export const PACKAGE_BUILDERS: readonly PromptBuilder[] = [];
+export const PACKAGE_BUILDERS: readonly AnyPromptBuilder[] = [];
 
 export class PromptRegistry {
-  private readonly builders = new Map<Moment, PromptBuilder>();
+  private readonly builders = new Map<Moment, AnyPromptBuilder>();
 
   /** Registers a builder. A builder for a moment that already has one replaces it. */
-  register(builder: PromptBuilder): this {
+  register(builder: AnyPromptBuilder): this {
     this.builders.set(builder.moment, builder);
     return this;
   }
@@ -60,7 +60,7 @@ export class PromptRegistry {
 }
 
 /** A registry with the built-in builders, then every package's. */
-export function createPromptRegistry(extra: readonly PromptBuilder[] = []): PromptRegistry {
+export function createPromptRegistry(extra: readonly AnyPromptBuilder[] = []): PromptRegistry {
   const r = new PromptRegistry();
   for (const b of [...BUILTIN_BUILDERS, ...PACKAGE_BUILDERS, ...extra]) r.register(b);
   return r;

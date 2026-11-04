@@ -94,5 +94,8 @@ export interface PromptBuilder<M extends Moment = Moment> {
   stream?: StreamSpec<M>;
 }
 
+/** A builder for any one moment (what the registry holds). */
+export type AnyPromptBuilder = { [K in Moment]: PromptBuilder<K> }[Moment];
+
 /** Shorthand for spread partials. */
 export type CandidatePartial = Candidate;

@@ -96,3 +96,9 @@ class IpcAiGateway implements AiGateway {
 export const ai: AiGateway = new IpcAiGateway();
 
 export const useAiStatus = (): AiStatus => useStore(aiStatusStore, (s) => s);
+
+/** The request a logged call sent (prompt text and params), or null if it isn't kept. */
+export const aiRequest = (
+  id: string,
+): Promise<{ text: string; params: Record<string, unknown> } | null> =>
+  invoke('ai:request', { id });

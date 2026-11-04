@@ -4,12 +4,15 @@ import { FakeAiGateway } from '@core/ai/fake';
 import { OffAiGateway } from '@core/ai/off';
 import type { World } from '@core/model/world';
 import { ClaudeAiGateway } from './gateway';
+import { loadRecorded, replayFetch } from './replay';
 
 /**
  * Chooses the AI gateway for this run.
  *
  *  - `CARBON_AI=fake`  FakeAiGateway (tests, e2e, UI work; `CARBON_AI_DELAY_MS` adds latency)
  *  - `CARBON_AI=off`   always off
+ *  - `CARBON_AI=replay` the real gateway over an offline API (recorded fixtures in
+ *                     `CARBON_AI_FIXTURES`, else answers generated from each request's schema)
  *  - otherwise         the Claude API gateway if `ANTHROPIC_API_KEY` is set, else off ("no API key")
  */
 export function createAiGateway(getWorld: () => World): AiGateway {
@@ -23,6 +26,24 @@ export function createAiGateway(getWorld: () => World): AiGateway {
     });
   }
   if (mode === 'off') return new OffAiGateway('AI is turned off (CARBON_AI=off)');
+  if (mode === 'replay') {
+    // The real gateway over an offline Claude API (src/main/ai/replay.ts): e2e and demos.
+    const delay = Number(process.env.CARBON_AI_DELAY_MS ?? '0');
+    const dir = process.env.CARBON_AI_FIXTURES;
+    const fetch = replayFetch({
+      ...(dir ? { recorded: loadRecorded(dir) } : {}),
+      delayMs: Number.isFinite(delay) ? delay : 0,
+    });
+    return new ClaudeAiGateway({
+      getWorld,
+      client: new Anthropic({
+        apiKey: 'replay',
+        baseURL: 'https://api.anthropic.com',
+        fetch,
+        maxRetries: 0,
+      }),
+    });
+  }
   if (!process.env.ANTHROPIC_API_KEY)
     return new OffAiGateway('No API key: set ANTHROPIC_API_KEY to turn the AI on');
   return new ClaudeAiGateway({ getWorld, client: createClaudeClient() });
