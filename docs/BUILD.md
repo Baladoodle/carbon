@@ -41,10 +41,13 @@ this file.
    smaller package that works completely beats a larger one that doesn't.
 4. **`npm run check` must pass** before every push of finished work. Push work
    in progress often, so the coordinator can see it.
-5. **AI and the key:** `ANTHROPIC_API_KEY` is set in the environment. Tests
-   never need it; they use recorded fixtures. Only `npm run eval` and
-   `npm run smoke:ai` call the real API. Model: `claude-haiku-5-5` only. No
-   request over 100k tokens. Log your spend in your build notes.
+5. **AI with no key in the cloud:** there is no Anthropic API key in the build
+   environment, and no worker calls the real API. Tests use hand-built
+   fixtures that match the SDK's response types and each moment's output
+   schema, including streaming, errors, refusals, truncation and invalid JSON.
+   `npm run eval` and `npm run smoke:ai` are written and type-checked but run
+   only on the user's machine; with no key they exit cleanly with a clear
+   message. Model: `claude-haiku-5-5` only. No request over 100k tokens.
 6. **Electron in the container:** run it under `xvfb-run -a` with
    `--no-sandbox`. Playwright's `_electron` works there. Take screenshots at
    `deviceScaleFactor: 1`.
@@ -98,8 +101,8 @@ The build depends on this phase's interfaces, so it has to be right.
 | W1 | `column` | `src/renderer/views/column/`, `src/renderer/bench/` | **The Column:** symmetric log axis, endless hatched ends, bands created and resized by dragging their edges, configurable lanes and saved layouts, entity glyphs by state, inferred placement marked, notes in the margin, navigation keys, `n` to create, `space` to start a spread. **The Bench:** a schema-driven form for every kind, an attribute editor, a relation picker with type rules, the state machine with the Why gate, `ai` markers, undo throughout |
 | W2 | `world` | `src/core/placement/`, `src/renderer/views/climate/`, `src/renderer/views/codex/` | **Placement resolver** (deterministic, tested). **Climate:** per band, a temperature × moisture plane, biome rectangles you drag and resize, overlap and empty-climate highlighting, `[`/`]` to switch band. **Codex:** a virtualised table per kind, a filter query language (parser plus tests), inline edit, multi-select, bulk state changes, selection to spread |
 | W3 | `numbers` | `src/core/numbers/`, `src/renderer/views/numbers/` | **The expression language**, per `SYSTEM.md` §6: Pratt parser, AST, resolver, type checker, dependency graph, incremental evaluation, errors with source spans, step limit. Golden and property tests. **The Numbers view:** variables, formulas with a live preview and inline errors, attribute definitions per kind, curves (formula over band, tier or attribute, entities as dots, draggable intent curves) |
-| W4 | `ai` | `src/main/ai/`, `src/core/context/`, `src/core/prompts/`, `src/renderer/ai/`, `evals/` | **The real `AiGateway`:** the Anthropic SDK with `claude-haiku-5-5`, structured outputs, streaming, typed retries, cancellation, the content-hash cache, JSONL log, cost accounting and budget pause. **Context packer** with token budgeting (local estimate, then `count_tokens` near the limit, hard limit 95k). **The moments:** suggest one (`tab`), suggest three (`shift+tab`), fill entity (`ctrl+enter`), critique on finishing an edit or changing state or on demand, export spec drafting. The **AI log** overlay. **Evals:** fixture worlds with seeded flaws, the metrics from `SYSTEM.md` §8 and a report, record/replay fixtures for tests. Up to **$8** of API spend |
-| W5 | `spreads` | `src/core/spreads/`, `src/core/taste/`, `src/renderer/views/spread/`, `src/renderer/views/taste/` | **Spreads:** spot, move and direction; all nine moves as request builders; streamed candidates on the field; choosing axes; the wildcard; triage keys; merge as a transaction; spread files. **Taste:** rules with per-spread switches, the kill-reason vocabulary, pattern learning (the AI moment) with promote and dismiss, and taste going into requests. Builds against `FakeAiGateway`, then runs a real smoke test once W4 is merged. Up to **$3** |
+| W4 | `ai` | `src/main/ai/`, `src/core/context/`, `src/core/prompts/`, `src/renderer/ai/`, `evals/` | **The real `AiGateway`:** the Anthropic SDK with `claude-haiku-5-5`, structured outputs, streaming, typed retries, cancellation, the content-hash cache, JSONL log, cost accounting and budget pause; SDK request shapes checked against the SDK's own types. **Context packer** with token budgeting (local estimate, then `count_tokens` near the limit, hard limit 95k). **The moments:** suggest one (`tab`), suggest three (`shift+tab`), fill entity (`ctrl+enter`), critique on finishing an edit or changing state or on demand, export spec drafting. The **AI log** overlay. **Evals:** fixture worlds with seeded flaws, the metrics from `SYSTEM.md` §8 and a report, fixtures for tests, and a record mode so the user's first real run on their machine captures real responses as new fixtures. No API spend in the cloud |
+| W5 | `spreads` | `src/core/spreads/`, `src/core/taste/`, `src/renderer/views/spread/`, `src/renderer/views/taste/` | **Spreads:** spot, move and direction; all nine moves as request builders; streamed candidates on the field; choosing axes; the wildcard; triage keys; merge as a transaction; spread files. **Taste:** rules with per-spread switches, the kill-reason vocabulary, pattern learning (the AI moment) with promote and dismiss, and taste going into requests. Builds against `FakeAiGateway`, then against W4's gateway with fixtures once W4 is merged |
 | W6 | `platform` | `src/main/store/`, `src/core/checks/`, `src/core/export/`, `src/renderer/palette/`, `scripts/`, packaging config | **Store hardening:** fsync and rename, versioned migrations with a backup first, quarantining invalid files, git snapshots, external-edit detection and conflict prompts. **Mechanical checks** (all of `SYSTEM.md` §7, incremental, with stable note ids and dismissal). **Export:** choosing entities, building the spec, writing the file, marking entities exported. **Command palette** over every action and entity. **Packaging:** `npm run dist` and `scripts/install-omarchy.sh` |
 
 **Each package is done when:**
@@ -129,9 +132,8 @@ The build depends on this phase's interfaces, so it has to be right.
 
 ## 7. Budget
 
-- **Development API spend:** a separate Console workspace with a **$20 spend
-  limit** enforces it on Anthropic's side. Planned spend: W4 up to $8, W5 up to
-  $3, hardening and QA up to $4, all other packages under $1 each. The rest is
-  margin.
+- **Development API spend:** none in the cloud. The first real AI run is the
+  user's, on their machine: `npm run smoke:ai`, then `npm run eval`, with a key
+  from a Console workspace limited to $20.
 - **Cloud compute:** the phases are sized to use the night. Workers favour
   correctness and tests over extra features.
