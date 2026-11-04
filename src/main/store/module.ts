@@ -1,7 +1,9 @@
 import { shell } from 'electron';
 import { mkdir } from 'node:fs/promises';
 import type { StoreNotice } from '@shared/ipc';
-import { defineMainModule } from '../modules';
+// Type-only: modules.ts imports this file eagerly (import.meta.glob), so a value import
+// of `defineMainModule` would be a cycle that runs before modules.ts has defined it.
+import type { MainModule } from '../modules';
 import { diskState, DEFAULT_SETTLE_MS } from './disk-state';
 import { Dismissals } from './dismissals';
 import { listExports, writeExport } from './exports';
@@ -22,7 +24,7 @@ import { quarantineDir } from './world-dir';
 const num = (v: unknown, fallback: number): number =>
   typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : fallback;
 
-export default defineMainModule({
+const storeModule: MainModule = {
   name: 'store',
   start({ session, handle, send, window }) {
     const dir = session.dir;
@@ -144,4 +146,6 @@ export default defineMainModule({
       ]);
     };
   },
-});
+};
+
+export default storeModule;

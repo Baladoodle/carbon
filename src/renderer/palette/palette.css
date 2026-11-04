@@ -1,0 +1,17 @@
+/* Command palette details (the frame is in shell.css): group labels and match highlights. */
+.palette-group {
+  padding: 8px 8px 4px;
+  font-size: var(--text-meta);
+  font-weight: 500;
+  color: var(--text-3);
+}
+.palette-hit {
+  background: none;
+  color: var(--accent);
+}
+.palette-item .ui-kbd {
+  margin-left: auto;
+}
+.palette-item[data-highlighted] .palette-hit {
+  color: var(--accent);
+}

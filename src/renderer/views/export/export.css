@@ -1,0 +1,132 @@
+/* Export (package W6): choose on the left, the spec on the right. */
+.export-view {
+  display: grid;
+  grid-template-columns: minmax(280px, 360px) 1fr;
+  height: 100%;
+  min-height: 0;
+}
+.export-choose {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  padding: 12px 0 12px 12px;
+  border-right: 1px solid var(--line);
+}
+.export-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding-right: 12px;
+}
+.export-chip {
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  font-size: var(--text-dense);
+  transition:
+    background var(--dur-hover) var(--ease),
+    color var(--dur-hover) var(--ease),
+    border-color var(--dur-hover) var(--ease);
+}
+.export-chip:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.export-chip[aria-pressed='true'] {
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--text);
+}
+.export-chip:focus-visible {
+  outline: none;
+  box-shadow: var(--ring);
+}
+.export-list {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 4px 12px 4px 0;
+  outline: none;
+}
+.export-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+  padding: 0 8px;
+  border-radius: var(--radius-control);
+  cursor: default;
+}
+.export-row:hover {
+  background: var(--surface-2);
+}
+.export-list:focus-visible .export-row[data-cursor] {
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+}
+.export-row.is-on {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+.export-check {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  border: 1px solid var(--line-strong);
+  border-radius: 3px;
+}
+.export-row.is-on .export-check {
+  border-color: var(--accent);
+  background: var(--accent);
+  box-shadow: inset 0 0 0 2px var(--surface-1);
+}
+.export-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.export-changed {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--warn);
+}
+.export-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  min-height: 0;
+  padding: 12px;
+}
+.export-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.export-name-input {
+  flex: 1;
+  max-width: 420px;
+}
+.export-count {
+  margin-right: auto;
+  font-size: var(--text-dense);
+}
+.export-editor {
+  flex: 1;
+  min-height: 0;
+  resize: none;
+  line-height: 1.55;
+}
+.export-editor.is-ai {
+  border-left: 2px solid var(--ai);
+}
+.export-empty {
+  padding: 24px;
+  color: var(--text-2);
+}

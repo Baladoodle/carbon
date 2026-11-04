@@ -29,6 +29,7 @@ export function StatusLine(): ReactNode {
   const notes = useNotes();
   const ai = useAiStatus();
   const save = useSaveStatus();
+  const quarantined = meta.issues.some((i) => i.message.includes('.carbon/quarantine/'));
   return (
     <footer className="status" data-testid="status-line">
       <Tooltip content={meta.dir}>
@@ -39,7 +40,21 @@ export function StatusLine(): ReactNode {
       {notes.length > 0 && <span className="t-warn">{plural(notes.length, 'note', 'notes')}</span>}
       {meta.issues.length > 0 && (
         <Tooltip content={meta.issues.map((i) => `${i.path}: ${i.message}`).join('\n')}>
-          <span className="t-danger" tabIndex={0}>
+          <span
+            className="t-danger"
+            tabIndex={0}
+            data-testid="status-issues"
+            // A click opens the quarantine folder when files were moved there (W6).
+            role={quarantined ? 'button' : undefined}
+            onClick={quarantined ? () => void invoke('store:openQuarantine', null) : undefined}
+            onKeyDown={
+              quarantined
+                ? (e) => {
+                    if (e.key === 'Enter') void invoke('store:openQuarantine', null);
+                  }
+                : undefined
+            }
+          >
             {plural(meta.issues.length, 'unreadable file', 'unreadable files')}
           </span>
         </Tooltip>
