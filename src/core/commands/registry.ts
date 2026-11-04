@@ -1,5 +1,6 @@
 import type { z } from 'zod';
 import type { CommandDef } from './define';
+import { numbersCommands } from '../numbers/commands';
 import { entityCommands } from './entity-commands';
 import { worldCommands } from './world-commands';
 
@@ -10,6 +11,7 @@ import { worldCommands } from './world-commands';
 export const COMMANDS = {
   ...entityCommands,
   ...worldCommands,
+  ...numbersCommands,
 } as const;
 
 export type CommandMap = typeof COMMANDS;

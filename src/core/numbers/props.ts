@@ -59,7 +59,11 @@ function fieldProps(f: FieldDef, add: (p: Prop) => void, bad: (u: Unusable) => v
       return;
     case 'ref': {
       const kinds = f.refKinds ?? [];
-      add({ name: f.key, type: entityOf(kinds.length === 1 ? (kinds[0] ?? null) : null), source: src() });
+      add({
+        name: f.key,
+        type: entityOf(kinds.length === 1 ? (kinds[0] ?? null) : null),
+        source: src(),
+      });
       return;
     }
     case 'list':
@@ -107,7 +111,8 @@ export function propsOf(schema: WorldSchema, kind: EntityKind): KindProps {
   add({ name: 'tags', type: listOf(STRING), source: { from: 'common', key: 'tags' } });
   const def = schema.kinds[kind];
   for (const f of def.fields) fieldProps(f, add, bad);
-  for (const a of def.attributes) add({ name: a.key, type: NUMBER, source: { from: 'attribute', key: a.key, def: a } });
+  for (const a of def.attributes)
+    add({ name: a.key, type: NUMBER, source: { from: 'attribute', key: a.key, def: a } });
   add({ name: 'band', type: entityOf('band'), source: { from: 'placement', key: 'band' } });
   add({ name: 'tier', type: NUMBER, source: { from: 'placement', key: 'tier' } });
   const out = { props, unusable };

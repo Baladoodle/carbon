@@ -25,7 +25,9 @@ export function buildGraph(
   const known = new Set(names);
   const pos = new Map(names.map((n, i) => [n, i]));
   const succ = (n: string): string[] =>
-    [...(edges.get(n) ?? [])].filter((m) => known.has(m)).sort((a, b) => (pos.get(a) ?? 0) - (pos.get(b) ?? 0));
+    [...(edges.get(n) ?? [])]
+      .filter((m) => known.has(m))
+      .sort((a, b) => (pos.get(a) ?? 0) - (pos.get(b) ?? 0));
 
   // Tarjan, iteratively (no recursion limit on long chains).
   let index = 0;
@@ -89,9 +91,14 @@ export function buildGraph(
             diag(
               'check',
               'cycle',
-              loop.length <= 2 ? `${n} depends on itself` : `${n} depends on itself: ${loop.join(' → ')}`,
+              loop.length <= 2
+                ? `${n} depends on itself`
+                : `${n} depends on itself: ${loop.join(' → ')}`,
               at,
-              { hint: 'A formula cannot use its own result; break the loop with a variable', def: n },
+              {
+                hint: 'A formula cannot use its own result; break the loop with a variable',
+                def: n,
+              },
             ),
           );
       }
@@ -122,7 +129,8 @@ function cyclePath(start: string, members: Set<string>, succ: (n: string) => str
       if (!members.has(m)) continue;
       if (m === start) {
         const path = [start];
-        for (let c: string | undefined = n; c !== undefined && c !== start; c = prev.get(c)) path.splice(1, 0, c);
+        for (let c: string | undefined = n; c !== undefined && c !== start; c = prev.get(c))
+          path.splice(1, 0, c);
         path.push(start);
         return path;
       }
@@ -136,7 +144,10 @@ function cyclePath(start: string, members: Set<string>, succ: (n: string) => str
 }
 
 /** Everything that transitively depends on any of `names` (including them). */
-export function downstream(names: Iterable<string>, dependents: Map<string, Set<string>>): Set<string> {
+export function downstream(
+  names: Iterable<string>,
+  dependents: Map<string, Set<string>>,
+): Set<string> {
   const out = new Set<string>();
   const queue = [...names];
   while (queue.length > 0) {

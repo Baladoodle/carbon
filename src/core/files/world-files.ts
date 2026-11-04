@@ -186,7 +186,9 @@ export function worldToFiles(world: World): FileMap {
     [PATHS.schema, json(world.schema)],
     [PATHS.variables, json(world.numbers.variables)],
     [PATHS.formulas, world.numbers.formulas],
-    ...(world.numbers.curves ? [[PATHS.curves, json(world.numbers.curves)] as [string, string]] : []),
+    ...(world.numbers.curves
+      ? [[PATHS.curves, json(world.numbers.curves)] as [string, string]]
+      : []),
     [PATHS.rules, json(world.taste.rules)],
     [PATHS.reasons, json(world.taste.reasons)],
     [PATHS.patterns, json(world.taste.patterns)],

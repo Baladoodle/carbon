@@ -148,7 +148,8 @@ export class Unifier {
       const r = this.resolve(t);
       if (r.t === 'var') return tm.get(r.id) ?? r;
       if (r.t === 'list') return { t: 'list', of: sub(r.of) };
-      if (r.t === 'entity' && r.kind.k === 'kvar') return { t: 'entity', kind: km.get(r.kind.id) ?? r.kind };
+      if (r.t === 'entity' && r.kind.k === 'kvar')
+        return { t: 'entity', kind: km.get(r.kind.id) ?? r.kind };
       return r;
     };
     return { params: s.params ? s.params.map(sub) : null, result: sub(s.result) };
@@ -201,7 +202,9 @@ export function annotationType(name: string, u: Unifier): Type | null {
     case 'entity':
       return { t: 'entity', kind: u.freshKind() };
     default:
-      return (ENTITY_KINDS as readonly string[]).includes(name) ? entityOf(name as EntityKind) : null;
+      return (ENTITY_KINDS as readonly string[]).includes(name)
+        ? entityOf(name as EntityKind)
+        : null;
   }
 }
 

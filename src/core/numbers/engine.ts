@@ -8,7 +8,16 @@ import { parseExpression, parseProgram } from './parser';
 import { explicitPlacement, type Placed, type PlacementResolver } from './placement';
 import { printDef } from './printer';
 import { diag, type Diagnostic, type Span } from './span';
-import { formatScheme, formatType, NUMBER, STRING, BOOL, entityOf, listOf, type Type } from './types';
+import {
+  formatScheme,
+  formatType,
+  NUMBER,
+  STRING,
+  BOOL,
+  entityOf,
+  listOf,
+  type Type,
+} from './types';
 import { isEntity, valueEquals, type Value } from './values';
 
 /**
@@ -109,10 +118,17 @@ const varSignature = (vars: World['numbers']['variables']): string =>
 const sameResult = (a: DefResult, b: DefResult): boolean =>
   a.ok && b.ok
     ? valueEquals(a.value, b.value)
-    : !a.ok && !b.ok && a.error.code === b.error.code && a.error.message === b.error.message && a.error.span.start === b.error.span.start && a.error.span.end === b.error.span.end;
+    : !a.ok &&
+      !b.ok &&
+      a.error.code === b.error.code &&
+      a.error.message === b.error.message &&
+      a.error.span.start === b.error.span.start &&
+      a.error.span.end === b.error.span.end;
 
 const byPosition = (a: Diagnostic, b: Diagnostic): number =>
-  a.span.start - b.span.start || a.span.end - b.span.end || (a.message < b.message ? -1 : a.message > b.message ? 1 : 0);
+  a.span.start - b.span.start ||
+  a.span.end - b.span.end ||
+  (a.message < b.message ? -1 : a.message > b.message ? 1 : 0);
 
 export class NumbersEngine {
   private state: State | undefined;
@@ -147,7 +163,9 @@ export class NumbersEngine {
       checker = new Checker({ schema, variables: world.numbers.variables });
       checker.checkProgram(parsed.program);
       const names = [...checker.defs.keys()];
-      graph = buildGraph(names, checker.edges, (from, to) => checker.checked.get(from)?.refSpans.get(to));
+      graph = buildGraph(names, checker.edges, (from, to) =>
+        checker.checked.get(from)?.refSpans.get(to),
+      );
     }
     const placement = this.resolver(world);
 
@@ -157,9 +175,13 @@ export class NumbersEngine {
     if (prev && !full) {
       const pv = prev.world.numbers.variables;
       const nv = world.numbers.variables;
-      for (const k of new Set([...Object.keys(pv), ...Object.keys(nv)])) if (pv[k] !== nv[k]) changed.add(`var:${k}`);
+      for (const k of new Set([...Object.keys(pv), ...Object.keys(nv)]))
+        if (pv[k] !== nv[k]) changed.add(`var:${k}`);
       if (prev.world.entities !== world.entities)
-        for (const id of new Set([...Object.keys(prev.world.entities), ...Object.keys(world.entities)])) {
+        for (const id of new Set([
+          ...Object.keys(prev.world.entities),
+          ...Object.keys(world.entities),
+        ])) {
           const a = prev.world.entities[id];
           const b = world.entities[id];
           if (a === b || deepEqual(a, b)) continue;
@@ -197,7 +219,7 @@ export class NumbersEngine {
     }
 
     for (const name of graph.order) {
-      const c = checker.checked.get(name) as CheckedDef | undefined;
+      const c = checker.checked.get(name);
       if (!c) continue;
       const key = `${printDef(c.def)} :: ${formatScheme(c.scheme)} :: ${blocked.has(name) ? 'blocked' : 'ok'}`;
       if (c.def.type === 'func') {
@@ -212,7 +234,10 @@ export class NumbersEngine {
           error:
             b === 'self'
               ? diag('eval', 'eval.static', `${name} has an error`, c.def.nameSpan, { def: name })
-              : diag('eval', 'eval.dependency', `${b.by} has an error`, b.at, { def: name, hint: `Fix ${b.by} first` }),
+              : diag('eval', 'eval.dependency', `${b.by} has an error`, b.at, {
+                  def: name,
+                  hint: `Fix ${b.by} first`,
+                }),
         };
         results.set(name, result);
         const old = prev?.cache.get(name);
@@ -220,11 +245,16 @@ export class NumbersEngine {
         continue;
       }
       const old = prev?.cache.get(name);
-      const reuse = !full && old !== undefined && old.key === key && ![...old.reads].some((t) => changed.has(t));
+      const reuse =
+        !full &&
+        old !== undefined &&
+        old.key === key &&
+        ![...old.reads].some((t) => changed.has(t));
       if (reuse) {
         results.set(name, old.result);
         cache.set(name, old);
-        if (old.result.ok === false && old.result.error.code !== 'eval.dependency') evalDiagnostics.push(old.result.error);
+        if (!old.result.ok && old.result.error.code !== 'eval.dependency')
+          evalDiagnostics.push(old.result.error);
         continue;
       }
       const ev = new Evaluator(evalWorld, checker, (n) => results.get(n), name, this.stepLimit);
@@ -237,14 +267,35 @@ export class NumbersEngine {
       if (!old || !sameResult(old.result, result)) changed.add(`def:${name}`);
     }
 
-    const analysis = buildAnalysis(source, parsed, checker, graph, results, blocked, evalDiagnostics, evaluated, {
+    const analysis = buildAnalysis(
+      source,
+      parsed,
       checker,
       graph,
-      evalWorld,
       results,
-      stepLimit: this.stepLimit,
-    });
-    this.state = { world, source, parsed, checkKey, checker, graph, placement, cache, funcKeys, analysis };
+      blocked,
+      evalDiagnostics,
+      evaluated,
+      {
+        checker,
+        graph,
+        evalWorld,
+        results,
+        stepLimit: this.stepLimit,
+      },
+    );
+    this.state = {
+      world,
+      source,
+      parsed,
+      checkKey,
+      checker,
+      graph,
+      placement,
+      cache,
+      funcKeys,
+      analysis,
+    };
     return analysis;
   }
 }
@@ -270,7 +321,12 @@ function buildAnalysis(
     byName.set(d.name, info);
   }
   const seen = new Set<string>();
-  const diagnostics = [...parsed.diagnostics, ...checker.diagnostics, ...graph.diagnostics, ...evalDiagnostics]
+  const diagnostics = [
+    ...parsed.diagnostics,
+    ...checker.diagnostics,
+    ...graph.diagnostics,
+    ...evalDiagnostics,
+  ]
     .filter((d) => {
       const k = `${d.code}|${d.span.start}|${d.span.end}|${d.message}`;
       if (seen.has(k)) return false;
@@ -294,7 +350,13 @@ function buildAnalysis(
   };
 }
 
-function defInfo(d: Def, c: CheckedDef, graph: Graph, isBlocked: boolean, result: DefResult | undefined): DefInfo {
+function defInfo(
+  d: Def,
+  c: CheckedDef,
+  graph: Graph,
+  isBlocked: boolean,
+  result: DefResult | undefined,
+): DefInfo {
   const uses: DefUses = c.uses;
   const info: DefInfo = {
     name: d.name,
@@ -302,7 +364,7 @@ function defInfo(d: Def, c: CheckedDef, graph: Graph, isBlocked: boolean, result
     span: d.span,
     nameSpan: d.nameSpan,
     params: d.type === 'func' ? d.params.map((p) => p.name) : [],
-    text: printDef({ ...d, comment: undefined } as Def),
+    text: printDef({ ...d, comment: undefined }),
     type: formatScheme(c.scheme),
     deps: [...uses.defs],
     variables: [...uses.variables],
@@ -330,6 +392,14 @@ export function typeOfValue(v: Value, world: World): Type {
   return listOf(first === undefined ? NUMBER : typeOfValue(first, world));
 }
 
+const compiledCache = new WeakMap<
+  Checker,
+  Map<
+    string,
+    { parsed: ReturnType<typeof parseExpression>; checked: ReturnType<Checker['checkStandalone']> }
+  >
+>();
+
 export interface Compiled {
   source: string;
   diagnostics: Diagnostic[];
@@ -355,17 +425,51 @@ export function compileExpression(
   elementType?: Type,
 ): Compiled {
   const { checker, evalWorld, results, stepLimit } = analysis.internals;
-  const parsed = parseExpression(source);
-  const checked = checker.checkStandalone(parsed.expr, new Map(Object.entries(bindingTypes)), elementType);
+  // The checked form depends only on the checker (which outlives updates that
+  // don't touch the source, schema or variable types), so repeated sampling,
+  // e.g. while dragging an intent point, doesn't re-check.
+  let memo = compiledCache.get(checker);
+  if (!memo) {
+    memo = new Map();
+    compiledCache.set(checker, memo);
+  }
+  const key = `${source}\u0000${Object.entries(bindingTypes)
+    .map(([k, t]) => `${k}:${formatType(t)}`)
+    .join(',')}\u0000${elementType ? formatType(elementType) : ''}`;
+  let hit = memo.get(key);
+  if (!hit) {
+    const p = parseExpression(source);
+    const c = checker.checkStandalone(p.expr, new Map(Object.entries(bindingTypes)), elementType);
+    hit = { parsed: p, checked: c };
+    if (memo.size > 500) memo.clear();
+    memo.set(key, hit);
+  }
+  const { parsed, checked } = hit;
   const diagnostics = [...parsed.diagnostics, ...checked.diagnostics];
   // A definition it uses that has no value blocks it.
   for (const d of checked.uses.defs) {
     const r = results.get(d);
     const info = analysis.byName.get(d);
     if (info?.kind === 'func' && info.blocked)
-      diagnostics.push(diag('check', 'eval.dependency', `${d} has an error`, { start: 0, end: source.length }, { hint: `Fix ${d} first` }));
+      diagnostics.push(
+        diag(
+          'check',
+          'eval.dependency',
+          `${d} has an error`,
+          { start: 0, end: source.length },
+          { hint: `Fix ${d} first` },
+        ),
+      );
     else if (r && !r.ok)
-      diagnostics.push(diag('check', 'eval.dependency', `${d} has an error`, { start: 0, end: source.length }, { hint: `Fix ${d} first` }));
+      diagnostics.push(
+        diag(
+          'check',
+          'eval.dependency',
+          `${d} has an error`,
+          { start: 0, end: source.length },
+          { hint: `Fix ${d} first` },
+        ),
+      );
   }
   const ok = !diagnostics.some((d) => d.severity === 'error');
   return {
@@ -378,7 +482,10 @@ export function compileExpression(
     run(bindings = {}, element) {
       if (!ok) {
         const first = diagnostics.find((d) => d.severity === 'error');
-        return { ok: false, error: first ?? diag('check', 'compile', 'Has errors', { start: 0, end: source.length }) };
+        return {
+          ok: false,
+          error: first ?? diag('check', 'compile', 'Has errors', { start: 0, end: source.length }),
+        };
       }
       const ev = new Evaluator(evalWorld, checker, (n) => results.get(n), undefined, stepLimit);
       return ev.runWith(parsed.expr, new Map(Object.entries(bindings)), element);

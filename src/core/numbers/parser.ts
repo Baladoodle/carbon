@@ -98,7 +98,12 @@ class LineParser {
     const name = this.next();
     if (name.type !== 'ident') {
       if (name.type === 'keyword')
-        this.fail('parse.keyword_name', `"${name.text}" is a keyword, not a name`, name.span, 'Choose another name');
+        this.fail(
+          'parse.keyword_name',
+          `"${name.text}" is a keyword, not a name`,
+          name.span,
+          'Choose another name',
+        );
       this.fail(
         'parse.def',
         'A line defines a name',
@@ -114,13 +119,23 @@ class LineParser {
         for (;;) {
           const p = this.next();
           if (p.type !== 'ident')
-            this.fail('parse.param', `Expected a parameter name${describe(p)}`, p.span, 'Parameters are names, like  f(raw, def)');
+            this.fail(
+              'parse.param',
+              `Expected a parameter name${describe(p)}`,
+              p.span,
+              'Parameters are names, like  f(raw, def)',
+            );
           const param: Param = { name: p.text, span: p.span };
           if (this.isOp(':')) {
             this.next();
             const a = this.next();
             if (a.type !== 'ident')
-              this.fail('parse.annotation', `Expected a type after ":"${describe(a)}`, a.span, 'Types are number, bool, string, list, entity or a kind such as band');
+              this.fail(
+                'parse.annotation',
+                `Expected a type after ":"${describe(a)}`,
+                a.span,
+                'Types are number, bool, string, list, entity or a kind such as band',
+              );
             param.annotation = { name: a.text, span: a.span };
           }
           params.push(param);
@@ -136,19 +151,39 @@ class LineParser {
     if (!(eq.type === 'op' && eq.text === '=')) {
       if (eq.type === 'op' && eq.text === '==')
         this.fail('parse.def_eq', 'Use = to define a name', eq.span, `Write  ${name.text} = …`);
-      this.fail('parse.expected', `Expected "=" after ${name.text}${describe(eq)}`, eq.type === 'eof' ? name.span : eq.span, `Give it a value:  ${name.text} = …`);
+      this.fail(
+        'parse.expected',
+        `Expected "=" after ${name.text}${describe(eq)}`,
+        eq.type === 'eof' ? name.span : eq.span,
+        `Give it a value:  ${name.text} = …`,
+      );
     }
     this.next();
     if (this.atEnd())
-      this.fail('parse.empty', `${name.text} has no value`, eq.span, `Write its value after "=", like  ${name.text} = 1`);
+      this.fail(
+        'parse.empty',
+        `${name.text} has no value`,
+        eq.span,
+        `Write its value after "=", like  ${name.text} = 1`,
+      );
     const body = this.expr(0);
     if (!this.atEnd()) {
       const t = this.peek();
       if (t.type === 'op' && t.text === '=')
         this.fail('parse.assign', 'Use == to compare', t.span, 'One line defines one name');
       if (t.type === 'op' && (t.text === ')' || t.text === ']'))
-        this.fail('parse.unbalanced', `Unmatched "${t.text}"`, t.span, 'Remove it, or open it earlier');
-      this.fail('parse.trailing', `Unexpected ${describeToken(t)}`, t.span, 'Join it with an operator, like + or and');
+        this.fail(
+          'parse.unbalanced',
+          `Unmatched "${t.text}"`,
+          t.span,
+          'Remove it, or open it earlier',
+        );
+      this.fail(
+        'parse.trailing',
+        `Unexpected ${describeToken(t)}`,
+        t.span,
+        'Join it with an operator, like + or and',
+      );
     }
     const span = cover(name.span, body.span);
     return params
@@ -163,7 +198,12 @@ class LineParser {
       const t = this.peek();
       if (t.type === 'op' && t.text === '(' && BP.postfix > minBp) {
         if (left.type !== 'name')
-          this.fail('parse.call', 'Only a name can be called', t.span, 'Join it with an operator, like *');
+          this.fail(
+            'parse.call',
+            'Only a name can be called',
+            t.span,
+            'Join it with an operator, like *',
+          );
         this.next();
         const args: Expr[] = [];
         if (!this.isOp(')'))
@@ -176,26 +216,56 @@ class LineParser {
             break;
           }
         const close = this.expectOp(')', `"," or ")" in the call to ${left.name}`);
-        left = { type: 'call', callee: left.name, calleeSpan: left.span, args, span: cover(left.span, close.span) };
+        left = {
+          type: 'call',
+          callee: left.name,
+          calleeSpan: left.span,
+          args,
+          span: cover(left.span, close.span),
+        };
         continue;
       }
       if (t.type === 'op' && t.text === '.' && BP.postfix > minBp) {
         this.next();
         const n = this.next();
         if (n.type !== 'ident' && n.type !== 'keyword')
-          this.fail('parse.member', `Expected a property name after "."${describe(n)}`, n.span, 'Like  c.health');
-        left = { type: 'member', object: left, name: n.text, span: cover(left.span, n.span), nameSpan: n.span };
+          this.fail(
+            'parse.member',
+            `Expected a property name after "."${describe(n)}`,
+            n.span,
+            'Like  c.health',
+          );
+        left = {
+          type: 'member',
+          object: left,
+          name: n.text,
+          span: cover(left.span, n.span),
+          nameSpan: n.span,
+        };
         continue;
       }
       if (t.type === 'keyword' && t.text === 'where' && BP.where > minBp) {
         this.next();
         if (this.atEnd())
-          this.fail('parse.where', '"where" needs a condition', t.span, 'Like  items where subkind == "armor"');
+          this.fail(
+            'parse.where',
+            '"where" needs a condition',
+            t.span,
+            'Like  items where subkind == "armor"',
+          );
         const cond = this.expr(BP.where);
-        left = { type: 'where', source: left, cond, span: cover(left.span, cond.span), opSpan: t.span };
+        left = {
+          type: 'where',
+          source: left,
+          cond,
+          span: cover(left.span, cond.span),
+          opSpan: t.span,
+        };
         continue;
       }
-      const isInfix = (t.type === 'op' || t.type === 'keyword') && Object.prototype.hasOwnProperty.call(INFIX, t.text);
+      const isInfix =
+        (t.type === 'op' || t.type === 'keyword') &&
+        Object.prototype.hasOwnProperty.call(INFIX, t.text);
       if (!isInfix) {
         if (t.type === 'op' && t.text === '=' && minBp < BP.compare)
           this.fail('parse.assign', 'Use == to compare', t.span, 'One line defines one name');
@@ -207,10 +277,16 @@ class LineParser {
       if (isCompare && chained)
         this.fail('parse.chain', "Comparisons don't chain", t.span, 'Write  a < b and b < c');
       this.next();
-      if (this.atEnd())
-        this.fail('parse.operand', `"${t.text}" needs a value after it`, t.span);
+      if (this.atEnd()) this.fail('parse.operand', `"${t.text}" needs a value after it`, t.span);
       const right = this.expr(info.right ? info.bp - 1 : info.bp);
-      left = { type: 'binary', op: t.text as BinaryOp, left, right, span: cover(left.span, right.span), opSpan: t.span };
+      left = {
+        type: 'binary',
+        op: t.text as BinaryOp,
+        left,
+        right,
+        span: cover(left.span, right.span),
+        opSpan: t.span,
+      };
       chained = isCompare;
     }
     return left;
@@ -237,7 +313,13 @@ class LineParser {
       // falls through (fail never returns)
       case 'op':
         if (t.text === '(') {
-          if (this.isOp(')')) this.fail('parse.value', 'Empty parentheses', cover(t.span, this.peek().span), 'Put a value inside, or remove them');
+          if (this.isOp(')'))
+            this.fail(
+              'parse.value',
+              'Empty parentheses',
+              cover(t.span, this.peek().span),
+              'Put a value inside, or remove them',
+            );
           const inner = this.expr(0);
           const close = this.expectOp(')', '")"', 'Close the parenthesis');
           return { ...inner, span: cover(t.span, close.span) };
@@ -263,7 +345,12 @@ class LineParser {
         if (t.text === '.') {
           const n = this.next();
           if (n.type !== 'ident' && n.type !== 'keyword')
-            this.fail('parse.member', `Expected a property name after "."${describe(n)}`, n.span, 'Like  .defense');
+            this.fail(
+              'parse.member',
+              `Expected a property name after "."${describe(n)}`,
+              n.span,
+              'Like  .defense',
+            );
           return { type: 'accessor', name: n.text, span: cover(t.span, n.span), nameSpan: n.span };
         }
         if (t.text === '+') this.fail('parse.plus', 'There is no unary +', t.span, 'Remove the +');
@@ -367,7 +454,9 @@ export function parseProgram(source: string): ParseResult {
 /** Parses one standalone expression (a curve's, a query typed in the view). */
 export function parseExpression(source: string): { expr: Expr; diagnostics: Diagnostic[] } {
   const { tokens, diagnostics } = lex(source);
-  const toks = tokens.filter((t) => t.type !== 'comment' && t.type !== 'newline' && t.type !== 'eof');
+  const toks = tokens.filter(
+    (t) => t.type !== 'comment' && t.type !== 'newline' && t.type !== 'eof',
+  );
   const end = { start: source.length, end: source.length };
   if (toks.length === 0) {
     diagnostics.push(diag('parse', 'parse.empty', 'Expected an expression', end));
@@ -378,7 +467,12 @@ export function parseExpression(source: string): { expr: Expr; diagnostics: Diag
     const expr = p.expr(0);
     if (!p.atEnd()) {
       const t = p.peek();
-      p.fail('parse.trailing', `Unexpected ${describeToken(t)}`, t.span, 'Join it with an operator, like + or and');
+      p.fail(
+        'parse.trailing',
+        `Unexpected ${describeToken(t)}`,
+        t.span,
+        'Join it with an operator, like + or and',
+      );
     }
     return { expr, diagnostics };
   } catch (e) {

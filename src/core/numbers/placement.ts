@@ -1,5 +1,5 @@
 import type { Entity } from '../model/entity';
-import { heightValue, type Height } from '../model/fields';
+import { heightValue } from '../model/fields';
 import { getEntity, type World } from '../model/world';
 
 /**
@@ -27,7 +27,7 @@ export interface Placed {
 export type PlacementResolver = (world: World) => Map<string, Placed>;
 
 const h = (v: unknown, fallback: number): number =>
-  typeof v === 'number' || v === '-inf' || v === '+inf' ? heightValue(v as Height) : fallback;
+  typeof v === 'number' || v === '-inf' || v === '+inf' ? heightValue(v) : fallback;
 
 /** Bands from the lowest to the highest: by `y_bottom`, then `y_top`, then id. */
 export function bandOrder(world: World): Entity[] {
@@ -73,7 +73,11 @@ export const explicitPlacement: PlacementResolver = (world) => {
     out.set(e.id, {
       band,
       tier: band === null ? null : (tiers.get(band) ?? null),
-      inferred: e.kind !== 'band' && e.kind !== 'biome' && !e.relations.some((r) => r.type === 'in_band') && band !== null,
+      inferred:
+        e.kind !== 'band' &&
+        e.kind !== 'biome' &&
+        !e.relations.some((r) => r.type === 'in_band') &&
+        band !== null,
     });
   }
   return out;

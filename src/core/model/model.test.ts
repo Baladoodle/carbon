@@ -275,6 +275,11 @@ describe('command labels', () => {
       'taste.set': { reasons: [], patterns: [] },
       'spread.put': { record: { id: 's', created: SAMPLE_TIME } },
       'spread.remove': { id: 's' },
+      'numbers.putCurve': { curve: { id: 'c', y: 'x', over: { axis: 'tier' } } },
+      'numbers.removeCurve': { id: 'c' },
+      'numbers.setIntent': { id: 'c', points: null },
+      'numbers.removeAttributeDef': { kind: 'item', key: 'w' },
+      'numbers.renameVariable': { from: 'k', to: 'kk' },
     };
     for (const [type, def] of Object.entries(COMMANDS)) {
       const label = def.label(def.payload.parse(payloads[type as CommandType]) as never, w);

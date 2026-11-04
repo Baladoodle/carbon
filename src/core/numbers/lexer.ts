@@ -6,14 +6,7 @@ import { diag, type Diagnostic, type Span } from './span';
  * comment that runs to the end of the line.
  */
 export type TokenType =
-  | 'number'
-  | 'string'
-  | 'ident'
-  | 'keyword'
-  | 'op'
-  | 'newline'
-  | 'comment'
-  | 'eof';
+  'number' | 'string' | 'ident' | 'keyword' | 'op' | 'newline' | 'comment' | 'eof';
 
 export interface Token {
   type: TokenType;
@@ -30,7 +23,24 @@ export const KEYWORDS = new Set(['and', 'or', 'not', 'where', 'true', 'false', '
 
 /** Two-character operators first, so `==` never lexes as `=` `=`. */
 const OPS2 = ['==', '!=', '<=', '>='];
-const OPS1 = new Set(['+', '-', '*', '/', '%', '^', '<', '>', '=', '(', ')', '[', ']', ',', '.', ':']);
+const OPS1 = new Set([
+  '+',
+  '-',
+  '*',
+  '/',
+  '%',
+  '^',
+  '<',
+  '>',
+  '=',
+  '(',
+  ')',
+  '[',
+  ']',
+  ',',
+  '.',
+  ':',
+]);
 
 const isDigit = (c: string): boolean => c >= '0' && c <= '9';
 const isIdentStart = (c: string): boolean =>
@@ -102,9 +112,15 @@ export function lex(source: string): LexResult {
       const num = Number(clean);
       if (bad || !Number.isFinite(num)) {
         diagnostics.push(
-          diag('parse', 'lex.number', `"${text}" is not a number`, { start, end: i }, {
-            hint: bad ? 'Use _ only between digits, like 1_000' : 'Use a smaller number',
-          }),
+          diag(
+            'parse',
+            'lex.number',
+            `"${text}" is not a number`,
+            { start, end: i },
+            {
+              hint: bad ? 'Use _ only between digits, like 1_000' : 'Use a smaller number',
+            },
+          ),
         );
         push('number', start, i, { num: 0 });
       } else push('number', start, i, { num });
@@ -112,9 +128,15 @@ export function lex(source: string): LexResult {
         const s2 = i;
         while (i < source.length && isIdent(source.charAt(i))) i++;
         diagnostics.push(
-          diag('parse', 'lex.number_suffix', `"${source.slice(start, i)}" is not a number or a name`, { start, end: i }, {
-            hint: `Write ${source.slice(start, s2)} * ${source.slice(s2, i)} to multiply, or start the name with a letter`,
-          }),
+          diag(
+            'parse',
+            'lex.number_suffix',
+            `"${source.slice(start, i)}" is not a number or a name`,
+            { start, end: i },
+            {
+              hint: `Write ${source.slice(start, s2)} * ${source.slice(s2, i)} to multiply, or start the name with a letter`,
+            },
+          ),
         );
       }
       continue;
@@ -145,9 +167,15 @@ export function lex(source: string): LexResult {
           const m = map[n];
           if (m === undefined) {
             diagnostics.push(
-              diag('parse', 'lex.escape', `"\\${n}" is not an escape`, { start: i, end: i + 2 }, {
-                hint: 'Escapes are \\" \\\\ \\n and \\t',
-              }),
+              diag(
+                'parse',
+                'lex.escape',
+                `"\\${n}" is not an escape`,
+                { start: i, end: i + 2 },
+                {
+                  hint: 'Escapes are \\" \\\\ \\n and \\t',
+                },
+              ),
             );
             value += n;
           } else value += m;
@@ -159,9 +187,15 @@ export function lex(source: string): LexResult {
       }
       if (!closed)
         diagnostics.push(
-          diag('parse', 'lex.unterminated', 'This string never ends', { start, end: i }, {
-            hint: 'Close it with "',
-          }),
+          diag(
+            'parse',
+            'lex.unterminated',
+            'This string never ends',
+            { start, end: i },
+            {
+              hint: 'Close it with "',
+            },
+          ),
         );
       push('string', start, i, { value });
       continue;
@@ -191,9 +225,15 @@ export function lex(source: string): LexResult {
     const start = i;
     i++;
     diagnostics.push(
-      diag('parse', 'lex.char', `"${source.slice(start, i)}" isn't part of the language`, { start, end: i }, {
-        hint: hints[c],
-      }),
+      diag(
+        'parse',
+        'lex.char',
+        `"${source.slice(start, i)}" isn't part of the language`,
+        { start, end: i },
+        {
+          hint: hints[c],
+        },
+      ),
     );
   }
   push('eof', source.length, source.length);

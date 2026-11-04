@@ -26,7 +26,10 @@ export function valueEquals(a: Value, b: Value): boolean {
   if (typeof a !== 'object' || typeof b !== 'object') return a === b;
   if (a.$ === 'entity') return b.$ === 'entity' && a.id === b.id;
   if (b.$ !== 'list') return false;
-  return a.items.length === b.items.length && a.items.every((x, i) => valueEquals(x, b.items[i] as Value));
+  return (
+    a.items.length === b.items.length &&
+    a.items.every((x, i) => valueEquals(x, b.items[i] as Value))
+  );
 }
 
 /** Rounds away float noise for display: 0.30000000000000004 → 0.3. */
@@ -57,7 +60,8 @@ export function formatValue(v: Value, opts: FormatOptions = {}): string {
 }
 
 /** A JSON-safe form (for IPC, AI prompts and exports). */
-export type PlainValue = number | boolean | string | null | { entity: string | null } | PlainValue[];
+export type PlainValue =
+  number | boolean | string | null | { entity: string | null } | PlainValue[];
 
 export function toPlain(v: Value): PlainValue {
   if (typeof v !== 'object') return Number.isFinite(v) || typeof v !== 'number' ? v : String(v);

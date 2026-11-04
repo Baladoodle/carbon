@@ -89,32 +89,51 @@ export const varType = (v: number | string | boolean): Type =>
 export function nameProblem(name: string, env: CheckEnv): { message: string; hint: string } | null {
   if (KEYWORDS.has(name)) return { message: `"${name}" is a keyword`, hint: 'Choose another name' };
   if (RESERVED.has(name))
-    return { message: `"${name}" is the current element inside where`, hint: 'Choose another name' };
+    return {
+      message: `"${name}" is the current element inside where`,
+      hint: 'Choose another name',
+    };
   if (isBuiltin(name))
     return { message: `${name} is a built-in function`, hint: 'Choose another name' };
   if (Object.prototype.hasOwnProperty.call(COLLECTIONS, name))
     return { message: `${name} is the list of all ${name}`, hint: 'Choose another name' };
   if (Object.prototype.hasOwnProperty.call(env.variables, name))
-    return { message: `${name} is also a variable`, hint: `Rename it, or remove the variable ${name}` };
+    return {
+      message: `${name} is also a variable`,
+      hint: `Rename it, or remove the variable ${name}`,
+    };
   return null;
 }
 
 export class Checker {
   readonly u = new Unifier();
   readonly diagnostics: Diagnostic[] = [];
-  readonly resolutions = new Map<Expr, Resolution>();
+  readonly resolutions = new WeakMap<Expr, Resolution>();
   /** Definitions by name; the first of duplicates wins. */
   readonly defs = new Map<string, Def>();
   readonly checked = new Map<string, CheckedDef>();
   /** Dependency edges found while checking (including ones into a cycle). */
   readonly edges = new Map<string, Set<string>>();
   private readonly inProgress = new Set<string>();
-  private current: { name: string; uses: DefUses; refSpans: Map<string, Span>; errors: number } | null = null;
+  private current: {
+    name: string;
+    uses: DefUses;
+    refSpans: Map<string, Span>;
+    errors: number;
+  } | null = null;
 
   constructor(readonly env: CheckEnv) {}
 
-  private report(code: string, message: string, at: Span, hint?: string, severity: 'error' | 'warning' = 'error'): void {
-    this.diagnostics.push(diag('check', code, message, at, { hint, severity, def: this.current?.name }));
+  private report(
+    code: string,
+    message: string,
+    at: Span,
+    hint?: string,
+    severity: 'error' | 'warning' = 'error',
+  ): void {
+    this.diagnostics.push(
+      diag('check', code, message, at, { hint, severity, def: this.current?.name }),
+    );
     if (severity === 'error' && this.current) this.current.errors++;
   }
 
@@ -123,7 +142,9 @@ export class Checker {
     for (const d of defsOf(program)) {
       const bad = nameProblem(d.name, this.env);
       if (bad) {
-        this.diagnostics.push(diag('check', 'name.reserved', bad.message, d.nameSpan, { hint: bad.hint, def: d.name }));
+        this.diagnostics.push(
+          diag('check', 'name.reserved', bad.message, d.nameSpan, { hint: bad.hint, def: d.name }),
+        );
         continue;
       }
       const first = this.defs.get(d.name);
@@ -166,11 +187,28 @@ export class Checker {
           if (a) t = a;
           else {
             const near = closest(p.annotation.name, ANNOTATIONS);
-            this.report('type.annotation', `"${p.annotation.name}" is not a type`, p.annotation.span, near ? `Did you mean ${near}?` : `Types are ${ANNOTATIONS.join(', ')}`);
+            this.report(
+              'type.annotation',
+              `"${p.annotation.name}" is not a type`,
+              p.annotation.span,
+              near ? `Did you mean ${near}?` : `Types are ${ANNOTATIONS.join(', ')}`,
+            );
           }
         }
-        if (params.has(p.name)) this.report('name.param_duplicate', `${p.name} is a parameter twice`, p.span, 'Rename one of them');
-        else if (RESERVED.has(p.name)) this.report('name.reserved', `"${p.name}" is the current element inside where`, p.span, 'Choose another name');
+        if (params.has(p.name))
+          this.report(
+            'name.param_duplicate',
+            `${p.name} is a parameter twice`,
+            p.span,
+            'Rename one of them',
+          );
+        else if (RESERVED.has(p.name))
+          this.report(
+            'name.reserved',
+            `"${p.name}" is the current element inside where`,
+            p.span,
+            'Choose another name',
+          );
         params.set(p.name, t);
         types.push(t);
       }
@@ -229,7 +267,12 @@ export class Checker {
     const why = this.u.unify(actual, expected);
     if (why === null) return;
     const exp = this.u.format(expected);
-    this.report('type.mismatch', `${what} must be ${article(exp)}, not ${article(shown)}`, at, hint);
+    this.report(
+      'type.mismatch',
+      `${what} must be ${article(exp)}, not ${article(shown)}`,
+      at,
+      hint,
+    );
   }
 
   private elementDepth(scope: Scope): { element: Type; depth: number } | null {
@@ -279,9 +322,15 @@ export class Checker {
     const kinds = kindsWithProp(this.env.schema, name);
     if (kinds.length === 0) {
       const all = new Set<string>();
-      for (const k of Object.values(COLLECTIONS)) if (k) for (const n of propsOf(this.env.schema, k).props.keys()) all.add(n);
+      for (const k of Object.values(COLLECTIONS))
+        if (k) for (const n of propsOf(this.env.schema, k).props.keys()) all.add(n);
       const near = closest(name, all);
-      this.report('prop.unknown', `No kind has a property ${name}`, at, near ? `Did you mean ${near}?` : `Define ${name} as an attribute of a kind`);
+      this.report(
+        'prop.unknown',
+        `No kind has a property ${name}`,
+        at,
+        near ? `Did you mean ${near}?` : `Define ${name} as an attribute of a kind`,
+      );
       return this.u.fresh();
     }
     if (kinds.length === 1 && kind.k === 'kvar') {
@@ -311,7 +360,12 @@ export class Checker {
         this.resolutions.set(e, { to: 'element', depth: el.depth });
         return el.element;
       }
-      this.report('name.it', '"it" only means something inside where or an aggregate', e.span, 'Like  items where it.tier > 0');
+      this.report(
+        'name.it',
+        '"it" only means something inside where or an aggregate',
+        e.span,
+        'Like  items where it.tier > 0',
+      );
       return this.u.fresh();
     }
     let depth = 0;
@@ -321,11 +375,18 @@ export class Checker {
         const maybeEntity = el.t === 'entity' || el.t === 'var';
         if (maybeEntity && kindsWithProp(this.env.schema, n).length > 0) {
           const elKind = el.t === 'entity' ? this.u.kind(el.kind) : null;
-          const hasIt = elKind?.k === 'kind' ? propsOf(this.env.schema, elKind.kind).props.has(n) : true;
+          const hasIt =
+            elKind?.k === 'kind' ? propsOf(this.env.schema, elKind.kind).props.has(n) : true;
           if (hasIt) {
             const shadowed = this.lookupOuter(n, s.parent ?? {});
             if (shadowed)
-              this.report('name.shadowed', `${n} here is the element's ${n}, not the ${shadowed} ${n}`, e.span, `Rename the ${shadowed}, or write it.${n} to make it explicit`, 'warning');
+              this.report(
+                'name.shadowed',
+                `${n} here is the element's ${n}, not the ${shadowed} ${n}`,
+                e.span,
+                `Rename the ${shadowed}, or write it.${n} to make it explicit`,
+                'warning',
+              );
             this.resolutions.set(e, { to: 'prop', name: n, depth });
             return this.propType(s.element, n, e.span, 'it');
           }
@@ -364,7 +425,12 @@ export class Checker {
       this.resolutions.set(e, { to: 'def', name: n });
       this.edge(n, e.span);
       if (def.type === 'func') {
-        this.report('name.func_value', `${n} is a function`, e.span, `Call it: ${n}(${def.params.map((p) => p.name).join(', ')})`);
+        this.report(
+          'name.func_value',
+          `${n} is a function`,
+          e.span,
+          `Call it: ${n}(${def.params.map((p) => p.name).join(', ')})`,
+        );
         this.ensure(n);
         return this.u.fresh();
       }
@@ -375,19 +441,32 @@ export class Checker {
       const kind = COLLECTIONS[n] ?? null;
       this.resolutions.set(e, { to: 'collection', kind });
       this.current?.uses.kinds.add(kind ?? '*');
-      return listOf(kind ? { t: 'entity', kind: { k: 'kind', kind } } : { t: 'entity', kind: { k: 'any' } });
+      return listOf(
+        kind ? { t: 'entity', kind: { k: 'kind', kind } } : { t: 'entity', kind: { k: 'any' } },
+      );
     }
     if (isBuiltin(n)) {
-      this.report('name.builtin_value', `${n} is a function`, e.span, `Call it: ${BUILTINS[n]?.usage ?? n}`);
+      this.report(
+        'name.builtin_value',
+        `${n} is a function`,
+        e.span,
+        `Call it: ${BUILTINS[n]?.usage ?? n}`,
+      );
       return this.u.fresh();
     }
-    const candidates = [...this.defs.keys(), ...Object.keys(this.env.variables), ...Object.keys(COLLECTIONS)];
+    const candidates = [
+      ...this.defs.keys(),
+      ...Object.keys(this.env.variables),
+      ...Object.keys(COLLECTIONS),
+    ];
     const near = closest(n, candidates);
     this.report(
       'name.unknown',
       `Unknown name ${n}`,
       e.span,
-      near ? `Did you mean ${near}?` : `Define it on its own line, like  ${n} = 1, or add a variable ${n}`,
+      near
+        ? `Did you mean ${near}?`
+        : `Define it on its own line, like  ${n} = 1, or add a variable ${n}`,
     );
     return this.u.fresh();
   }
@@ -399,7 +478,12 @@ export class Checker {
       this.resolutions.set(e, { to: 'def', name: n });
       this.edge(n, e.calleeSpan);
       if (def.type === 'const') {
-        this.report('call.not_function', `${n} is a value, not a function`, e.calleeSpan, `Use it without parentheses: ${n}`);
+        this.report(
+          'call.not_function',
+          `${n} is a value, not a function`,
+          e.calleeSpan,
+          `Use it without parentheses: ${n}`,
+        );
         for (const a of e.args) this.expr(a, scope);
         return this.u.fresh();
       }
@@ -427,29 +511,61 @@ export class Checker {
     const info = BUILTINS[n];
     if (!info) {
       for (const a of e.args) this.expr(a, scope);
-      const near = closest(n, [...[...this.defs.values()].filter((d) => d.type === 'func').map((d) => d.name), ...Object.keys(BUILTINS)]);
-      this.report('call.unknown', `Unknown function ${n}`, e.calleeSpan, near ? `Did you mean ${near}?` : `Define it, like  ${n}(x) = x * 2`);
+      const near = closest(n, [
+        ...[...this.defs.values()].filter((d) => d.type === 'func').map((d) => d.name),
+        ...Object.keys(BUILTINS),
+      ]);
+      this.report(
+        'call.unknown',
+        `Unknown function ${n}`,
+        e.calleeSpan,
+        near ? `Did you mean ${near}?` : `Define it, like  ${n}(x) = x * 2`,
+      );
       return this.u.fresh();
     }
     if (e.args.length < info.min || e.args.length > info.max) {
       for (const a of e.args) this.expr(a, scope);
-      this.report('call.arity', `${n} needs ${info.min === info.max ? info.min : `${info.min} or more`}${info.max !== info.min && info.max !== Infinity ? ` to ${info.max}` : ''} arguments, not ${e.args.length}`, e.span, `Use ${info.usage}`);
+      this.report(
+        'call.arity',
+        `${n} needs ${info.min === info.max ? info.min : `${info.min} or more`}${info.max !== info.min && info.max !== Infinity ? ` to ${info.max}` : ''} arguments, not ${e.args.length}`,
+        e.span,
+        `Use ${info.usage}`,
+      );
       return this.u.fresh();
     }
     return this.builtin(e, scope);
   }
 
-  private aggregate(e: ExprOf<'call'>, scope: Scope, perElementType: Type, fallbackElement: Type | null): Type {
+  private aggregate(
+    e: ExprOf<'call'>,
+    scope: Scope,
+    perElementType: Type,
+    fallbackElement: Type | null,
+  ): Type {
     const [listArg, fn] = e.args as [Expr, Expr | undefined];
     const lt = this.expr(listArg, scope);
     const el = this.u.fresh();
     this.want(lt, listOf(el), listArg.span, `The first argument of ${e.callee}`);
     if (fn) {
       const t = this.expr(fn, { element: el, parent: scope });
-      this.want(t, perElementType, fn.span, `The second argument of ${e.callee}`, perElementType.t === 'bool' ? 'Give a condition, like  .tier > 0' : 'Give a number per element, like  .defense');
+      this.want(
+        t,
+        perElementType,
+        fn.span,
+        `The second argument of ${e.callee}`,
+        perElementType.t === 'bool'
+          ? 'Give a condition, like  .tier > 0'
+          : 'Give a number per element, like  .defense',
+      );
     } else if (fallbackElement) {
       const r = this.u.shallow(el);
-      this.want(el, fallbackElement, listArg.span, `Each element of ${e.callee}'s list`, r.t === 'entity' ? `Say what to ${e.callee}: ${e.callee}(…, .value)` : undefined);
+      this.want(
+        el,
+        fallbackElement,
+        listArg.span,
+        `Each element of ${e.callee}'s list`,
+        r.t === 'entity' ? `Say what to ${e.callee}: ${e.callee}(…, .value)` : undefined,
+      );
     }
     return NUMBER;
   }
@@ -486,7 +602,11 @@ export class Checker {
         const shownA = this.u.format(ta);
         const shownB = this.u.format(tb);
         if (this.u.unify(tb, ta) !== null)
-          this.report('type.branches', `The two branches of if must have the same type, not ${shownA} and ${shownB}`, b.span);
+          this.report(
+            'type.branches',
+            `The two branches of if must have the same type, not ${shownA} and ${shownB}`,
+            b.span,
+          );
         return ta;
       }
       case 'contains': {
@@ -502,7 +622,7 @@ export class Checker {
   }
 
   /** The type of an expression, checked once and memoised (min/max need it before choosing a form). */
-  private readonly quiet = new Map<Expr, Type>();
+  private readonly quiet = new WeakMap<Expr, Type>();
   private typeOfQuiet(e: Expr, scope: Scope): Type {
     const t = this.expr(e, scope);
     this.quiet.set(e, t);
@@ -531,7 +651,12 @@ export class Checker {
       case 'accessor': {
         const el = this.elementDepth(scope);
         if (!el) {
-          this.report('name.accessor', `.${e.name} only works inside where or an aggregate`, e.span, `Like  sum(items, .${e.name})`);
+          this.report(
+            'name.accessor',
+            `.${e.name} only works inside where or an aggregate`,
+            e.span,
+            `Like  sum(items, .${e.name})`,
+          );
           return this.u.fresh();
         }
         this.resolutions.set(e, { to: 'prop', name: e.name, depth: el.depth });
@@ -545,7 +670,14 @@ export class Checker {
         return this.call(e, scope);
       case 'list': {
         const el = this.u.fresh();
-        for (const item of e.items) this.want(this.expr(item, scope), el, item.span, 'Every element of a list', 'A list holds one type');
+        for (const item of e.items)
+          this.want(
+            this.expr(item, scope),
+            el,
+            item.span,
+            'Every element of a list',
+            'A list holds one type',
+          );
         return listOf(el);
       }
       case 'unary': {
@@ -560,9 +692,21 @@ export class Checker {
       case 'where': {
         const st = this.expr(e.source, scope);
         const el = this.u.fresh();
-        this.want(st, listOf(el), e.source.span, 'What where filters', 'Filter a list, like  items where …');
+        this.want(
+          st,
+          listOf(el),
+          e.source.span,
+          'What where filters',
+          'Filter a list, like  items where …',
+        );
         const ct = this.expr(e.cond, { element: el, parent: scope });
-        this.want(ct, BOOL, e.cond.span, 'The condition after where', 'Compare something, like  tier > 0');
+        this.want(
+          ct,
+          BOOL,
+          e.cond.span,
+          'The condition after where',
+          'Compare something, like  tier > 0',
+        );
         return listOf(el);
       }
       case 'binary': {
@@ -586,7 +730,9 @@ export class Checker {
                 'type.compare',
                 `Can't compare ${article(ls)} with ${article(rs)}`,
                 e.opSpan,
-                entityVsString ? `Compare names or ids, like  band.name == "Low Sky"  or  band.id == "low-sky"` : undefined,
+                entityVsString
+                  ? `Compare names or ids, like  band.name == "Low Sky"  or  band.id == "low-sky"`
+                  : undefined,
               );
             }
             return BOOL;
@@ -616,7 +762,8 @@ export class Checker {
 
 const VOWEL = /^[aeiou]/;
 function article(type: string, capital = false): string {
-  if (type.startsWith('list') || type === 'any' || type.startsWith('any')) return capital ? cap(type) : type;
+  if (type.startsWith('list') || type === 'any' || type.startsWith('any'))
+    return capital ? cap(type) : type;
   const a = VOWEL.test(type) ? 'an' : 'a';
   return `${capital ? cap(a) : a} ${type}`;
 }

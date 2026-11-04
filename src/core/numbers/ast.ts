@@ -6,20 +6,7 @@ import type { Span } from './span';
  * node: `(a + b)` is the Binary node, with the span of the parenthesised text.
  */
 export type BinaryOp =
-  | 'or'
-  | 'and'
-  | '=='
-  | '!='
-  | '<'
-  | '<='
-  | '>'
-  | '>='
-  | '+'
-  | '-'
-  | '*'
-  | '/'
-  | '%'
-  | '^';
+  'or' | 'and' | '==' | '!=' | '<' | '<=' | '>' | '>=' | '+' | '-' | '*' | '/' | '%' | '^';
 export type UnaryOp = '-' | 'not';
 
 export type Expr =

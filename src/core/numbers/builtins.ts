@@ -16,8 +16,13 @@ export interface BuiltinInfo {
   perElement?: boolean;
 }
 
-const b = (name: string, min: number, max: number, usage: string, perElement?: boolean): BuiltinInfo =>
-  perElement ? { name, min, max, usage, perElement } : { name, min, max, usage };
+const b = (
+  name: string,
+  min: number,
+  max: number,
+  usage: string,
+  perElement?: boolean,
+): BuiltinInfo => (perElement ? { name, min, max, usage, perElement } : { name, min, max, usage });
 
 export const BUILTINS: Record<string, BuiltinInfo> = {
   min: b('min', 1, Infinity, 'min(a, b, …) or min(list, .value)'),
@@ -39,7 +44,8 @@ export const BUILTINS: Record<string, BuiltinInfo> = {
   contains: b('contains', 2, 2, 'contains(list, value)'),
 };
 
-export const isBuiltin = (name: string): boolean => Object.prototype.hasOwnProperty.call(BUILTINS, name);
+export const isBuiltin = (name: string): boolean =>
+  Object.prototype.hasOwnProperty.call(BUILTINS, name);
 
 /** `it` is the current element inside `where` and the aggregates. */
 export const RESERVED = new Set(['it']);
