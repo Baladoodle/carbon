@@ -56,6 +56,7 @@ export {
   type Tick,
   type IntentDeviation,
   type CurveProblem,
+  type CurvePart,
 } from './curves';
 export { propsOf, COLLECTIONS, type Prop } from './props';
 export { BUILTINS } from './builtins';
