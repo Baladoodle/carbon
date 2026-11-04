@@ -122,7 +122,10 @@ describe('compileQuery', () => {
   it('filters by text, has, ai, origin and negation', () => {
     expect(ids('glass')).toEqual(['vent-glass', 'vent-glass-visor']);
     expect(ids('"floating islands"')).toEqual(['low-sky']);
-    expect(ids('kind:item -subkind:armor -subkind:accessory')).toEqual(['cinder-sting', 'spore-lantern']);
+    expect(ids('kind:item -subkind:armor -subkind:accessory')).toEqual([
+      'cinder-sting',
+      'spore-lantern',
+    ]);
     expect(ids('kind:biome -has:signature')).toEqual(['ash-vents', 'cloud-reef']);
     expect(ids('has:why kind:item')).toEqual(['cinder-sting']);
     expect(ids('has:defense')).toEqual(['vent-glass-visor']);

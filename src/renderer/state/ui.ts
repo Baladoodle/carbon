@@ -1,3 +1,4 @@
+import type { Spot } from '@core/ai/moments';
 import type { EntityId } from '@core/model/ids';
 import { toast } from '../ui/Toast';
 import { createStore, useStore } from './store';
@@ -15,6 +16,12 @@ export interface UiState {
   selection: EntityId[];
   /** The open overlay (`palette`, `ai-log`, or a package's own), or null. */
   overlay: string | null;
+  /**
+   * Where the next spread is aimed. Views set it when you press `space` (the
+   * Codex: the selected rows; Climate: a biome region), then switch to the
+   * Spread view, which reads it. Null when no spot has been chosen.
+   */
+  spreadSpot: Spot | null;
 }
 
 const STORAGE_KEY = 'carbon.ui';
@@ -26,6 +33,7 @@ function initial(): UiState {
     focus: null,
     selection: [],
     overlay: null,
+    spreadSpot: null,
   };
   try {
     const saved: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null');
@@ -62,6 +70,9 @@ export const setUi = (patch: Partial<UiState>): void => uiStore.set((s) => ({ ..
 export function flash(text: string, tone: 'info' | 'error' = 'info'): void {
   toast(text, { tone });
 }
+
+/** Aims the next spread at `spot` and opens the Spread view (`space` in the Codex and Climate). */
+export const startSpreadAt = (spot: Spot): void => setUi({ spreadSpot: spot, view: 'spread' });
 
 /** Puts an entity on the Bench (and opens it). */
 export const focusEntity = (id: EntityId | null): void =>
