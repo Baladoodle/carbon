@@ -1,8 +1,8 @@
 # Carbon: the overnight build
 
 How carbon gets built by parallel cloud sessions, with one coordinator session.
-Everything a worker needs is in `PRODUCT.md`, `EXPERIENCE.md`, `SYSTEM.md` and
-this file.
+Everything a worker needs is in `PRODUCT.md`, `EXPERIENCE.md`, `SYSTEM.md`,
+`VISUAL.md` and this file.
 
 ---
 
@@ -25,11 +25,12 @@ this file.
 | **1. Packages** | 6 in parallel | W1–W6 (§5) | Each package meets its definition of done and is merged |
 | **2. Integration** | Coordinator, plus 1 `integrate` worker if merges conflict | All packages merged, cross-package flows wired, end-to-end suite across views | `npm run check` passes on the main branch, and the full end-to-end suite passes |
 | **3. Hardening** | 3 (`review-a`, `review-b`, `review-c`) | Each reviews two packages against the docs: finds bugs, confirms them with a failing test, fixes them; raises coverage; meets the performance budgets | No open confirmed bugs, coverage and performance targets met |
-| **4. Polish + QA** | 1–2 (`polish`, `qa`) | Visual pass against the mockups, a keyboard audit of every action, user guide (`docs/GUIDE.md`), screenshots of every view in `docs/screens/` | The coordinator's final review |
+| **4. Polish + QA** | 1–2 (`polish`, `qa`) | Visual pass against `VISUAL.md`, including an audit of every text element against its text rule, a keyboard audit of every action, user guide (`docs/GUIDE.md`), screenshots of every view in `docs/screens/` | The coordinator's final review |
 
 ## 3. Rules for every worker
 
-1. **Read all four docs first.** When a doc and the code disagree, the doc wins.
+1. **Read all five docs first** (including `VISUAL.md`; its text rule applies
+   to every screen). When a doc and the code disagree, the doc wins.
    If a doc is wrong or unclear, write the question and your decision in
    `docs/build-notes/<slug>.md` and carry on.
 2. **Stay in the paths you own** (§5). You may add to shared contracts
@@ -87,9 +88,11 @@ The build depends on this phase's interfaces, so it has to be right.
   implements the real one.*
 - [ ] **UI shell:** a frameless window, the rail with view switching (`1`–`7`),
   a status line, an empty Bench panel, a view registry so each package adds its
-  view in its own folder, a stub command palette, and Omarchy theme tokens
-  (reading `~/.config/omarchy/current/theme/` with a built-in Tokyo Night
-  fallback).
+  view in its own folder, and a stub command palette. Plus the **visual
+  foundation from `VISUAL.md`**: design tokens (§2–§4), fonts, and the
+  component kit in `src/renderer/ui/` (§5: Button, Input, Textarea, Select,
+  Combobox, Popover, Menu, Tooltip, Dialog, Toast, Tabs, Table primitives,
+  state glyph). Every package uses this kit, so it has to be right.
 - [ ] **A sample world:** `fixtures/worlds/sample/` with a few bands, biomes and
   entities of every kind. It's for tests and screenshots only, not design
   content for the game.
