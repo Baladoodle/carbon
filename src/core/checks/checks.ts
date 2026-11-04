@@ -148,15 +148,19 @@ export function laneImbalanceNotes(
   const depthIds = new Set(depth.map((s) => s.id));
   const skyIds = new Set(sky.map((s) => s.id));
   const notes: Note[] = [];
+  // One pass: per lane, entities with a place in the depths and in the sky.
+  const sides = new Map<Lane, { d: number; k: number }>(LANES.map((l) => [l, { d: 0, k: 0 }]));
+  for (const e of Object.values(world.entities)) {
+    const lane = LANE_OF_KIND[e.kind];
+    if (!lane || !live(e)) continue;
+    const bands = places.get(e.id)?.bands;
+    if (!bands || bands.length === 0) continue;
+    const side = sides.get(lane) as { d: number; k: number };
+    if (bands.some((b) => depthIds.has(b))) side.d++;
+    if (bands.some((b) => skyIds.has(b))) side.k++;
+  }
   for (const lane of LANES) {
-    let d = 0;
-    let k = 0;
-    for (const e of Object.values(world.entities)) {
-      if (LANE_OF_KIND[e.kind] !== lane || !live(e)) continue;
-      const bands = places.get(e.id)?.bands ?? [];
-      if (bands.some((b) => depthIds.has(b))) d++;
-      if (bands.some((b) => skyIds.has(b))) k++;
-    }
+    const { d, k } = sides.get(lane) as { d: number; k: number };
     if (d + k < minTotal) continue;
     const dd = d / depth.length;
     const kd = k / sky.length;

@@ -36,7 +36,7 @@ export function missingFrom(detail: unknown): string[] {
 export function pathTo(
   e: Entity,
   state: EntityState,
-  extra: { why?: string; killed?: { reason: string; note?: string } } = {},
+  extra: { why?: string; killed?: { reason: string; note?: string }; reasonKey?: string } = {},
 ): Command[] | null {
   const set = (s: EntityState, more: object = {}): Command =>
     cmd('entity.setState', { id: e.id, state: s, ...more });
@@ -50,6 +50,10 @@ export function pathTo(
             ? { killed: extra.killed }
             : {},
       ),
+      // A kill counts its reason in Taste (EXPERIENCE §6), in the same undo step.
+      ...(state === 'graveyard' && extra.reasonKey
+        ? [cmd('taste.countReason', { key: extra.reasonKey, by: 1 })]
+        : []),
     ];
   if (e.state === 'idea' && state === 'decided')
     return [set('shaped'), set('decided', { why: extra.why })];
@@ -196,10 +200,12 @@ export function KillDialog({ world, entity }: { world: World; entity: Entity }):
 function KillBody({ world, entity }: { world: World; entity: Entity }): ReactNode {
   const [other, setOther] = useState<string | null>(null);
   const reasons = world.taste.reasons;
-  const kill = async (reason: string, note?: string): Promise<void> => {
+  const kill = async (key: string, note?: string): Promise<void> => {
     stateDialog.set(null);
+    const reason = reasons.find((r) => r.key === key)?.label ?? key;
     await changeState(world, entity, 'graveyard', {
       killed: { reason, ...(note ? { note } : {}) },
+      reasonKey: key,
     });
   };
   return (
@@ -212,7 +218,7 @@ function KillBody({ world, entity }: { world: World; entity: Entity }): ReactNod
         e.preventDefault();
         e.stopPropagation();
         if (r.key === '0') setOther('');
-        else void kill(r.label);
+        else void kill(r.key);
       }}
       data-testid="kill-reasons"
     >
@@ -223,7 +229,7 @@ function KillBody({ world, entity }: { world: World; entity: Entity }): ReactNod
             type="button"
             className="bench-reason"
             autoFocus={i === 0}
-            onClick={() => (r.key === '0' ? setOther('') : void kill(r.label))}
+            onClick={() => (r.key === '0' ? setOther('') : void kill(r.key))}
           >
             <span>{r.label}</span>
             <Kbd>{r.key}</Kbd>
@@ -238,7 +244,7 @@ function KillBody({ world, entity }: { world: World; entity: Entity }): ReactNod
           onKeyDown={(e) => {
             if (e.key === 'Enter' && other.trim() !== '') {
               e.preventDefault();
-              void kill('other', other.trim());
+              void kill('0', other.trim());
             }
           }}
           data-testid="kill-other"

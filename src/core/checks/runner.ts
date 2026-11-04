@@ -212,7 +212,8 @@ export function createCheckRunner(adapters: CheckAdapters = {}): CheckRunner {
       }
       lastEntities = world.entities;
       lastNumbers = world.numbers;
-      return out.sort((a, b) => a.id.localeCompare(b.id));
+      // Ids are ASCII (`check:<kind>:<key>`): a plain comparison, much faster than localeCompare.
+      return out.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
     },
   };
 }

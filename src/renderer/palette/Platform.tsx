@@ -32,16 +32,27 @@ function useChecks(): void {
     const runner = createCheckRunner(CHECK_ADAPTERS);
     let last: unknown = null;
     let timer: ReturnType<typeof setTimeout> | null = null;
+    let first: number | null = null;
     const run = (): void => {
       timer = null;
+      first = null;
       const w = worldStore.get().world;
       if (!w || w === last) return;
       last = w;
       publishNotes('checks', runner.run(w));
     };
-    // Coalesce bursts of patches into one run, a frame later.
+    // Coalesce bursts of patches (typing commits, drags, a run of commands)
+    // into one run after the burst: QUIET ms after the last patch, and never
+    // more than MAX_WAIT ms after the first. A check run on a large world
+    // takes a few ms, and doing it between two commands of a burst would
+    // delay the second one's round trip.
+    const QUIET = 120;
+    const MAX_WAIT = 500;
     const schedule = (): void => {
-      timer ??= setTimeout(run, 16);
+      const now = performance.now();
+      first ??= now;
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(run, Math.max(0, Math.min(QUIET, first + MAX_WAIT - now)));
     };
     run();
     const off = worldStore.subscribe(schedule);

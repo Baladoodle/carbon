@@ -32,6 +32,7 @@ import {
   NUMBER,
   NumbersEngine,
   relevantFormulas,
+  entityConsequences,
   roundNice,
   sampleCurve,
   storedIntentX,
@@ -496,6 +497,23 @@ describe('commands', () => {
 describe('API for other packages', () => {
   const src =
     'taken(raw, def) = raw * k / (k + def)\nhit = taken(20, sum(items where subkind == "armor", .defense))\nhp = base_health\nbroken = 1 / 0\nunrelated = 2\n';
+
+  it('entityConsequences: constants that read the entity, and one-entity functions applied to it', () => {
+    const w = withFormulas(
+      `${src}soak(a: item) = a.defense * 2\npair(a: item, b: item) = a.defense + b.defense\n`,
+    );
+    const a = analyzeNumbers(w);
+    expect(entityConsequences(a, w, 'vent-glass-visor')).toEqual([
+      { name: 'hit', label: 'hit', value: '19.2308' },
+      { name: 'soak', label: 'soak(Vent Glass Visor)', value: '8' },
+    ]);
+    // A runtime error is shown as the error, never as a value.
+    const bad = withFormulas('ratio(a: item) = a.defense / 0\n');
+    expect(entityConsequences(analyzeNumbers(bad), bad, 'vent-glass-visor')).toEqual([
+      { name: 'ratio', label: 'ratio(Vent Glass Visor)', error: 'Division by zero' },
+    ]);
+    expect(entityConsequences(a, w, 'nope')).toEqual([]);
+  });
 
   it('relevantFormulas: what reads an entity, what uses that, and what it uses', () => {
     const w = withFormulas(src);

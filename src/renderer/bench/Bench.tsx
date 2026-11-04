@@ -20,6 +20,8 @@ import {
 import { placementOf } from '../views/column/placement';
 import './bench.css';
 import { finishEditing } from '../ai/triggers';
+import { entityConsequences } from '@core/numbers';
+import { useNumbers } from '../views/numbers/analysis';
 import { benchAi, commitAttribute, settled } from './controller';
 import { FieldRow, focusSibling, useFocusRequest } from './fields';
 import { Relations } from './Relations';
@@ -76,6 +78,7 @@ function EntityBench({ world, entity }: { world: World; entity: Entity }): React
       ).length,
   );
   const needed = useStore(neededStore, (s) => (s?.entity === entity.id ? s : null));
+  const numbers = useNumbers();
   const notes = useNotes(entity.id);
   useFocusRequest(root, entity.id);
 
@@ -282,6 +285,10 @@ function EntityBench({ world, entity }: { world: World; entity: Entity }): React
     needed?.keys.includes(key) ? `Needed to be ${needed.state}` : undefined;
   const kindFields = kind.fields;
   const attrs = attributesFor(kind, entity);
+  // Live consequences (EXPERIENCE §3): the formulas that read this entity, evaluated for it.
+  const consequences = numbers
+    ? entityConsequences(numbers.analysis, numbers.world, entity.id)
+    : [];
   const extraAttrs = Object.keys(entity.attributes).filter((k) => !attrs.some((a) => a.key === k));
 
   return (
@@ -369,7 +376,7 @@ function EntityBench({ world, entity }: { world: World; entity: Entity }): React
         <FieldRow world={world} entity={entity} def={COMMON_DEFS.tags} />
       </section>
 
-      {(attrs.length > 0 || extraAttrs.length > 0) && (
+      {(attrs.length > 0 || extraAttrs.length > 0 || consequences.length > 0) && (
         <section className="bench-section">
           <h3 className="section-label">Attributes</h3>
           {attrs.map((a) => (
@@ -386,6 +393,20 @@ function EntityBench({ world, entity }: { world: World; entity: Entity }): React
           {extraAttrs.map((k) => (
             <AttributeRow key={k} entity={entity} attrKey={k} label={k} />
           ))}
+          {consequences.length > 0 && (
+            <dl className="bench-consequences" data-testid="bench-consequences">
+              {consequences.map((c) => (
+                <div key={c.name} className="bench-consequence">
+                  <dt className="mono t-2">{c.label}</dt>
+                  {c.error !== undefined ? (
+                    <dd className="t-danger">{c.error}</dd>
+                  ) : (
+                    <dd className="num">{c.value}</dd>
+                  )}
+                </div>
+              ))}
+            </dl>
+          )}
         </section>
       )}
 

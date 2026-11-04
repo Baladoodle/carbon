@@ -191,3 +191,4 @@ export function formulaErrors(analysis: NumbersAnalysis): FormulaError[] {
     return out;
   });
 }
+export { entityConsequences, type Consequence } from './consequences';
