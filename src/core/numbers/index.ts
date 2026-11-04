@@ -33,7 +33,7 @@ export {
 } from './values';
 export { NUMBER, BOOL, STRING, entityOf, listOf, formatType, type Type } from './types';
 export {
-  explicitPlacement,
+  resolvedPlacement,
   bandOrder,
   bandTiers,
   type Placed,

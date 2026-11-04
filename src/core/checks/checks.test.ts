@@ -11,7 +11,8 @@ import { seededRandom } from '../util/hash';
 import { CHECK_KINDS } from './checks';
 import { compareNames, editDistance, nameDistance, nameSignature, normaliseName } from './names';
 import type { NumbersAdapter } from './numbers';
-import { bandSpans, fromResolver, heightOf, localPlacement } from './placement';
+import { resolvePlacement } from '../placement';
+import { bandSpans, heightOf, resolvedPlaces } from './placement';
 import { createCheckRunner, runChecks } from './runner';
 
 const ent = (input: Omit<EntityInput, 'created' | 'updated'>): Entity =>
@@ -39,16 +40,23 @@ const byKind = (w: World, kind: string): ReturnType<typeof runChecks> =>
   runChecks(w).filter((n) => n.kind === kind);
 const ctx = { now: '2026-11-04T10:00:00.000Z' };
 
-describe('placement (local stand-in for W2)', () => {
-  it('places by stated relations and infers the rest', () => {
+describe('placement (from the resolver)', () => {
+  it('is resolvePlacement: every placed entity, its bands sorted, inferred when the resolver infers', () => {
     const w = sampleWorld();
-    const p = localPlacement(w);
+    const p = resolvedPlaces(w);
+    const r = resolvePlacement(w);
+    for (const [id, pl] of Object.entries(r)) {
+      if (pl.bands.length === 0) expect(p.has(id)).toBe(false);
+      else
+        expect(p.get(id)).toEqual({
+          bands: [...pl.bands].sort(),
+          inferred: pl.mode === 'inferred',
+        });
+    }
     expect(p.get('low-sky')).toEqual({ bands: ['low-sky'], inferred: false });
-    // A biome is in its band.
     expect(p.get('cloud-reef')?.inferred).toBe(false);
-    // Nothing is placed in the graveyard.
-    for (const e of Object.values(w.entities))
-      if (e.state === 'graveyard') expect(p.has(e.id)).toBe(false);
+    // Memoised per entities object.
+    expect(resolvedPlaces({ ...w })).toBe(p);
   });
 
   it('infers an item from its route, earliest step first', () => {
@@ -78,7 +86,7 @@ describe('placement (local stand-in for W2)', () => {
         },
       }),
     ]);
-    expect(localPlacement(w).get('pick')).toEqual({ bands: ['under'], inferred: true });
+    expect(resolvedPlaces(w).get('pick')).toEqual({ bands: ['under'], inferred: true });
   });
 
   it('bandSpans sorts bands and heightOf clamps the endless ends', () => {
@@ -88,14 +96,6 @@ describe('placement (local stand-in for W2)', () => {
     expect(heightOf(['deep'], spans)).toBe(-532);
     expect(heightOf(['high'], spans)).toBe(532);
     expect(heightOf([], spans)).toBeUndefined();
-  });
-
-  it('fromResolver adapts a per-entity resolver', () => {
-    const fn = fromResolver(
-      (_w, id: string) => (id === 'sky' ? { band: 'sky', how: 'explicit' } : null),
-      (r) => (r ? { bands: [r.band], inferred: r.how !== 'explicit' } : null),
-    );
-    expect([...fn(bandsWorld())]).toEqual([['sky', { bands: ['sky'], inferred: false }]]);
   });
 });
 
@@ -520,5 +520,61 @@ describe('name signatures', () => {
       ),
       { numRuns: 500 },
     );
+  });
+});
+
+describe('numbers, through the numbers engine', () => {
+  const apply = (w: World, ...cs: Parameters<typeof applyCommand>[1][]): World => {
+    for (const c of cs) {
+      const r = applyCommand(w, c, ctx);
+      if (!r.ok) throw new Error(r.error.message);
+      w = r.value.world;
+    }
+    return w;
+  };
+
+  it('a formula error is a note, and fixing the formula removes it', () => {
+    const w = apply(sampleWorld(), cmd('numbers.setFormulas', { source: 'bad = nope * 2\n' }));
+    const notes = runChecks(w).filter((n) => n.kind === 'formula-error');
+    expect(notes).toHaveLength(1);
+    expect(notes[0]!.text).toMatch(/^bad: .*nope/);
+    const fixed = apply(w, cmd('numbers.setFormulas', { source: 'bad = 2\n' }));
+    expect(runChecks(fixed).filter((n) => n.kind === 'formula-error')).toEqual([]);
+  });
+
+  it('an attribute far off its intent curve is a note at the entity, until it is brought back', () => {
+    const curve = {
+      id: 'defense',
+      y: 'band_defense(x)',
+      over: { axis: 'band' as const },
+      dots: { query: 'items where subkind == "armor"', value: '.defense' },
+    };
+    const w = apply(
+      sampleWorld(),
+      cmd('numbers.setFormulas', {
+        source:
+          'band_defense(b: band) = sum(items where subkind == "armor" and band == b, .defense)\n',
+      }),
+      cmd('relation.add', { from: 'vent-glass-visor', type: 'in_band', to: 'hollows' }),
+      cmd('numbers.putCurve', { curve }),
+      cmd('numbers.setIntent', {
+        id: 'defense',
+        points: [
+          { x: 'undercroft', y: 20 },
+          { x: 'hollows', y: 20 },
+          { x: 'groundline', y: 20 },
+          { x: 'low-sky', y: 20 },
+          { x: 'high-drift', y: 20 },
+        ],
+      }),
+    );
+    const off = runChecks(w).filter((n) => n.kind === 'off-curve');
+    expect(off.map((n) => n.entities)).toEqual([['vent-glass-visor']]);
+    expect(off[0]!.y).toBeDefined();
+    const back = apply(
+      w,
+      cmd('entity.setAttribute', { id: 'vent-glass-visor', key: 'defense', value: 20 }),
+    );
+    expect(runChecks(back).filter((n) => n.kind === 'off-curve')).toEqual([]);
   });
 });

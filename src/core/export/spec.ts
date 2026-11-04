@@ -5,8 +5,8 @@ import type { FieldDef } from '../model/fields';
 import { ENTITY_KINDS, type EntityKind, type EntityState } from '../model/kinds';
 import { getEntity, schemaOf, type World } from '../model/world';
 import { routeNeeds } from '../checks/checks';
-import type { NumbersAdapter } from '../checks/numbers';
-import { localPlacement, type PlacementFn } from '../checks/placement';
+import { createNumbersAdapter, type NumbersAdapter } from '../checks/numbers';
+import { resolvedPlaces, type PlacementFn } from '../checks/placement';
 
 /**
  * Export (docs/EXPERIENCE.md §7): decided entities out as a markdown spec for
@@ -34,7 +34,7 @@ export interface Selection {
 export function selectForExport(
   world: World,
   sel: Selection,
-  placement: PlacementFn = localPlacement,
+  placement: PlacementFn = resolvedPlaces,
 ): Entity[] {
   const places = sel.bands?.length ? placement(world) : null;
   const picked = new Set(sel.ids ?? []);
@@ -226,20 +226,6 @@ export function acceptanceQuestions(world: World, e: Entity): string[] {
   return q;
 }
 
-/** Formula lines that mention any attribute of the entities, or the variables those lines use. */
-export function formulaDependencies(world: World, ids: readonly string[]): string[] {
-  const keys = new Set<string>();
-  for (const id of ids)
-    for (const k of Object.keys(getEntity(world, id)?.attributes ?? {})) keys.add(k);
-  if (keys.size === 0) return [];
-  const lines = world.numbers.formulas
-    .split('\n')
-    .filter((l) => l.trim() && !l.trim().startsWith('#'));
-  const mentions = (l: string, k: string): boolean =>
-    new RegExp(`(^|[^A-Za-z0-9_])\\.?${k}([^A-Za-z0-9_]|$)`).test(l);
-  return lines.filter((l) => [...keys].some((k) => mentions(l, k)));
-}
-
 export interface SpecOptions {
   name: string;
   numbers?: NumbersAdapter;
@@ -298,7 +284,7 @@ export function buildSpec(world: World, ids: readonly string[], opts: SpecOption
     if (rels.length) out.push(...rels, '');
     if (e.why) out.push(`**Why:** ${one(e.why)}`, '');
   }
-  const formulas = opts.numbers?.dependencies?.(world, ids) ?? formulaDependencies(world, ids);
+  const formulas = (opts.numbers ?? createNumbersAdapter()).dependencies?.(world, ids) ?? [];
   if (formulas.length) out.push('## Formulas', '', '```', ...formulas, '```', '');
   const questions = entities.flatMap((e) => acceptanceQuestions(world, e));
   out.push('## Acceptance questions', '');

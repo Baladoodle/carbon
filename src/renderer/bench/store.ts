@@ -32,7 +32,6 @@ export interface BenchUi {
   /** `${entity}:${key}` → values already shown, so tab again gives another. */
   shown: Record<string, unknown[]>;
   /** Entities changed by you since their last critique (critique on finishing the edit). */
-  edited: Record<string, true>;
   /** Ask the Bench to focus a field (e.g. the name of a new entity). */
   focusRequest: (FieldRef & { seq: number; select?: boolean }) | null;
   /** The last AI error to show on the Bench, per entity. */
@@ -46,7 +45,6 @@ export const benchStore = createStore<BenchUi>({
   loading: {},
   critiquing: {},
   shown: {},
-  edited: {},
   focusRequest: null,
   error: {},
 });
@@ -65,9 +63,11 @@ export function requestFieldFocus(entity: string, key: string, select = false): 
 }
 
 /** Sets or clears one entry of a record field of the store. */
-export function setEntry<
-  K extends 'pending' | 'loading' | 'critiquing' | 'shown' | 'edited' | 'error',
->(which: K, key: string, value: BenchUi[K][string] | undefined): void {
+export function setEntry<K extends 'pending' | 'loading' | 'critiquing' | 'shown' | 'error'>(
+  which: K,
+  key: string,
+  value: BenchUi[K][string] | undefined,
+): void {
   benchStore.set((s) => {
     const rec = { ...(s[which] as Record<string, unknown>) };
     if (value === undefined) {

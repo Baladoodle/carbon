@@ -245,7 +245,6 @@ export function createBenchAi(deps: BenchAiDeps) {
     entityId: string,
     trigger: 'finish_edit' | 'state_change' | 'on_demand',
   ): Promise<void> {
-    setEntry('edited', entityId, undefined);
     const signal = slots.start(entityId, 'critique');
     setEntry('critiquing', entityId, true);
     try {
@@ -266,16 +265,6 @@ export function createBenchAi(deps: BenchAiDeps) {
     }
   }
 
-  /** Marks an entity as changed by you (critique runs when you leave it). */
-  function markEdited(entityId: string): void {
-    if (!benchStore.get().edited[entityId]) setEntry('edited', entityId, true);
-  }
-
-  /** You left an entity: critique it if you changed it. */
-  function left(entityId: string): void {
-    if (benchStore.get().edited[entityId]) void critique(entityId, 'finish_edit');
-  }
-
   return {
     suggestOne,
     suggestThree,
@@ -287,8 +276,6 @@ export function createBenchAi(deps: BenchAiDeps) {
     rejectAll,
     proposalsOf,
     critique,
-    markEdited,
-    left,
     cancel: (entityId: string) => slots.cancel(entityId),
     slots,
   };

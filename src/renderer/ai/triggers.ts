@@ -1,55 +1,40 @@
 import { useEffect } from 'react';
 import type { EntityState } from '@core/model/kinds';
-import { useActions } from '../actions';
+import { benchAi, settled } from '../bench/controller';
 import { uiStore } from '../state/ui';
 import { currentWorld, worldStore } from '../state/world';
-import { toast } from '../ui';
 import { ai } from './client';
-import { critique } from './moments';
+import { createFinishTriggers } from './finish';
 
 /**
- * When critique runs (EXPERIENCE §5): when you finish editing an entity
- * (focus leaves it after changes, or ctrl+s), when its state changes, or on
- * demand (`?`). Automatic triggers stay quiet while the AI is off or paused;
- * the content-hash cache means an unchanged entity is never sent twice.
+ * The automatic critique triggers (EXPERIENCE §5), for the whole app: finish
+ * editing (focus leaves an entity after changes; the Bench also calls
+ * `finishEditing` when it loses focus, closes, or on `ctrl+s`) and state
+ * changes made in carbon. `?` (on demand) is the Bench's. Automatic triggers
+ * stay quiet while the AI is off or paused; the gateway's content-hash cache
+ * means an unchanged request is never sent twice.
  */
+const triggers = createFinishTriggers({
+  getWorld: currentWorld,
+  critique: (id, trigger) => benchAi.critique(id, trigger),
+  settled,
+  allowed: () => {
+    const s = ai.status();
+    return s.enabled && !s.paused;
+  },
+});
 
-const autoAllowed = (): boolean => {
-  const s = ai.status();
-  return s.enabled && !s.paused;
-};
-
-const ON_DEMAND_EMPTY = (name: string): string => `No notes on ${name}`;
-
-async function critiqueNow(id: string): Promise<void> {
-  const name = currentWorld()?.entities[id]?.name ?? id;
-  const out = await critique(id, 'on_demand');
-  if (!out.ok) {
-    if (out.error.code !== 'cancelled') toast(out.error.message, { tone: 'error' });
-  } else if (out.result.notes.length === 0) toast(ON_DEMAND_EMPTY(name), { tone: 'ai' });
-}
+/** Finishing the edit of an entity that stays in focus (Bench blur, close, `ctrl+s`). */
+export const finishEditing = (id: string): Promise<void> => triggers.finish(id);
 
 /** Mounted once, with the status line. */
 export function useCritiqueTriggers(): void {
-  // Finish editing: focus leaves an entity whose `updated` changed while it had focus.
   useEffect(() => {
-    let focus = uiStore.get().focus;
-    let stamp = focus ? currentWorld()?.entities[focus]?.updated : undefined;
-    return uiStore.subscribe(() => {
-      const next = uiStore.get().focus;
-      if (next === focus) return;
-      const left = focus;
-      const before = stamp;
-      focus = next;
-      stamp = next ? currentWorld()?.entities[next]?.updated : undefined;
-      if (!left || !autoAllowed()) return;
-      const now = currentWorld()?.entities[left];
-      if (now && before !== undefined && now.updated !== before && now.state !== 'graveyard')
-        void critique(left, 'finish_edit');
-    });
+    void triggers.focusChanged(uiStore.get().focus);
+    return uiStore.subscribe(() => void triggers.focusChanged(uiStore.get().focus));
   }, []);
 
-  // State changes, made in carbon (not the first snapshot).
+  // State changes made in carbon (not the first snapshot, not after a gap).
   useEffect(() => {
     let states: Map<string, EntityState> | null = null;
     let rev = -1;
@@ -57,43 +42,16 @@ export function useCritiqueTriggers(): void {
       new Map(Object.values(worldStore.get().world?.entities ?? {}).map((e) => [e.id, e.state]));
     return worldStore.subscribe(() => {
       const s = worldStore.get();
-      if (!s.world) return;
+      if (!s.world || s.rev === rev) return;
       const next = read();
       const continuous = states !== null && s.rev === rev + 1;
       const prev = states;
       states = next;
       rev = s.rev;
-      if (!continuous || !prev || !autoAllowed()) return;
-      for (const [id, state] of next)
-        if (prev.has(id) && prev.get(id) !== state && state !== 'graveyard')
-          void critique(id, 'state_change');
+      if (!continuous || !prev) return;
+      const changed: string[] = [];
+      for (const [id, state] of next) if (prev.has(id) && prev.get(id) !== state) changed.push(id);
+      if (changed.length > 0) void triggers.statesChanged(changed);
     });
   }, []);
-
-  useActions([
-    {
-      id: 'ai.critique',
-      label: 'Critique the entity on the Bench',
-      group: 'AI',
-      keys: ['?'],
-      enabled: () => uiStore.get().focus !== null,
-      run: () => {
-        const id = uiStore.get().focus;
-        if (id) void critiqueNow(id);
-      },
-    },
-    {
-      id: 'ai.critique-save',
-      label: 'Finish editing (critique)',
-      group: 'AI',
-      keys: ['ctrl+s'],
-      inInputs: true,
-      hidden: true,
-      enabled: () => uiStore.get().focus !== null,
-      run: () => {
-        const id = uiStore.get().focus;
-        if (id && autoAllowed()) void critique(id, 'finish_edit');
-      },
-    },
-  ]);
 }

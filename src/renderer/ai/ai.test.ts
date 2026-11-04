@@ -1,7 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { NoteSchema } from '@core/model/notes';
 import { totals } from './AiLog';
-import { critiqueNotes } from './moments';
 
 describe('AI log totals', () => {
   it('sums cost and cache reads over real calls; cached hits cost nothing', () => {
@@ -28,29 +26,5 @@ describe('AI log totals', () => {
     ]);
     expect(t).toEqual({ calls: 1, costUsd: 0.002, cacheRate: 0.75, cached: 1 });
     expect(totals([])).toEqual({ calls: 0, costUsd: 0, cacheRate: 0, cached: 0 });
-  });
-});
-
-describe('critique notes', () => {
-  it('become valid margin notes with stable ids, about the entity and the others', () => {
-    const notes = critiqueNotes(
-      'glide',
-      [
-        { kind: 'duplicate', text: 'Same as Kite.', entities: ['kite', 'glide'], field: 'name' },
-        { kind: 'weak_identity', text: 'Vague.', entities: [] },
-      ],
-      'hash',
-    );
-    for (const n of notes) expect(NoteSchema.parse(n)).toEqual(n);
-    expect(notes[0]).toMatchObject({
-      id: 'ai:glide:duplicate:name:kite,glide',
-      source: 'ai',
-      entities: ['glide', 'kite'],
-      severity: 'warn',
-    });
-    expect(
-      critiqueNotes('glide', [{ kind: 'weak_identity', text: 'Vague.', entities: [] }], 'other')[0]!
-        .id,
-    ).toBe(notes[1]!.id);
   });
 });

@@ -51,13 +51,22 @@ function drawn(e: Entity): unknown[] {
     e.fields.subkind,
     e.fields.y_bottom,
     e.fields.y_top,
+    e.fields.danger,
     e.fields.route,
   ];
 }
 
 /** What of an entity placement depends on (a subset of `drawn`: not names or states). */
 function placing(e: Entity): unknown[] {
-  return [e.kind, e.relations, e.fields.band, e.fields.y_bottom, e.fields.y_top, e.fields.route];
+  return [
+    e.kind,
+    e.relations,
+    e.fields.band,
+    e.fields.y_bottom,
+    e.fields.y_top,
+    e.fields.danger,
+    e.fields.route,
+  ];
 }
 
 const same = (x: unknown[], y: unknown[]): boolean =>

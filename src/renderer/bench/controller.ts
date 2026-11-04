@@ -21,7 +21,7 @@ export const benchAi = createBenchAi({
   say: (text, tone) => flash(text, tone),
 });
 
-/** Commits in flight per entity, so a critique on leaving sees your last edit. */
+/** Commits in flight per entity, so a critique on finishing (ai/triggers.ts) sees your last edit. */
 const inflight = new Map<string, Promise<unknown>>();
 
 export const settled = (entityId: string): Promise<unknown> =>
@@ -44,7 +44,6 @@ export async function commitField(
     hashValue(current ?? null) === hashValue(value ?? null) ||
     (value === null && (current === '' || (Array.isArray(current) && current.length === 0)));
   if (same) return null;
-  benchAi.markEdited(entityId);
   // What you type replaces what the AI proposed for the field.
   setEntry('pending', fieldId(entityId, key), undefined);
   const p = transact(`Edit ${key} of ${e.name}`, [
@@ -66,7 +65,6 @@ export async function commitAttribute(
   const e = w ? getEntity(w, entityId) : undefined;
   if (!e) return 'That entity no longer exists';
   if ((e.attributes[key] ?? null) === value) return null;
-  benchAi.markEdited(entityId);
   const p = transact(`Set ${key} of ${e.name}`, [
     cmd('entity.setAttribute', { id: entityId, key, value, source: 'user' }),
   ]);
@@ -74,9 +72,4 @@ export async function commitAttribute(
   const r = await p;
   if (inflight.get(entityId) === p) inflight.delete(entityId);
   return r.ok ? null : r.error.message;
-}
-
-/** You left an entity: once your last edit has landed, critique it if you changed it. */
-export function leaveEntity(entityId: string): void {
-  void settled(entityId).then(() => benchAi.left(entityId));
 }

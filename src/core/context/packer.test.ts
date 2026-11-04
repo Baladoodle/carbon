@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { sampleWorld } from '../testing/sample';
 import { deepFreeze } from '../util/json';
 import { DEFAULT_BUDGET, HARD_LIMIT, packContext } from './packer';
-import { explicitPlacement } from './placement';
+import { defaultPlacement } from './placement';
 import { rankEntities, referencesOf } from './relevance';
 import { renderDigest, renderFull, renderSummary, renderTaste } from './render';
 import { syntheticWorld } from './testing';
@@ -36,17 +36,17 @@ describe('token estimates', () => {
 });
 
 describe('placement adapter', () => {
-  it('uses explicit band and biome, and marks lived-in places inferred', () => {
-    expect(explicitPlacement(world, world.entities['hollows']!)).toEqual({
+  it('reads band and biome from the resolver, and marks lived-in places inferred', () => {
+    expect(defaultPlacement(world, world.entities['hollows']!)).toEqual({
       band: 'hollows',
       inferred: false,
     });
-    expect(explicitPlacement(world, world.entities['glowmoss-caverns']!)).toMatchObject({
+    expect(defaultPlacement(world, world.entities['glowmoss-caverns']!)).toMatchObject({
       band: 'hollows',
       biome: 'glowmoss-caverns',
       inferred: false,
     });
-    const lumen = explicitPlacement(world, world.entities['lumen-spore']!);
+    const lumen = defaultPlacement(world, world.entities['lumen-spore']!);
     expect(lumen).toMatchObject({ biome: 'glowmoss-caverns', band: 'hollows', inferred: true });
   });
 });

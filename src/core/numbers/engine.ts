@@ -5,7 +5,7 @@ import { Checker, varType, type CheckedDef, type DefUses } from './check';
 import { DEFAULT_STEP_LIMIT, Evaluator, type DefResult, type EvalWorld } from './evaluate';
 import { buildGraph, type Graph } from './graph';
 import { parseExpression, parseProgram } from './parser';
-import { explicitPlacement, type Placed, type PlacementResolver } from './placement';
+import { resolvedPlacement, type Placed, type PlacementResolver } from './placement';
 import { printDef } from './printer';
 import { diag, type Diagnostic, type Span } from './span';
 import {
@@ -138,7 +138,7 @@ export class NumbersEngine {
   evaluations = 0;
 
   constructor(opts: EngineOptions = {}) {
-    this.resolver = opts.placement ?? explicitPlacement;
+    this.resolver = opts.placement ?? resolvedPlacement;
     this.stepLimit = opts.stepLimit ?? DEFAULT_STEP_LIMIT;
   }
 

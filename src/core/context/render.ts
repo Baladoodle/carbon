@@ -4,6 +4,7 @@ import { ENTITY_KINDS } from '../model/kinds';
 import { entitiesOfKind, schemaOf, type World } from '../model/world';
 import { stableStringify } from '../util/json';
 import { bandBottom, defaultPlacement, type PlacementResolver } from './placement';
+import { tasteContext, TOP_PATTERNS } from '../taste/context';
 
 /**
  * Text renderings of the world for prompts. All of them are deterministic:
@@ -122,25 +123,16 @@ export interface TasteOptions {
   maxPatterns?: number;
 }
 
-/** Taste (SYSTEM §8 step 2): active rules, top patterns, kill reasons with use counts. */
+/**
+ * Taste (SYSTEM §8 step 2, EXPERIENCE §6): the active rules, the top patterns
+ * and the kill reasons with use counts and recent examples. What goes in is
+ * decided by `tasteContext` (src/core/taste), the same selection the Spread
+ * and Taste views show; this renders it for the packer.
+ */
 export function renderTaste(world: World, opts: TasteOptions = {}): string {
-  const { rules, patterns, reasons } = world.taste;
-  const active = opts.withoutRules
-    ? []
-    : rules
-        .filter((r) => (opts.ruleIds ? opts.ruleIds.includes(r.id) : r.enabled))
-        .sort((a, b) => a.id.localeCompare(b.id));
-  const top = patterns
-    .filter((p) => p.status !== 'dismissed')
-    .sort(
-      (a, b) =>
-        (a.status === 'promoted' ? 0 : 1) - (b.status === 'promoted' ? 0 : 1) ||
-        a.id.localeCompare(b.id),
-    )
-    .slice(0, opts.maxPatterns ?? 10);
-  const used = reasons
-    .filter((r) => r.count > 0)
-    .sort((a, b) => b.count - a.count || a.key.localeCompare(b.key));
+  const t = tasteContext(world, opts.ruleIds);
+  const active = opts.withoutRules ? [] : t.rules;
+  const top = t.patterns.slice(0, opts.maxPatterns ?? TOP_PATTERNS);
   const lines = ['# Taste'];
   lines.push('', '## Rules (the designer’s own; never break them)');
   if (active.length === 0) lines.push('(none)');
@@ -149,12 +141,15 @@ export function renderTaste(world: World, opts: TasteOptions = {}): string {
     lines.push('', '## Patterns learned from keeps and kills');
     for (const p of top)
       lines.push(
-        `- ${oneLine(p.text)}${p.examples.length > 0 ? ` (e.g. ${p.examples.slice(0, 3).join(', ')})` : ''}`,
+        `- ${oneLine(p.text)}${p.examples.length > 0 ? ` (e.g. ${p.examples.join(', ')})` : ''}`,
       );
   }
-  if (used.length > 0) {
+  if (t.kills.length > 0) {
     lines.push('', '## Why candidates get killed (most used first)');
-    for (const r of used) lines.push(`- ${r.label} (${r.count})`);
+    for (const k of t.kills)
+      lines.push(
+        `- ${k.label} (${k.count})${k.examples.length > 0 ? `: e.g. ${k.examples.map(oneLine).join(', ')}` : ''}`,
+      );
   }
   return lines.join('\n');
 }

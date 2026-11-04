@@ -7,9 +7,3 @@ export { suggestOneBuilder, suggestThreeBuilder } from './suggest';
 export { fillBuilder, emptyFields } from './fill';
 export { critiqueBuilder, CRITIQUE_INSTRUCTIONS } from './critique';
 export { specBuilder } from './spec';
-export {
-  fallbackSpreadBuilder,
-  fallbackPatternsBuilder,
-  spotKind,
-  spotFocus,
-} from './fallback-spread';

@@ -19,7 +19,8 @@ import {
 } from '../ui';
 import { placementOf } from '../views/column/placement';
 import './bench.css';
-import { benchAi, commitAttribute, leaveEntity, settled } from './controller';
+import { finishEditing } from '../ai/triggers';
+import { benchAi, commitAttribute, settled } from './controller';
 import { FieldRow, focusSibling, useFocusRequest } from './fields';
 import { Relations } from './Relations';
 import { KillDialog, neededStore, stateDialog, transitions, WhyDialog } from './StateControl';
@@ -36,16 +37,14 @@ export function Bench(): ReactNode {
   const entity = useEntity(focus);
   const world = useWorld((w) => w, Object.is);
 
-  // Leaving an entity you changed critiques it (finish edit). So does closing the Bench.
+  // Closing the Bench finishes the edit (moving focus is handled in ai/triggers.ts).
   const prev = useRef<string | null>(null);
   useEffect(() => {
-    const was = prev.current;
     prev.current = focus;
-    if (was && was !== focus) leaveEntity(was);
   }, [focus]);
   useEffect(
     () => () => {
-      if (prev.current) leaveEntity(prev.current);
+      if (prev.current) void finishEditing(prev.current);
     },
     [],
   );
@@ -90,7 +89,7 @@ function EntityBench({ world, entity }: { world: World; entity: Entity }): React
       next.closest('[role="dialog"], [role="menu"], [role="listbox"]')
     )
       return;
-    leaveEntity(entity.id);
+    void finishEditing(entity.id);
   };
 
   const pendingHere = (): boolean => {
@@ -207,7 +206,7 @@ function EntityBench({ world, entity }: { world: World; entity: Entity }): React
           a.blur();
           a.focus();
         }
-        leaveEntity(entity.id);
+        void finishEditing(entity.id);
       },
     },
     {

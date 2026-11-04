@@ -725,9 +725,6 @@ function Column({ world, model }: { world: World; model: ColumnModel }): ReactNo
   const right = geo.marginX;
   const cursorId = cursor.entity;
   const empty = model.bands.length === 0;
-  const onOpen = (id: string): void => {
-    focusEntity(id);
-  };
 
   return (
     <div className="column" data-testid="column" data-zoom={pxPerU}>
@@ -797,7 +794,14 @@ function Column({ world, model }: { world: World; model: ColumnModel }): ReactNo
               />
             )}
           </svg>
-          <Margin notes={notes} model={model} geo={geo} measure={measureNote} onOpen={onOpen} />
+          <Margin
+            notes={notes}
+            model={model}
+            geo={geo}
+            measure={measureNote}
+            range={range}
+            onOpen={focusEntity}
+          />
         </div>
       </div>
       {showInbox && (

@@ -1,19 +1,13 @@
 import type { Entity } from '../model/entity';
 import { heightValue } from '../model/fields';
-import { getEntity, type World } from '../model/world';
+import type { World } from '../model/world';
+import { resolvePlacement } from '../placement';
 
 /**
- * The small adapter between the numbers engine and placement (W2's
- * `src/core/placement/`). Until that resolver is merged, bands are ordered by
- * `y_bottom` and an entity is placed only by an explicit band:
- *
- * - a band is in itself
- * - a biome is in its `band` field
- * - anything else is in the target of its first `in_band` relation, or else in
- *   the band of the biome its first `in_biome` relation points at
- *
- * Swapping in the real resolver means passing a different `PlacementResolver`
- * to the engine; nothing else changes.
+ * The small adapter between the numbers engine and placement
+ * (`src/core/placement/`): an entity's `band` in formulas is the lowest band
+ * the resolver places it in, and its `tier` is that band's tier. Bands are
+ * ordered by `y_bottom` for tiers.
  */
 export interface Placed {
   /** The band the entity is in, or null if it has no place yet. */
@@ -49,35 +43,16 @@ export function bandTiers(bands: Entity[]): Map<string, number> {
   return new Map(bands.map((b, i) => [b.id, i - zero]));
 }
 
-function explicitBand(world: World, e: Entity): string | null {
-  const isBand = (id: unknown): id is string =>
-    typeof id === 'string' && getEntity(world, id)?.kind === 'band';
-  if (e.kind === 'band') return e.id;
-  if (e.kind === 'biome') return isBand(e.fields.band) ? e.fields.band : null;
-  const inBand = e.relations.find((r) => r.type === 'in_band' && isBand(r.target));
-  if (inBand) return inBand.target;
-  const inBiome = e.relations.find((r) => r.type === 'in_biome');
-  if (inBiome) {
-    const biome = getEntity(world, inBiome.target);
-    if (biome?.kind === 'biome' && isBand(biome.fields.band)) return biome.fields.band;
-  }
-  return null;
-}
-
-/** The interim resolver: explicit bands only (see above). */
-export const explicitPlacement: PlacementResolver = (world) => {
+/** The engine's resolver: `resolvePlacement`, the lowest band each entity sits in. */
+export const resolvedPlacement: PlacementResolver = (world) => {
   const tiers = bandTiers(bandOrder(world));
   const out = new Map<string, Placed>();
-  for (const e of Object.values(world.entities)) {
-    const band = explicitBand(world, e);
-    out.set(e.id, {
+  for (const p of Object.values(resolvePlacement(world))) {
+    const band = p.bands[0] ?? null;
+    out.set(p.id, {
       band,
       tier: band === null ? null : (tiers.get(band) ?? null),
-      inferred:
-        e.kind !== 'band' &&
-        e.kind !== 'biome' &&
-        !e.relations.some((r) => r.type === 'in_band') &&
-        band !== null,
+      inferred: p.mode === 'inferred',
     });
   }
   return out;

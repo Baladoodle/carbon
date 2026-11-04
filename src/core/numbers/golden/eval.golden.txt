@@ -3,7 +3,7 @@ armor = [Vent Glass Visor]
 armor_count = 1
 defense_total = 4
 low ! eval.static: low has an error
-placed = 1
+placed = 2
 sky = 4
 tiers = [Groundline, High Drift, Low Sky]
 mean_menace = −0.05

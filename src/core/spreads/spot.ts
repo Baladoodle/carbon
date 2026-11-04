@@ -6,6 +6,7 @@ import { getEntity, type World } from '../model/world';
 import { deepEqual } from '../util/json';
 import { err, ok, type Result } from '../util/result';
 import { MOVE_DEFS } from './moves';
+import { resolvePlacement } from '../placement';
 
 /**
  * The spot of a spread: where it is aimed (docs/EXPERIENCE.md §4). Other views
@@ -34,22 +35,9 @@ export function spotBand(world: World, spot: Spot): EntityId | undefined {
   return undefined;
 }
 
-/** An entity's band: itself, its `band` field, an `in_band` relation, or its biome's band. */
+/** An entity's band, from the placement resolver: the lowest band it sits in. */
 export function bandOf(world: World, id: EntityId): EntityId | undefined {
-  const e = getEntity(world, id);
-  if (!e) return undefined;
-  if (e.kind === 'band') return e.id;
-  const field = e.fields.band;
-  if (typeof field === 'string' && getEntity(world, field)?.kind === 'band') return field;
-  const rel = e.relations.find((r) => r.type === 'in_band' && getEntity(world, r.target));
-  if (rel) return rel.target;
-  for (const r of e.relations) {
-    if (r.type !== 'in_biome' && r.type !== 'found_in' && r.type !== 'lives_in') continue;
-    const t = getEntity(world, r.target);
-    if (t?.kind === 'biome' && typeof t.fields.band === 'string') return t.fields.band;
-    if (t?.kind === 'band') return t.id;
-  }
-  return undefined;
+  return resolvePlacement(world)[id]?.bands[0];
 }
 
 /** The kind of entity candidates for this spot become. */

@@ -5,6 +5,7 @@ import { cmd, type Command } from '../commands/registry';
 import { filesForPatch, worldFromFiles, worldToFiles } from '../files/world-files';
 import type { Curve } from '../model/curves';
 import type { World } from '../model/world';
+import { resolvePlacement } from '../placement';
 import { sampleWorld, SAMPLE_TIME } from '../testing/sample';
 import { buildGraph, downstream } from './graph';
 import {
@@ -15,7 +16,7 @@ import {
   compileExpression,
   deviation,
   entityOf,
-  explicitPlacement,
+  resolvedPlacement,
   formatNumber,
   formatType,
   formatValue,
@@ -203,7 +204,7 @@ describe('types', () => {
 });
 
 describe('placement adapter', () => {
-  it('orders bands by y_bottom and gives tiers from Y 0', () => {
+  it('orders bands by y_bottom, gives tiers from Y 0, and places through the resolver', () => {
     const w = sampleWorld();
     expect(bandOrder(w).map((b) => b.id)).toEqual([
       'undercroft',
@@ -212,13 +213,18 @@ describe('placement adapter', () => {
       'low-sky',
       'high-drift',
     ]);
-    const p = explicitPlacement(w);
+    const p = resolvedPlacement(w);
     expect(p.get('groundline')).toMatchObject({ band: 'groundline', tier: 0 });
     expect(p.get('undercroft')?.tier).toBe(-2);
     expect(p.get('glowmoss-caverns')).toMatchObject({ band: 'hollows', tier: -1 });
-    expect(p.get('spore-shrine')).toMatchObject({ band: 'hollows', inferred: true }); // via its biome
+    expect(p.get('spore-shrine')).toMatchObject({ band: 'hollows', inferred: false }); // pinned to its biome
     expect(p.get('glide')).toMatchObject({ band: 'low-sky', tier: 1, inferred: false });
-    expect(p.get('cloud-anklet')).toMatchObject({ band: null, tier: null });
+    // Inferred by the resolver: an item made from a material found in Low Sky.
+    const anklet = resolvePlacement(w)['cloud-anklet']!;
+    expect(p.get('cloud-anklet')).toMatchObject({
+      band: anklet.bands[0] ?? null,
+      inferred: anklet.mode === 'inferred',
+    });
   });
 });
 

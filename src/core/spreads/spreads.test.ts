@@ -41,6 +41,7 @@ import {
   mergeCommands,
   targetOf,
 } from './triage';
+import { packContext } from '../context';
 
 const NOW = '2026-11-04T10:00:00.000Z';
 const ctx = { now: NOW };
@@ -143,7 +144,7 @@ describe('spots', () => {
     expect(spotBand(w, { type: 'entity', entity: 'glide' })).toBe('low-sky');
     expect(spotBand(w, { type: 'entity', entity: 'glowmoss-caverns' })).toBe('hollows');
     expect(spotBand(w, { type: 'entity', entity: 'spore-shrine' })).toBe('hollows');
-    expect(spotBand(w, { type: 'entity', entity: 'fourth-accessory-slot' })).toBeUndefined();
+    expect(spotBand(w, { type: 'entity', entity: 'fourth-accessory-slot' })).toBe('hollows'); // inferred: the feat that unlocks it
     expect(bandOf(w, 'hollows')).toBe('hollows');
     expect(bandOf(w, 'ghost')).toBeUndefined();
     expect(
@@ -456,6 +457,17 @@ describe('triage', () => {
       note: 'Infinite glide: It does thing c1.',
       entities: ['cloud-anklet', 'glide'],
     });
+  });
+
+  it('kill examples reach the taste block of every AI request (the packer)', () => {
+    const { world, spread } = spreadIn(sampleWorld(), { type: 'entity', entity: 'glide' }, 'vary', [
+      cand('c1', { name: 'Gilded Feather' }),
+    ]);
+    const a = apply(world, must(killCommands(world, spread, 'c1', '3')).commands);
+    const taste = packContext(a.world, { entities: ['glide'] }).taste;
+    expect(taste).toMatch(
+      /## Why candidates get killed[\s\S]*- off-tone \(1\): e\.g\. Gilded Feather/,
+    );
   });
 
   it('kills with a reason and counts it; undo takes the count back', () => {

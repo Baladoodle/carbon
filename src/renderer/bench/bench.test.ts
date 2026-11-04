@@ -252,7 +252,6 @@ describe('bench AI', () => {
       loading: {},
       critiquing: {},
       shown: {},
-      edited: {},
       focusRequest: null,
       error: {},
     });
@@ -328,7 +327,7 @@ describe('bench AI', () => {
     expect(world.entities['sky-coral']!.ai_fields.length).toBe(ps.length - 1);
   });
 
-  it('critique publishes notes under ai:<id> and clears the edited mark', async () => {
+  it('critique publishes notes under ai:<id>', async () => {
     const r = applyCommands(
       world,
       [cmd('entity.update', { id: 'glide', set: { identity: 'Fly' } })],
@@ -337,16 +336,9 @@ describe('bench AI', () => {
     if (!r.ok) throw new Error(r.error.message);
     world = r.value.world;
     const b = make();
-    b.markEdited('glide');
-    b.left('glide');
-    await new Promise((r) => setTimeout(r, 0));
+    await b.critique('glide', 'finish_edit');
     expect(notes['ai:glide']?.some((n) => n.kind === 'weak_identity')).toBe(true);
-    expect(benchStore.get().edited['glide']).toBeUndefined();
-    // Leaving an unedited entity doesn't call the AI.
-    notes = {};
-    b.left('glide');
-    await new Promise((r) => setTimeout(r, 0));
-    expect(notes).toEqual({});
+    expect(benchStore.get().critiquing['glide']).toBeUndefined();
   });
 
   it('a newer request cancels the stale one, whose result is never shown', async () => {

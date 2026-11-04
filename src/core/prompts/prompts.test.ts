@@ -6,16 +6,15 @@ import { cmd } from '../commands/registry';
 import { sampleWorld } from '../testing/sample';
 import { promptText, ROLE } from './common';
 import { critiqueBuilder } from './critique';
-import {
-  fallbackPatternsBuilder,
-  fallbackSpreadBuilder,
-  spotFocus,
-  spotKind,
-} from './fallback-spread';
 import { emptyFields, fillBuilder } from './fill';
-import { BUILTIN_BUILDERS, createPromptRegistry, PromptRegistry } from './registry';
+import {
+  BUILTIN_BUILDERS,
+  createPromptRegistry,
+  PACKAGE_BUILDERS,
+  PromptRegistry,
+} from './registry';
 import { duplicatesName, fieldJsonSchema, validFieldValue, writableField } from './schema';
-import { specBuilder } from './spec';
+import { specBuilder, specNumbers } from './spec';
 import { JsonArrayStreamer } from './stream';
 import { suggestOneBuilder, suggestThreeBuilder } from './suggest';
 import type { JsonSchema } from './types';
@@ -58,7 +57,12 @@ describe('registry', () => {
     expect(createPromptRegistry([mine]).get('critique')?.defaults.effort).toBe('high');
     expect(new PromptRegistry().missing()).toEqual([...MOMENTS]);
     expect(new PromptRegistry().has('spread')).toBe(false);
-    expect(BUILTIN_BUILDERS).toHaveLength(MOMENTS.length);
+    // W4's five moments are built in; W5 registers spread and patterns.
+    expect(BUILTIN_BUILDERS.map((b) => b.moment).sort()).toEqual(
+      MOMENTS.filter((m) => m !== 'spread' && m !== 'patterns').sort(),
+    );
+    expect(PACKAGE_BUILDERS.map((b) => b.moment)).toEqual(['spread', 'patterns']);
+    expect(r.get('spread')).toBe(PACKAGE_BUILDERS[0]);
   });
 });
 
@@ -70,8 +74,9 @@ describe('every built prompt', () => {
     critique: { entityId: 'cinder-wasp', trigger: 'finish_edit' },
     spec_draft: { entityIds: ['cinder-sting', 'glide'], name: 'First set' },
     spread: {
+      // Vary aims at entities; a cell takes Fill.
       spot: { type: 'cell', band: 'hollows', lane: 'creatures' },
-      move: 'vary',
+      move: 'fill',
       direction: 'stranger',
     },
     patterns: {
@@ -275,7 +280,20 @@ describe('spec draft', () => {
       specBuilder.build(world, { entityIds: ['cinder-sting'], name: 'First weapon' }),
     );
     expect(p.entity).toBe('cinder-sting');
-    if (world.numbers.formulas) expect(p.user.at(-1)!.text).toContain('Numbers in the world');
+    // The formulas these entities depend on, with values, and nothing unrelated.
+    const nw = {
+      ...world,
+      numbers: {
+        ...world.numbers,
+        formulas: `${world.numbers.formulas}top_damage = max(items where subkind == "weapon", .damage)\nunrelated_zz = 7\n`,
+      },
+    };
+    const deps = specNumbers(nw, ['cinder-sting']);
+    expect(deps).toContain('top_damage = max(items where subkind == "weapon", .damage)    # = 12');
+    expect(deps).not.toContain('unrelated_zz');
+    expect(deps).not.toContain('taken(raw, def)');
+    const pn = build(specBuilder.build(nw, { entityIds: ['cinder-sting'], name: 'First weapon' }));
+    expect(pn.user.at(-1)!.text).toContain(`Numbers these entities depend on:\n\`\`\`\n${deps}`);
     expect(specBuilder.build(world, { entityIds: ['ghost'], name: 'x' })).toMatchObject({
       ok: false,
       error: { code: 'not_found' },
@@ -292,134 +310,6 @@ describe('spec draft', () => {
     expect(
       specBuilder.parse({ title: '', markdown: '' }, world, { entityIds: ['glide'], name: 'T' }),
     ).toMatchObject({ ok: false });
-  });
-});
-
-describe('fallback spread and patterns', () => {
-  const req = MOMENT_SCHEMAS.spread.request.parse({
-    spot: { type: 'cell', band: 'low-sky', lane: 'items' },
-    move: 'fill',
-    count: 3,
-  });
-
-  it('derives kind and focus from every spot type', () => {
-    expect(spotKind(world, req.spot, 'fill')).toBe('item');
-    expect(spotKind(world, req.spot, 'break')).toBeNull();
-    expect(
-      spotKind(
-        world,
-        {
-          type: 'region',
-          band: 'hollows',
-          climate: { temperature: { min: 0, max: 1 }, moisture: { min: 0, max: 1 } },
-        },
-        'fill',
-      ),
-    ).toBe('biome');
-    expect(spotKind(world, { type: 'entity', entity: 'glide' }, 'vary')).toBe('capability');
-    expect(spotKind(world, { type: 'selection', entities: ['cinder-wasp'] }, 'vary')).toBe(
-      'creature',
-    );
-    expect(spotKind(world, { type: 'note', note: 'n', entities: [] }, 'vary')).toBeNull();
-    expect(
-      spotFocus({
-        type: 'region',
-        band: 'hollows',
-        climate: { temperature: { min: 0, max: 1 }, moisture: { min: 0, max: 1 } },
-      }),
-    ).toEqual({ entities: [], band: 'hollows', kind: 'biome' });
-    expect(
-      fallbackSpreadBuilder.build(world, { ...req, spot: { type: 'entity', entity: 'ghost' } }),
-    ).toMatchObject({ ok: false });
-  });
-
-  it('validates candidates, keeps exactly one wildcard, honours given axes', () => {
-    const c = (name: string, more: Record<string, unknown> = {}) => ({
-      kind: 'item',
-      name,
-      identity: 'x',
-      description: ' d ',
-      attributes: [
-        { key: 'weight', value: 2 },
-        { key: 'Bad Key', value: 1 },
-      ],
-      relations: [
-        { type: 'in_band', target: 'low-sky', note: 'up here' },
-        { type: 'lives_in', target: 'low-sky', note: '' },
-      ],
-      about: 'ghost',
-      position: { x: 2, y: -1 },
-      wildcard: true,
-      rationale: '',
-      ...more,
-    });
-    const axes = { x: { label: 'a', low: 'l', high: 'h' }, y: { label: 'b', low: 'l', high: 'h' } };
-    const out = build(
-      fallbackSpreadBuilder.parse(
-        {
-          axes,
-          candidates: [
-            c('Kite Lung'),
-            c('kite lung'),
-            c('Sky Anchor'),
-            c('Wrong', { kind: 'creature' }),
-            c(''),
-            'junk',
-          ],
-        },
-        world,
-        req,
-      ),
-    );
-    expect(out.result.candidates.map((x) => x.name)).toEqual(['Kite Lung', 'Sky Anchor']);
-    expect(out.result.candidates.map((x) => x.wildcard)).toEqual([true, false]);
-    expect(out.result.candidates[0]).toMatchObject({
-      key: 'c1',
-      attributes: { weight: 2 },
-      relations: [{ type: 'in_band', target: 'low-sky', note: 'up here' }],
-      position: { x: 1, y: 0 },
-      description: 'd',
-    });
-    expect(out.result.candidates[0]).not.toHaveProperty('about');
-    expect(out.dropped).toBe(4);
-    const noWild = build(
-      fallbackSpreadBuilder.parse(
-        { axes, candidates: [c('A1', { wildcard: false }), c('B1', { wildcard: false })] },
-        world,
-        req,
-      ),
-    );
-    expect(noWild.result.candidates.map((x) => x.wildcard)).toEqual([false, true]);
-    const given = { ...req, axes };
-    expect(
-      build(fallbackSpreadBuilder.parse({ candidates: [] }, world, given)).result.axes,
-    ).toEqual(axes);
-    expect(fallbackSpreadBuilder.parse({ candidates: [] }, world, req)).toMatchObject({
-      ok: false,
-    });
-    expect(fallbackSpreadBuilder.stream!.item('junk', 0, world, req)).toBeNull();
-  });
-
-  it('parses patterns and keeps updates only for existing patterns', () => {
-    const out = build(
-      fallbackPatternsBuilder.parse(
-        {
-          patterns: [
-            { text: 'You kill stat sticks.', examples: ['A', 3], strength: 1.4, updates: 'nope' },
-            { text: '', strength: 1 },
-          ],
-        },
-        world,
-        { judgements: [] },
-      ),
-    );
-    expect(out.result.patterns).toEqual([
-      { text: 'You kill stat sticks.', examples: ['A'], strength: 1 },
-    ]);
-    expect(out.dropped).toBe(1);
-    expect(fallbackPatternsBuilder.parse({}, world, { judgements: [] })).toMatchObject({
-      ok: false,
-    });
   });
 });
 

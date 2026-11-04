@@ -1,10 +1,11 @@
 import { MOMENTS, type Moment } from '../ai/moments';
 import { critiqueBuilder } from './critique';
-import { fallbackPatternsBuilder, fallbackSpreadBuilder } from './fallback-spread';
 import { fillBuilder } from './fill';
 import { specBuilder } from './spec';
 import { suggestOneBuilder, suggestThreeBuilder } from './suggest';
 import type { AnyPromptBuilder, PromptBuilder } from './types';
+import { createSpreadPromptBuilders } from '../spreads/builders';
+import { assemble } from './common';
 
 /**
  * The prompt-builder registry: one builder per AI moment. The real gateway
@@ -22,19 +23,20 @@ import type { AnyPromptBuilder, PromptBuilder } from './types';
  * pack context with `packContext()` from `src/core/context`.
  */
 
-/** Builders owned by W4 (`ai`), plus fallbacks for `spread` and `patterns`. */
+/** Builders owned by W4 (`ai`). */
 export const BUILTIN_BUILDERS: readonly AnyPromptBuilder[] = [
   suggestOneBuilder,
   suggestThreeBuilder,
   fillBuilder,
   critiqueBuilder,
   specBuilder,
-  fallbackSpreadBuilder,
-  fallbackPatternsBuilder,
 ];
 
 /** Builders registered by other packages; each replaces the built-in one for its moment. */
-export const PACKAGE_BUILDERS: readonly AnyPromptBuilder[] = [];
+export const PACKAGE_BUILDERS: readonly AnyPromptBuilder[] = [
+  // W5 (spreads): `spread` (all nine moves, streamed) and `patterns`.
+  ...createSpreadPromptBuilders(assemble),
+];
 
 export class PromptRegistry {
   private readonly builders = new Map<Moment, AnyPromptBuilder>();

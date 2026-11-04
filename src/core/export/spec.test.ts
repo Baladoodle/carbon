@@ -9,7 +9,6 @@ import {
   changedSinceExport,
   exportCommands,
   exportPath,
-  formulaDependencies,
   readExportHeader,
   selectForExport,
   slugify,
@@ -162,8 +161,10 @@ describe('the deterministic spec', () => {
     w2.entities[armor.id] = { ...armor, attributes: { defense: 12 } };
     w2.numbers.formulas =
       'k = 100\ntaken(raw, def) = raw * k / (k + def)\nband_defense(b) = sum(items, .defense)\n# defense comment\n';
-    expect(formulaDependencies(w2, [armor.id])).toEqual(['band_defense(b) = sum(items, .defense)']);
-    expect(buildSpec(w2, [armor.id], { name: 'x' })).toContain('## Formulas');
+    // From the numbers engine: the formula that reads the attribute, not the others.
+    const md = buildSpec(w2, [armor.id], { name: 'x' });
+    expect(md).toContain('## Formulas\n\n```\nband_defense(b) = sum(items, .defense)\n```');
+    expect(md).not.toContain('taken(raw, def)');
     // The numbers engine's answer wins when it has one (W3).
     expect(
       buildSpec(w2, [armor.id], {

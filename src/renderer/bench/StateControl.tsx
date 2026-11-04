@@ -8,7 +8,7 @@ import { createStore, useStore } from '../state/store';
 import { flash } from '../state/ui';
 import { transact } from '../state/world';
 import { Button, Dialog, Input, Kbd, Textarea } from '../ui';
-import { benchAi, settled } from './controller';
+import { settled } from './controller';
 import { defOf } from './value';
 
 /**
@@ -81,7 +81,7 @@ export async function changeState(
     return false;
   }
   neededStore.set(null);
-  void benchAi.critique(e.id, 'state_change');
+  // The state change critiques the entity: ai/triggers.ts sees it in the patch.
   return true;
 }
 

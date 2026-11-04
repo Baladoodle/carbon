@@ -5,7 +5,6 @@ import { schemaOf, type World } from '@core/model/world';
 import { flash } from '../state/ui';
 import { transact } from '../state/world';
 import { Combobox, Select, StateGlyph } from '../ui';
-import { benchAi } from './controller';
 import { EntityChip } from './fields';
 import { incomingTo, relationTypesFrom, targetsFor } from './relations';
 
@@ -23,7 +22,6 @@ export function Relations({ world, entity }: { world: World; entity: Entity }): 
   const incoming = incomingTo(world, entity.id);
 
   const run = (label: string, c: ReturnType<typeof cmd>): void => {
-    benchAi.markEdited(entity.id);
     void transact(label, [c]).then((r) => {
       if (!r.ok) flash(r.error.message, 'error');
     });

@@ -17,8 +17,8 @@ import {
   unreachableNotes,
 } from './checks';
 import { compareNames, nameSignature, normaliseName } from './names';
-import { noNumbers, type NumbersAdapter } from './numbers';
-import { bandSpans, heightOf, localPlacement, type PlacementFn } from './placement';
+import { createNumbersAdapter, type NumbersAdapter } from './numbers';
+import { bandSpans, heightOf, resolvedPlaces, type PlacementFn } from './placement';
 
 /**
  * Runs every mechanical check, incrementally. Worlds are immutable (patches
@@ -52,8 +52,8 @@ interface EntityCache {
 }
 
 export function createCheckRunner(adapters: CheckAdapters = {}): CheckRunner {
-  const placement = adapters.placement ?? localPlacement;
-  const numbers = adapters.numbers ?? noNumbers;
+  const placement = adapters.placement ?? resolvedPlaces;
+  const numbers = adapters.numbers ?? createNumbersAdapter();
 
   let lastEntities: World['entities'] | null = null;
   let lastNumbers: World['numbers'] | null = null;
