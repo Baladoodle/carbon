@@ -241,7 +241,9 @@ function Column({ world, model }: { world: World; model: ColumnModel }): ReactNo
     [nav, rawCursor, model],
   );
   const cursorRef = useRef(cursor);
-  cursorRef.current = cursor;
+  useLayoutEffect(() => {
+    cursorRef.current = cursor;
+  });
 
   // ── Scrolling: restore, or centre on Y 0; keep the zoom anchored ──────────
   const anchor = useRef<{ u: number; offset: number } | null>(null);
@@ -387,6 +389,20 @@ function Column({ world, model }: { world: World; model: ColumnModel }): ReactNo
     },
     [model.bands],
   );
+
+  function canMoveLane(): boolean {
+    return !typing() && model.lanes[cursorRef.current.lane] !== undefined;
+  }
+  function moveLaneBy(dir: 1 | -1): void {
+    const c0 = cursorRef.current;
+    const lane = model.lanes[c0.lane];
+    if (!lane) return;
+    const c = moveLane(columnSettings(world), lane, dir);
+    if (!c) return;
+    void transact(`Move ${model.laneLabels[lane]} ${dir < 0 ? 'left' : 'right'}`, [c]).then((r) => {
+      if (r.ok) setColumn({ cursor: { ...c0, lane: c0.lane + dir } });
+    });
+  }
 
   const actions: Action[] = [
     {
@@ -534,28 +550,22 @@ function Column({ world, model }: { world: World; model: ColumnModel }): ReactNo
       enabled: () => !typing(),
       run: () => moveEdge('bottom', -1),
     },
-    ...(['left', 'right'] as const).map((d): Action => ({
-      id: `column.lane.${d}`,
-      label: `Move this lane ${d}`,
+    {
+      id: 'column.lane.left',
+      label: 'Move this lane left',
       group: 'Column',
-      keys: [d === 'left' ? 'alt+h' : 'alt+l'],
-      enabled: () => !typing() && model.lanes[cursorRef.current.lane] !== undefined,
-      run: () => {
-        const lane = model.lanes[cursorRef.current.lane];
-        if (!lane) return;
-        const c = moveLane(columnSettings(world), lane, d === 'left' ? -1 : 1);
-        if (!c) return;
-        void transact(`Move ${model.laneLabels[lane]} ${d}`, [c]).then((r) => {
-          if (r.ok)
-            setColumn({
-              cursor: {
-                ...cursorRef.current,
-                lane: cursorRef.current.lane + (d === 'left' ? -1 : 1),
-              },
-            });
-        });
-      },
-    })),
+      keys: ['alt+h'],
+      enabled: canMoveLane,
+      run: () => moveLaneBy(-1),
+    },
+    {
+      id: 'column.lane.right',
+      label: 'Move this lane right',
+      group: 'Column',
+      keys: ['alt+l'],
+      enabled: canMoveLane,
+      run: () => moveLaneBy(1),
+    },
   ];
   useActions(actions);
   useLaneActions(world, model);
@@ -833,7 +843,7 @@ function Inbox({
         height={height}
         onPointerDown={(e) => {
           const chip = (e.target as Element).closest('[data-id]');
-          const r = (e.currentTarget as SVGSVGElement).getBoundingClientRect();
+          const r = e.currentTarget.getBoundingClientRect();
           const x = e.clientX - r.left;
           const lane =
             x < RULER_W + LABEL_W
