@@ -108,14 +108,65 @@ test('codex space aims a spread at the selection', async () => {
   await filter('');
 });
 
+test('codex edits a choice through the picker', async () => {
+  await carbon.gotoView('codex', '3');
+  await filter('kind:material');
+  const cell = page().locator('[data-entity="sky-coral"] td[data-col="f:rarity"]');
+  await cell.dblclick();
+  const picker = cell.getByRole('combobox');
+  await expect(picker).toBeFocused();
+  await picker.fill('legen');
+  await picker.press('Enter');
+  await expect(cell).toHaveText('legendary');
+  await body().press('Control+z');
+  await expect(cell).toHaveText('rare');
+  await filter('');
+});
+
+test('codex stays virtualised with 2,000 entities', async () => {
+  const many = Array.from({ length: 2000 }, (_, i) =>
+    cmd('entity.create', {
+      kind: 'material',
+      name: `Ore ${String(i).padStart(4, '0')}`,
+      fields: { rarity: i % 2 ? 'common' : 'rare' },
+    }),
+  );
+  const r = await carbon.dispatch(...many);
+  expect(r.ok).toBe(true);
+  await carbon.gotoView('codex', '3');
+  await filter('kind:material id:ore-');
+  await expect(page().getByRole('tab', { selected: true })).toContainText('2000');
+  const rendered = await page()
+    .locator('[data-testid="codex-table"] tbody tr[data-entity]')
+    .count();
+  expect(rendered).toBeGreaterThan(10);
+  expect(rendered).toBeLessThan(80);
+  const t0 = Date.now();
+  await body().press('Shift+G');
+  await expect(page().locator('tr[data-entity="ore-1999"]')).toHaveAttribute('data-current', '');
+  expect(Date.now() - t0).toBeLessThan(2000);
+  await filter('kind:material id:ore- rarity:rare');
+  await expect(page().getByRole('tab', { selected: true })).toContainText('1000');
+  await body().press('Control+z');
+  await filter('');
+  await expect(page().locator('tr[data-entity="ore-0000"]')).toHaveCount(0);
+});
+
 test('codex screenshots', async () => {
   await carbon.dispatch(cmd('entity.update', { id: 'glide', set: { tags: ['sky'] } }));
   await carbon.gotoView('codex', '3');
   await filter('lane:items');
-  await page().locator('[data-entity="vent-glass-visor"] td[data-col="name"]').click();
+  await page().locator('[data-entity="vent-glass-visor"] td[data-col="name"]').click({
+    modifiers: ['Control'],
+  });
+  await page().locator('[data-entity="cloud-anklet"] td[data-col="name"]').click({
+    modifiers: ['Control'],
+  });
+  await expect(page().locator('.ui-toast')).toHaveCount(0, { timeout: 15_000 });
   await carbon.screenshot('world-codex');
   await filter('kind:creature menace:>lots');
   await carbon.screenshot('world-codex-error');
+  await body().press('Escape');
   await filter('');
 });
 
@@ -212,6 +263,7 @@ test('climate screenshots', async () => {
     }),
   );
   await region('glowmoss-caverns').click();
+  await expect(page().locator('.ui-toast')).toHaveCount(0, { timeout: 15_000 });
   await carbon.screenshot('world-climate');
   await body().press('Control+z');
 });
