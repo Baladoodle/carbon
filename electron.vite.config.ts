@@ -32,7 +32,16 @@ export default defineConfig({
   renderer: {
     root: resolve(import.meta.dirname, 'src/renderer'),
     resolve: { alias },
-    plugins: [react()],
+    plugins: [
+      react(),
+      {
+        // React Refresh injects an inline module script in dev; allow it there only.
+        name: 'carbon-dev-csp',
+        apply: 'serve',
+        transformIndexHtml: (html: string) =>
+          html.replace("script-src 'self'", "script-src 'self' 'unsafe-inline'"),
+      },
+    ],
     build: {
       outDir: 'out/renderer',
       rollupOptions: { input: { index: resolve(import.meta.dirname, 'src/renderer/index.html') } },

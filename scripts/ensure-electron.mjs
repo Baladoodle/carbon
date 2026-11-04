@@ -17,6 +17,13 @@ const ok =
   existsSync(pathFile) &&
   existsSync(path.join(pkgDir, 'dist', readFileSync(pathFile, 'utf8').trim()));
 if (!ok) {
-  const r = spawnSync(process.execPath, [path.join(pkgDir, 'install.js')], { stdio: 'inherit' });
-  process.exit(r.status ?? 1);
+  // The download sometimes drops through proxies: try a few times.
+  let status = 1;
+  for (let attempt = 1; attempt <= 3 && status !== 0; attempt++) {
+    status =
+      spawnSync(process.execPath, [path.join(pkgDir, 'install.js')], { stdio: 'inherit' }).status ??
+      1;
+    if (status !== 0) console.warn(`electron download failed (attempt ${attempt}/3)`);
+  }
+  process.exit(status);
 }

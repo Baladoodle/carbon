@@ -9,7 +9,16 @@ exported specs in Infinite.
 > Carbon is for design. Claude Code is for implementation. Infinite is the game.
 > Carbon exports specs. It doesn't read Infinite and never writes to it.
 
-**Status:** design complete; the build is planned in [docs/BUILD.md](docs/BUILD.md).
+**Status:** Phase 0 (foundation) is built: model, commands and undo, store, IPC,
+AI gateway contract, UI shell and test harness. The package contract is in
+[docs/build-notes/foundation.md](docs/build-notes/foundation.md).
+
+```sh
+npm install            # also fetches Electron's binary if npm skipped it
+npm run dev:sample     # the app on a scratch copy of the sample world, fake AI
+npm run dev            # the app on ~/infinite-bible (or --world <dir>)
+npm run check          # lint, format, types, unit tests, e2e smoke
+```
 
 | Document | What it covers |
 |---|---|
