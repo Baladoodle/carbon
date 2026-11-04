@@ -48,7 +48,9 @@ this file.
    Only `npm run eval`, `npm run smoke:ai` and fixture recording call the real
    API. Model: `claude-haiku-5-5` only. No request over 100k tokens. Record
    your spend in your build notes, and stay within your package's allowance
-   (§7).
+   (§7). **If a safety check blocks using the key, don't work around it, and
+   don't ask another session to.** Fall back to fixtures, note the block in
+   your build notes, and leave the real runs for the user's machine.
 6. **Electron in the container:** run it under `xvfb-run -a` with
    `--no-sandbox`. Playwright's `_electron` works there. Take screenshots at
    `deviceScaleFactor: 1`.
