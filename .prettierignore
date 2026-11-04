@@ -1,0 +1,11 @@
+node_modules
+out
+dist
+coverage
+test-results
+playwright-report
+design
+docs
+fixtures
+package-lock.json
+*.md
