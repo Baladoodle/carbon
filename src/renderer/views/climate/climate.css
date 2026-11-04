@@ -1,0 +1,248 @@
+/* Climate (W2): one band's temperature × moisture plane. Tokens only. */
+.climate {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.climate-bands {
+  padding: 8px 16px 0;
+}
+.climate-bands .ui-tabs-list {
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.climate-none {
+  padding: 24px 16px;
+}
+.climate-stage {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 16px 40px 24px;
+}
+.climate-frame {
+  position: relative;
+  /* As large as fits, square-ish. */
+  width: min(100%, calc(100vh - 170px) * 1.25);
+  aspect-ratio: 5 / 4;
+  max-height: 100%;
+}
+
+/* The plane: a very low-contrast gradient, cold → warm across, dry → wet up. */
+.climate-plane {
+  position: absolute;
+  inset: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  background:
+    linear-gradient(to top, transparent, color-mix(in srgb, var(--state-shaped) 5%, transparent)),
+    linear-gradient(to right, var(--tint-high), var(--bg) 50%, var(--tint-deep));
+  touch-action: none;
+}
+.climate-axis {
+  position: absolute;
+  font-size: var(--text-meta);
+  user-select: none;
+}
+.climate-axis-y {
+  left: -28px;
+  top: 0;
+}
+.climate-axis-y.climate-axis-low {
+  top: auto;
+  bottom: 0;
+}
+.climate-axis-x {
+  bottom: -18px;
+  left: 0;
+}
+.climate-axis-x.climate-axis-high {
+  left: auto;
+  right: 0;
+}
+
+/* Climate no biome covers: a faint diagonal hatch, like the Column's unwritten ends. */
+.climate-empty {
+  position: absolute;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--text-3) 14%, transparent) 0 1px,
+    transparent 1px 7px
+  );
+}
+
+/* Biome regions are glass panels (VISUAL.md §6.4). */
+.climate-region {
+  position: absolute;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  background: color-mix(in srgb, var(--surface-2) 70%, transparent);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-control);
+  box-shadow: var(--highlight);
+  overflow: hidden;
+  cursor: grab;
+  transition:
+    border-color var(--dur-hover) var(--ease),
+    box-shadow var(--dur-hover) var(--ease);
+  user-select: none;
+}
+.climate-region:hover {
+  border-color: color-mix(in srgb, var(--text-2) 50%, transparent);
+}
+.climate-region-overlap {
+  border-color: color-mix(in srgb, var(--warn) 55%, transparent);
+}
+.climate-region-selected {
+  border-color: var(--accent);
+  box-shadow: var(--glow), var(--highlight);
+  z-index: 2;
+}
+.climate-region-dragging {
+  cursor: grabbing;
+  z-index: 3;
+}
+.climate-region-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.climate-region-name {
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.climate-sig {
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Overlaps: shared climate, drawn over both regions in the warn colour. */
+.climate-overlap {
+  position: absolute;
+  pointer-events: none;
+  z-index: 4;
+  border: 1px dashed color-mix(in srgb, var(--warn) 70%, transparent);
+  background: repeating-linear-gradient(
+    45deg,
+    color-mix(in srgb, var(--warn) 22%, transparent) 0 1px,
+    transparent 1px 5px
+  );
+}
+
+/* Resize handles: invisible strips on the edges, small squares on the corners. */
+.climate-handle {
+  position: absolute;
+  z-index: 1;
+}
+.climate-handle-n,
+.climate-handle-s {
+  left: 6px;
+  right: 6px;
+  height: 6px;
+  cursor: ns-resize;
+}
+.climate-handle-n {
+  top: -1px;
+}
+.climate-handle-s {
+  bottom: -1px;
+}
+.climate-handle-e,
+.climate-handle-w {
+  top: 6px;
+  bottom: 6px;
+  width: 6px;
+  cursor: ew-resize;
+}
+.climate-handle-e {
+  right: -1px;
+}
+.climate-handle-w {
+  left: -1px;
+}
+.climate-handle-ne,
+.climate-handle-nw,
+.climate-handle-se,
+.climate-handle-sw {
+  width: 8px;
+  height: 8px;
+}
+.climate-handle-ne {
+  top: -1px;
+  right: -1px;
+  cursor: nesw-resize;
+}
+.climate-handle-sw {
+  bottom: -1px;
+  left: -1px;
+  cursor: nesw-resize;
+}
+.climate-handle-nw {
+  top: -1px;
+  left: -1px;
+  cursor: nwse-resize;
+}
+.climate-handle-se {
+  bottom: -1px;
+  right: -1px;
+  cursor: nwse-resize;
+}
+.climate-region-selected .climate-handle-ne,
+.climate-region-selected .climate-handle-nw,
+.climate-region-selected .climate-handle-se,
+.climate-region-selected .climate-handle-sw {
+  background: var(--accent);
+  border-radius: 1px;
+}
+
+.climate-hint {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+/* Biomes in this band with no climate yet. */
+.climate-loose {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.climate-loose-item {
+  height: 24px;
+  padding: 0 8px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-control);
+  background: none;
+  color: var(--text-2);
+  font: inherit;
+  font-size: var(--text-dense);
+}
+.climate-loose-item:hover {
+  color: var(--text);
+  border-color: var(--text-3);
+}
+
+/* The plane takes focus only to hand keys back from the band tabs; the selection shows where you are. */
+.climate-plane:focus,
+.climate-plane:focus-visible {
+  outline: none;
+  box-shadow: none;
+}

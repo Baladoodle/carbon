@@ -275,6 +275,8 @@ describe('command labels', () => {
       'taste.set': { reasons: [], patterns: [] },
       'spread.put': { record: { id: 's', created: SAMPLE_TIME } },
       'spread.remove': { id: 's' },
+      'placement.pin': { id: 'glide' },
+      'placement.unpin': { id: 'glide' },
     };
     for (const [type, def] of Object.entries(COMMANDS)) {
       const label = def.label(def.payload.parse(payloads[type as CommandType]) as never, w);

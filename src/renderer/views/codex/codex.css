@@ -1,0 +1,197 @@
+/* The Codex (W2). Built from the tokens only. */
+.codex {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.codex-top {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 16px 8px;
+  border-bottom: 1px solid var(--line);
+}
+.codex-top .ui-tabs-list {
+  border-bottom: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.codex-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.codex-filter-box {
+  position: relative;
+}
+.codex-filter-box .ui-input {
+  width: 100%;
+}
+.codex-filter-mirror {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  white-space: pre;
+  overflow: hidden;
+  color: transparent;
+  /* Matches .ui-input's border + padding so spans sit under their text. */
+  padding: 0 9px;
+  line-height: 30px;
+  font-size: var(--text-body);
+}
+.codex-err-span {
+  text-decoration: underline wavy var(--danger);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+}
+.codex-filter-errors {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-meta);
+  color: var(--danger);
+}
+
+.codex-selection {
+  position: absolute;
+  top: 8px;
+  right: 16px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--text-dense);
+  color: var(--accent);
+}
+.codex-top {
+  position: relative;
+}
+
+.codex-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 0 16px 16px;
+  outline: none;
+}
+.codex-empty {
+  padding: 24px 0;
+}
+.codex-table {
+  table-layout: fixed;
+}
+.codex-table td,
+.codex-table th {
+  height: 32px;
+  box-sizing: border-box;
+  padding: 0 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.codex-table th {
+  color: var(--text-2);
+  font-weight: 500;
+  text-align: left;
+  user-select: none;
+}
+.codex-th {
+  cursor: default;
+}
+.codex-th:hover,
+.codex-th-current {
+  color: var(--text);
+}
+.codex-sort {
+  margin-left: 4px;
+  color: var(--accent);
+}
+.codex-row {
+  cursor: default;
+}
+.codex-row td {
+  color: var(--text);
+}
+.codex-row td.t-3 {
+  color: var(--text-3);
+}
+.codex-row td.codex-ai {
+  color: var(--ai);
+}
+.codex-table tbody tr[data-selected] > td:first-child {
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.codex-cell-current {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 55%, transparent);
+  border-radius: 2px;
+}
+.codex-cell-editing {
+  padding: 0 2px !important;
+  overflow: visible !important;
+}
+.codex-editor,
+.codex-editor .ui-input {
+  width: 100%;
+  height: 26px;
+  font-size: var(--text-dense);
+}
+
+.codex-check {
+  text-align: center;
+}
+.codex-box {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 3px;
+  opacity: 0;
+  transition: opacity var(--dur-hover) var(--ease);
+  vertical-align: middle;
+}
+.codex-row:hover .codex-box,
+.codex-row[data-selected] .codex-box {
+  opacity: 1;
+}
+.codex-box-on {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.codex-dialog {
+  width: 360px;
+}
+.codex-choices {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.codex-choice {
+  width: 100%;
+  justify-content: flex-start;
+  background: none;
+  border: 0;
+  color: var(--text);
+  font: inherit;
+}
+.codex-choice > span:first-of-type {
+  flex: 1;
+  text-align: left;
+}
+.codex-choice:hover:not(:disabled),
+.codex-choice:focus-visible {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.codex-choice:disabled {
+  color: var(--text-3);
+}
+/* The table takes focus only to hand keys back from the tabs; the cursor shows where you are. */
+.codex-scroll:focus,
+.codex-scroll:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
