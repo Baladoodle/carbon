@@ -1,3 +1,4 @@
+import type { Spot } from '@core/ai/moments';
 import type { EntityId } from '@core/model/ids';
 import { toast } from '../ui/Toast';
 import { createStore, useStore } from './store';
@@ -15,6 +16,13 @@ export interface UiState {
   selection: EntityId[];
   /** The open overlay (`palette`, `ai-log`, or a package's own), or null. */
   overlay: string | null;
+  /**
+   * A spot handed to the Spread view (W5): a Column cell, a Climate region, a
+   * Codex selection, an entity or a note. Set it together with the view —
+   * `setUi({ view: 'spread', spot })`, or `startSpread(spot)` from
+   * views/spread/start.ts — and the Spread view takes it and clears it.
+   */
+  spot: Spot | null;
 }
 
 const STORAGE_KEY = 'carbon.ui';
@@ -26,6 +34,7 @@ function initial(): UiState {
     focus: null,
     selection: [],
     overlay: null,
+    spot: null,
   };
   try {
     const saved: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null');
