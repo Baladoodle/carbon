@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { cmd } from '@core/commands/registry';
@@ -150,6 +150,9 @@ test.describe('the Column', () => {
     await page.mouse.up();
     await expect(bench(page)).toHaveAttribute('data-entity', 'new-band');
     await expect(field(page, 'name').locator('input')).toBeFocused();
+    await expect
+      .poll(() => existsSync(path.join(carbon.worldDir, 'entities/band/new-band.md')))
+      .toBe(true);
     const file = read(carbon, 'entities/band/new-band.md');
     expect(Number(/y_bottom: (-?\d+)/.exec(file)?.[1])).toBe(640);
     expect(Number(/y_top: (-?\d+)/.exec(file)?.[1])).toBeGreaterThan(640);
@@ -293,6 +296,8 @@ test.describe('the Bench', () => {
     await press(page, 'Escape');
     await expect(field(page, 'gates').locator('.ui-suggest-ghost')).toHaveCount(0);
     await press(page, 'Tab');
+    // Wait for the suggestion: a second tab before it arrives asks for another one.
+    await expect(field(page, 'gates').locator('.ui-suggest-ghost')).toBeVisible();
     await press(page, 'Tab');
     await expect(page.getByTestId('ai-marker-gates')).toBeVisible();
     await gates.fill('the sky, at last');

@@ -81,6 +81,23 @@ export async function startWorldSync(): Promise<void> {
   }
 }
 
+/**
+ * Resolves once the mirror has caught up with revision `rev` (a dispatch's
+ * response can arrive before its patch is applied here). Added at
+ * integration: code that reads the world right after its own edit lands (the
+ * critique on finishing an edit) waits on this.
+ */
+export function whenRev(rev: number): Promise<void> {
+  if (worldStore.get().rev >= rev) return Promise.resolve();
+  return new Promise((resolve) => {
+    const off = worldStore.subscribe(() => {
+      if (worldStore.get().rev < rev) return;
+      off();
+      resolve();
+    });
+  });
+}
+
 /** Sends commands to the main process; several form one undo step. */
 export function dispatch(...commands: Command[]): Promise<DispatchResult> {
   return invoke('world:dispatch', { commands });

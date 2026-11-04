@@ -5,7 +5,7 @@ import { hashValue } from '@core/util/hash';
 import { ai } from '../ai/client';
 import { publishNotes } from '../state/notes';
 import { flash } from '../state/ui';
-import { currentWorld, transact } from '../state/world';
+import { currentWorld, transact, whenRev } from '../state/world';
 import { createBenchAi } from './ai';
 import { fieldId, setEntry } from './store';
 
@@ -26,6 +26,10 @@ const inflight = new Map<string, Promise<unknown>>();
 
 export const settled = (entityId: string): Promise<unknown> =>
   inflight.get(entityId) ?? Promise.resolve();
+
+/** A commit's result, once its patch is also in the renderer's mirror (not only answered). */
+const landedIn = <R extends { ok: boolean; rev?: number }>(p: Promise<R>): Promise<R> =>
+  p.then((r) => (r.ok && typeof r.rev === 'number' ? whenRev(r.rev).then(() => r) : r));
 
 /**
  * Writes a field you edited (`null` clears it). Does nothing when the value is
@@ -49,9 +53,10 @@ export async function commitField(
   const p = transact(`Edit ${key} of ${e.name}`, [
     cmd('entity.setField', { id: entityId, field: key, value, source: 'user' }),
   ]);
-  inflight.set(entityId, p);
-  const r = await p;
-  if (inflight.get(entityId) === p) inflight.delete(entityId);
+  const landed = landedIn(p);
+  inflight.set(entityId, landed);
+  const r = await landed;
+  if (inflight.get(entityId) === landed) inflight.delete(entityId);
   return r.ok ? null : r.error.message;
 }
 
@@ -68,8 +73,9 @@ export async function commitAttribute(
   const p = transact(`Set ${key} of ${e.name}`, [
     cmd('entity.setAttribute', { id: entityId, key, value, source: 'user' }),
   ]);
-  inflight.set(entityId, p);
-  const r = await p;
-  if (inflight.get(entityId) === p) inflight.delete(entityId);
+  const landed = landedIn(p);
+  inflight.set(entityId, landed);
+  const r = await landed;
+  if (inflight.get(entityId) === landed) inflight.delete(entityId);
   return r.ok ? null : r.error.message;
 }
