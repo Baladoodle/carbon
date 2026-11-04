@@ -4,6 +4,7 @@ import { AiLog } from '../ai/AiLog';
 import { ai, startAiSync } from '../ai/client';
 import { Bench } from '../bench/Bench';
 import { Palette } from '../palette/Palette';
+import { PlatformRuntime } from '../palette/Platform';
 import { flash, setUi, uiStore, useUi } from '../state/ui';
 import { redo, startWorldSync, undo, useWorldMeta } from '../state/world';
 import { Toaster, TooltipProvider } from '../ui';
@@ -143,6 +144,7 @@ export function App(): ReactNode {
         {overlay === 'palette' && <Palette />}
         {overlay === 'ai-log' && <AiLog />}
         {overlay === 'ui-kit' && <Gallery />}
+        <PlatformRuntime />
         <Toaster />
       </div>
     </TooltipProvider>

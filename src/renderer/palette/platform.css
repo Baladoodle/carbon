@@ -1,0 +1,56 @@
+/* The conflict dialog (package W6). */
+.platform-conflicts.ui-dialog {
+  width: min(640px, 94vw);
+}
+.platform-conflict-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 50vh;
+  overflow: auto;
+}
+.platform-conflict {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.platform-conflict + .platform-conflict {
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.platform-conflict-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.platform-conflict-name {
+  flex: 1;
+  font-weight: 500;
+}
+.platform-conflict-actions {
+  display: flex;
+  gap: 4px;
+}
+.platform-conflict-fields {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: var(--text-dense);
+}
+.platform-conflict-fields th,
+.platform-conflict-fields td {
+  padding: 4px 8px 4px 0;
+  text-align: left;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+.platform-conflict-fields thead th {
+  font-size: var(--text-meta);
+  font-weight: 500;
+  color: var(--text-3);
+}
+.platform-conflict-fields tbody th {
+  width: 22%;
+  font-weight: 400;
+  color: var(--text-2);
+}

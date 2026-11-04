@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "A live design studio for Infinite, with AI built in.",
+  "desktopName": "carbon.desktop",
   "type": "module",
   "main": "./out/main/index.js",
   "engines": {

@@ -1,0 +1,13 @@
+{
+  "format": 1,
+  "name": "Sample",
+  "ai": {
+    "budget": {
+      "sessionUsd": 2,
+      "monthUsd": 20
+    }
+  },
+  "snapshot": {
+    "idleMinutes": 10
+  }
+}

@@ -1,12 +1,25 @@
 {
   "appId": "dev.baladoodle.carbon",
   "productName": "carbon",
-  "directories": { "output": "dist", "buildResources": "build" },
+  "directories": {
+    "output": "dist",
+    "buildResources": "build"
+  },
   "files": ["out/**/*", "package.json"],
   "asarUnpack": [],
+  "artifactName": "${productName}-${version}-${arch}.${ext}",
   "linux": {
     "target": ["AppImage", "dir"],
     "category": "Development",
-    "executableName": "carbon"
+    "executableName": "carbon",
+    "synopsis": "A live design studio for Infinite",
+    "desktop": {
+      "entry": {
+        "Name": "carbon",
+        "StartupWMClass": "carbon",
+        "Terminal": "false"
+      }
+    },
+    "syncDesktopName": true
   }
 }
