@@ -570,33 +570,35 @@ test.describe('performance (SYSTEM §9)', () => {
     const { page } = carbon;
     // Let the pan test's rendering and GC settle; the first 5 runs warm up and aren't counted.
     await page.waitForTimeout(1000);
-    const times = await page.evaluate(async () => {
-      const out: number[] = [];
-      for (let i = 0; i < 35; i++) {
-        const t0 = performance.now();
-        const patched = new Promise<void>((resolve) => {
-          const off = window.carbon.on('world:patch', () => {
-            off();
-            resolve();
+    const measure = (field: string): Promise<number[]> =>
+      page.evaluate(async (f) => {
+        const out: number[] = [];
+        for (let i = 0; i < 35; i++) {
+          const t0 = performance.now();
+          const patched = new Promise<void>((resolve) => {
+            const off = window.carbon.on('world:patch', () => {
+              off();
+              resolve();
+            });
           });
-        });
-        await window.carbon.invoke('world:dispatch', {
-          commands: [
-            {
-              type: 'entity.setField',
-              payload: { id: 'e-500', field: 'identity', value: `Stress ${i}` },
-            },
-          ],
-        });
-        await patched;
-        if (i >= 5) out.push(performance.now() - t0);
-      }
-      return out.sort((a, b) => a - b);
-    });
-    const median = times[Math.floor(times.length / 2)]!;
-    console.log(
-      `command round trip: median ${median.toFixed(1)} ms, max ${times[times.length - 1]!.toFixed(1)} ms`,
-    );
-    expect(median).toBeLessThan(16);
+          await window.carbon.invoke('world:dispatch', {
+            commands: [
+              { type: 'entity.setField', payload: { id: 'e-500', field: f, value: `Stress ${i}` } },
+            ],
+          });
+          await patched;
+          if (i >= 5) out.push(performance.now() - t0);
+        }
+        return out.sort((a, b) => a - b);
+      }, field);
+    // An edit the Column doesn't draw (identity), and one it redraws (the name on a chip).
+    for (const f of ['identity', 'name']) {
+      const times = await measure(f);
+      const median = times[Math.floor(times.length / 2)]!;
+      console.log(
+        `command round trip (${f}): median ${median.toFixed(1)} ms, max ${times[times.length - 1]!.toFixed(1)} ms`,
+      );
+      expect(median).toBeLessThan(16);
+    }
   });
 });

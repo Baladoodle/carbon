@@ -646,3 +646,82 @@ describe('stress world', () => {
     expect(rows).toHaveLength(40);
   });
 });
+
+describe('sameColumnInputs', () => {
+  it('skips rebuilds for edits the Column does not draw, and only those', async () => {
+    const { sameColumnInputs } = await import('./model');
+    const w = sampleWorld();
+    const run = (c: ReturnType<typeof cmd>) => {
+      const r = applyCommands(w, [c], ctx);
+      if (!r.ok) throw new Error(r.error.message);
+      return r.value.world;
+    };
+    expect(sameColumnInputs(w, w)).toBe(true);
+    expect(
+      sameColumnInputs(
+        w,
+        run(cmd('entity.update', { id: 'glide', set: { identity: 'Fall well.' } })),
+      ),
+    ).toBe(true);
+    expect(
+      sameColumnInputs(
+        w,
+        run(cmd('entity.setAttribute', { id: 'vent-glass-visor', key: 'defense', value: 3 })),
+      ),
+    ).toBe(true);
+    // Editing an exported entity sends it back to decided: its glyph changes.
+    expect(
+      sameColumnInputs(
+        w,
+        run(cmd('entity.setAttribute', { id: 'cinder-sting', key: 'damage', value: 3 })),
+      ),
+    ).toBe(false);
+    expect(
+      sameColumnInputs(w, run(cmd('entity.update', { id: 'glide', set: { name: 'Soar' } }))),
+    ).toBe(false);
+    expect(
+      sameColumnInputs(
+        w,
+        run(cmd('relation.add', { from: 'sky-coral', type: 'found_in', to: 'cloud-reef' })),
+      ),
+    ).toBe(false);
+    expect(
+      sameColumnInputs(
+        w,
+        run(cmd('entity.setField', { id: 'low-sky', field: 'y_top', value: 700 })),
+      ),
+    ).toBe(false);
+    expect(sameColumnInputs(w, run(cmd('entity.delete', { id: 'reef-ray' })))).toBe(false);
+    expect(
+      sameColumnInputs(w, run(cmd('settings.set', { key: 'column', value: { lanes: ['items'] } }))),
+    ).toBe(false);
+  });
+});
+
+describe('columnModel reuse', () => {
+  it('reuses placements across renames and agrees with a rebuild', async () => {
+    const { columnModel, samePlacementInputs } = await import('./model');
+    const w = sampleWorld();
+    const m = columnModel(w);
+    const r = applyCommands(
+      w,
+      [cmd('entity.update', { id: 'lumen-spore', set: { name: 'Lumen Dust' } })],
+      ctx,
+    );
+    if (!r.ok) throw new Error(r.error.message);
+    expect(samePlacementInputs(w, r.value.world)).toBe(true);
+    const reused = columnModel(r.value.world, { world: w, model: m });
+    expect(reused.placements).toBe(m.placements);
+    expect(reused).toEqual(columnModel(r.value.world));
+    const moved = applyCommands(
+      w,
+      [cmd('relation.add', { from: 'sky-coral', type: 'found_in', to: 'cloud-reef' })],
+      ctx,
+    );
+    if (!moved.ok) throw new Error(moved.error.message);
+    expect(samePlacementInputs(w, moved.value.world)).toBe(false);
+    expect(
+      columnModel(moved.value.world, { world: w, model: m }).placements.get('sky-coral')?.places,
+    ).toEqual([{ band: 'low-sky', biome: 'cloud-reef' }]);
+  });
+});

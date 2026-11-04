@@ -1,4 +1,5 @@
 import { LANE_OF_KIND, ENTITY_KINDS, type Lane } from '@core/model/kinds';
+import type { Entity } from '@core/model/entity';
 import { schemaOf, type World } from '@core/model/world';
 import type { NavContext } from './cursor';
 import { columnSettings, type ColumnSettings } from './lanes';
@@ -39,7 +40,80 @@ export interface ColumnModel {
   index: CellIndex;
 }
 
-export function columnModel(world: World): ColumnModel {
+/** What of an entity the Column depends on (placement, its cell, its chip). */
+function drawn(e: Entity): unknown[] {
+  return [
+    e.kind,
+    e.name,
+    e.state,
+    e.relations,
+    e.fields.band,
+    e.fields.subkind,
+    e.fields.y_bottom,
+    e.fields.y_top,
+    e.fields.route,
+  ];
+}
+
+/** What of an entity placement depends on (a subset of `drawn`: not names or states). */
+function placing(e: Entity): unknown[] {
+  return [e.kind, e.relations, e.fields.band, e.fields.y_bottom, e.fields.y_top, e.fields.route];
+}
+
+const same = (x: unknown[], y: unknown[]): boolean =>
+  x.every((v, i) => v === y[i] || JSON.stringify(v) === JSON.stringify(y[i]));
+const sameDrawn = (a: Entity, b: Entity): boolean => same(drawn(a), drawn(b));
+const samePlacing = (a: Entity, b: Entity): boolean => same(placing(a), placing(b));
+
+/** Whether every placement in `prev` still holds in `next` (same entities, same placing inputs). */
+export function samePlacementInputs(prev: World, next: World): boolean {
+  if (prev.schema !== next.schema) return false;
+  const a = prev.entities;
+  const b = next.entities;
+  if (a === b) return true;
+  const ka = Object.keys(a);
+  if (ka.length !== Object.keys(b).length) return false;
+  for (const k of ka) {
+    const x = a[k];
+    const y = b[k];
+    if (x === y) continue;
+    if (!x || !y || !samePlacing(x, y)) return false;
+  }
+  return true;
+}
+
+/**
+ * Whether the Column model of `prev` holds for `next`: same settings and
+ * schema, same entities, and every changed entity changed only in what the
+ * Column doesn't draw (an identity, a description, an attribute…). Then a
+ * patch costs the Column nothing, which keeps command round trips short.
+ */
+export function sameColumnInputs(prev: World, next: World): boolean {
+  if (prev === next) return true;
+  if (prev.settings !== next.settings || prev.schema !== next.schema) return false;
+  const a = prev.entities;
+  const b = next.entities;
+  if (a === b) return true;
+  const ka = Object.keys(a);
+  if (ka.length !== Object.keys(b).length) return false;
+  for (const k of ka) {
+    const x = a[k];
+    const y = b[k];
+    if (x === y) continue;
+    if (!x || !y || !sameDrawn(x, y)) return false;
+  }
+  return true;
+}
+
+/**
+ * The Column model of a world. With the previous world and model, it reuses
+ * the placements when no placing input changed (a rename, a state change),
+ * since resolving placements is the costliest part.
+ */
+export function columnModel(
+  world: World,
+  prev?: { world: World; model: ColumnModel },
+): ColumnModel {
   const settings = columnSettings(world);
   const schema = schemaOf(world);
   const laneLabels = {} as Record<Lane, string>;
@@ -48,7 +122,8 @@ export function columnModel(world: World): ColumnModel {
     if (lane) laneLabels[lane] = schema.kinds[k].plural;
   }
   const bands = bandSpans(world);
-  const placements = placementsOf(world);
+  const placements =
+    prev && samePlacementInputs(prev.world, world) ? prev.model.placements : placementsOf(world);
   return {
     settings,
     lanes: settings.lanes,

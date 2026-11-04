@@ -18,7 +18,7 @@ passes. API spend: **$0.00** (everything runs on `FakeAiGateway`).
 | `cursor.ts` | Keyboard navigation: `j`/`k` walk the entities of each cell (or the empty cell) down/up through rows; `h`/`l` change lane keeping the row and index; lane −1 is the band column |
 | `edges.ts` | Edges (shared between touching bands), their limits, clamping + snapping, keyboard nudges, the commands that move an edge (one transaction for both bands), new bands in a gap (`n`) or drawn on the ruler |
 | `lanes.ts` | Shown lanes, their order, saved layouts and the graveyard switch, in `carbon.json` under `column` (lenient parsing: bad entries drop, nothing is lost) |
-| `model.ts` | World → model (zoom-independent), model + zoom + width → geometry. **Cell layouts are cached by content**, so an edit re-lays only the cells it touched |
+| `model.ts` | World → model (zoom-independent), model + zoom + width → geometry. The model is reused when a patch changes nothing the Column draws, placements are reused across renames and state changes, and cell layouts are cached by content |
 | `stress.ts` | The deterministic 2,000-entity stress world (40 bands tiling ±∞, 80 biomes, explicit / inferred / Inbox placements, every state) |
 | `view.tsx`, `Layers.tsx`, `Margin.tsx`, `LanesMenu.tsx`, `store.ts`, `measure.ts`, `column.css` | The view |
 
@@ -172,20 +172,25 @@ Measured by `e2e/column.spec.ts › performance` on the stress world
   the display's cap). Native scrolling, the SVG on its own layer, rows and
   cells culled to the viewport ± 800 px (quantized, so small scrolls don't
   re-render), memoized cells.
-- **Command round trip: median ~13 ms** in the suite (dispatch → main →
-  patch applied in the renderer and the response back, with the Column
-  re-rendering), max ~25–38 ms; ~6.5 ms median in a fresh, idle launch (vs ~4.4
-  ms with no Column mounted). The test waits 1 s after the pan test and
-  discards 5 warm-up runs. This is the closest budget to its limit; the
-  remaining cost is `columnModel` (placements + cell index) on each patch, which
-  could be made incremental if it grows.
+- **Command round trip** (dispatch → main → patch applied in the renderer and
+  the response back, with the Column mounted on 2,000 entities), median of 30
+  after 5 warm-up runs:
+  - an edit the Column doesn't draw (identity): **~6.7 ms** (max ~9 ms);
+  - an edit it redraws (a rename on a chip): **~10.4 ms** (max ~14 ms).
+
+  Three things keep it there: the Column skips rebuilding its model when a
+  patch touches nothing it draws (`sameColumnInputs`), reuses placements when
+  no placing input changed (`samePlacementInputs`: renames and state changes),
+  and caches cell layouts by content. A change to relations or band edges
+  re-resolves every placement (~4.5 ms in node on the stress world); W2's
+  resolver, once swapped in, could be made incremental if that grows.
 
 ## 6. Tests
 
-- **Unit / property (Vitest): 61** — `column.test.ts` 41 (10 property tests:
+- **Unit / property (Vitest): 63** — `column.test.ts` 43 (10 property tests:
   scale symmetry/monotonicity/inverse, snapping, rows covering the axis, chips
   never overlapping and accounting for every entity, margin stacking, the
-  cursor visiting every stop, edge clamping, nudges, drawn bands), `bench.test.ts`
+  cursor visiting every stop, edge clamping, nudges, drawn bands; plus the model-reuse checks), `bench.test.ts`
   20 (value parsing and format ⇄ parse round-trips, every offered relation is
   accepted by the commands, critique notes, request slots, and the AI controller
   on `FakeAiGateway`: tab / tab / tab, three, fill accept / reject / all,
