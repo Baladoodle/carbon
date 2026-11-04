@@ -1,258 +1,236 @@
 # Carbon: the experience
 
-How carbon looks, moves and feels. The mockups are in [`design/mockups.html`](../design/mockups.html).
+How carbon looks and behaves. [`design/mockups.html`](../design/mockups.html)
+shows the v1 visual direction (layout, Column, spread, Bench, curves, Taste). It
+predates the from-scratch world bible, so its references to reading Infinite no
+longer apply.
 
 ---
 
 ## 1. The window
 
 ```
-┌──┬──────────────────────────────────────────────────────────┬──────────────┐
-│1 │                                                          │              │
-│2 │                     main view                            │   Bench      │
-│3 │      (Column · Spread · Curves · Taste · Handoff)        │  (the card   │
-│4 │                                                          │   in focus)  │
-│5 │                                                          │              │
-├──┴──────────────────────────────────────────────────────────┴──────────────┤
-│ status: Infinite @ 52e6547 · 41 cards · 3 pressure · spend $4.10 / $100    │
-└────────────────────────────────────────────────────────────────────────────┘
+┌──┬────────────────────────────────────────────────┬──────────────┐
+│ 1│                                                │              │
+│ 2│                 main view                      │    Bench     │
+│ 3│                                                │  (entity in  │
+│ 4│                                                │    focus)    │
+│ 5│                                                │              │
+│ 6│                                                │              │
+├──┴────────────────────────────────────────────────┴──────────────┤
+│ world: ~/infinite-bible · 212 entities · 4 notes · AI $0.84 · ⟳ saved │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
-- **Rail (left):** five views, keys `1` to `5`.
-- **Main view:** one at a time.
-- **Bench (right):** the card in focus. It's always available and toggles with `b`.
-- **Status line:** which Infinite revision carbon is reading, the card count, open
-  pressure notes and API spend.
-- No title bar and no decorations: Hyprland tiles it. Colours come from the
-  active Omarchy theme.
+- **Rail:** the main views, keys `1` to `7`.
+- **Bench:** the entity in focus. Toggle it with `b`.
+- **Status line:** the world directory, the entity count, open notes, AI spend
+  this session, save state.
+- **Command palette** (`ctrl+k`): every action and every entity, searchable.
+- No frame; Hyprland tiles the window. Colours follow the Omarchy theme.
 
-## 2. The Column (home, `1`)
+## 2. Views
 
-Infinite's Y axis as a vertical strip. This is the view that only makes sense
-for Infinite.
+### Column (`1`)
 
-**The axis**
+Infinite's Y axis as a vertical strip: a symmetric log scale around 0, endless
+in both directions. **Bands** are horizontal strips you create and resize by
+dragging their edges. Heights with no band are hatched as *unwritten*.
 
-- It uses a **symmetric log scale** around Y 0. The authored bands (±1000) get
-  most of the height. Underworld and islands (±4 km) and the far reaches (±20 km
-  and beyond) fit above and below them, compressed.
-- **Bands** are horizontal strips, read from `assets/strata_layers.ron`: The Crush,
-  The Hollows, The Shallows, Surface, Low Sky, Cloud Floor, Island Belt, The Thin.
-  Unauthored heights are drawn as hatched **unwritten** zones that run off the
-  top and bottom of the view.
-- The **danger envelope** is drawn faintly behind everything: the ± band that
-  `danger()` spans at each height (±0.22 at the surface, ±0.62 at 20 km). It's a
-  reminder that height multiplies a place's character rather than acting as a ladder.
-
-**Lanes** (columns across the strip):
+**Lanes** across the strip:
 
 | Lane | Holds |
 |---|---|
-| Capabilities | what the player can now *do* |
-| Armor | head, chest, legs |
-| Accessories | the slotted pieces |
-| Tools and weapons | including tiers |
-| Feats | deeds that unlock slots and other reveals |
-| Threats | read-only: mobs from `mobs.ron`, with their `menace` |
+| Biomes | biomes in each band |
+| Materials | materials, placed where they're found |
+| Creatures | creatures, placed where they live |
+| Structures | structures |
+| Capabilities | capabilities: what the player can now *do* |
+| Items | items, grouped by subkind: armor, accessories, tools, weapons, consumables |
+| Feats | feats |
 
-**Cards on the Column** are small glyphs showing their state (§6). Hovering shows
-a summary and `enter` opens the card in the Bench. Cards already in the game get
-a solid edge, decided cards a bright fill, and ideas an outline.
+- You choose which lanes to show and their order, and save the arrangement as a
+  layout.
+- An entity's height comes from its relations: a material is wherever the
+  biomes it's found in are, and an item is where its route says you get it.
+  Entities with no explicit place show where they're inferred to be, marked
+  *inferred*.
+- **Notes** (mechanical checks and AI critique) sit in the right margin at their
+  height.
+- **Navigation:** `j`/`k` move up and down, `h`/`l` between lanes, `+`/`−` zoom,
+  `0` jumps to Y 0. `n` creates an entity in the selected cell. `space` starts a
+  spread there.
 
-**Pressure notes** sit in the right margin at the height they're about: "No
-capability between Y 240 and Y 780", "The sky has 2 accessories, the depths
-have 9", "3 Hollows accessories are all about light". Clicking one opens a spread
-aimed at that gap.
+### Climate (`2`)
 
-**Navigation:** `j`/`k` scroll the height, `h`/`l` move between lanes, `+`/`−`
-zoom, `0` returns to the surface. Selecting any empty cell and pressing `space`
-opens a spread there.
+One band at a time. Its biomes are regions on a temperature × moisture plane,
+which you drag to move and resize. Overlaps and empty climate show at a glance.
+Each biome region lists its signature materials, creatures and structures.
+`[` and `]` switch band.
 
-## 3. Spreads (`2`)
+### Codex (`3`)
 
-How carbon generates ideas. A spread is **a spot, a move and an optional
-direction**. The answer is 8 to 24 cards laid out on a field.
+Every entity as a table, one tab per kind. Columns are fields and attributes;
+you can sort, filter (`state:decided band:"Low Sky" lane:items`) and edit inline.
+This is where bulk work happens. Selecting rows and pressing `space` starts a
+spread over them (for example, Name or Vary).
 
-### Spot
+### Numbers (`4`)
 
-The place it's aimed at: a cell on the Column (lane × band), an existing card,
-a pair of cards, a pressure note or the whole Column.
+The numbers layer:
 
-### Moves
+- **Variables:** `k = 100`, `base_health = 100`.
+- **Attributes on entity kinds:** for example, armor has `defense: number`.
+- **Formulas:** written in carbon's expression language,
+  `taken(raw, def) = raw * k / (k + def)`.
 
-| Key | Move | What it asks for |
+Each formula has a live preview and **curves**: plot a formula against height,
+tier or an attribute, with entities as dots. Intent curves can be dragged.
+Errors (an unknown name, a cycle, a type mismatch) show inline as you type,
+because they're computed locally.
+
+### Spread (`5`)
+
+Generation you start yourself (§4).
+
+### Taste (`6`)
+
+Your rules, kill reasons and learned patterns (§6).
+
+### Export (`7`)
+
+Specs for Claude Code (§7).
+
+**AI log** (`ctrl+l`, an overlay): every AI call with its trigger, entity,
+tokens, cache hits, cost, latency and result. You can open the request it sent.
+
+## 3. The Bench
+
+One entity, rendered from its kind's schema:
+
+- the kind's fields: name, one-line identity, description, change, trade-off,
+  moment, and so on
+- attributes (numbers) with their live consequences
+- relations (typed, with an entity picker)
+- the state: idea, shaped, decided, exported, or graveyard
+- **Why**, which is required to mark the entity decided
+- notes on this entity
+
+Fields written by the AI carry a small `ai` marker until you edit them.
+Everything is undoable with `ctrl+z` / `ctrl+shift+z`, including accepted
+suggestions and AI-applied changes.
+
+## 4. Spreads
+
+A spread is a **spot**, a **move** and an optional one-line **direction**.
+
+- **Spot:** a Column cell, a Climate region, entities selected in the Codex, a
+  single entity or a note.
+- **Moves:**
+
+| Key | Move | Asks for |
 |---|---|---|
-| `f` | **Fill** | Candidates for an empty spot, built to fit their neighbours |
-| `v` | **Vary** | Siblings of one card: same purpose, different identity |
-| `o` | **Oppose** | The strongest inversion of a card or a rule |
-| `a` | **Alloy** | Combines two cards into something neither is |
-| `p` | **Push** | The same card at 10× strength, weirdness or cost |
-| `g` | **Ground** | Ties a card to a band, biome, material or threat: where it comes from, and why there |
-| `c` | **Cost** | Two or three acquisition routes, with their total effort |
-| `r` | **Break** | Exploits: degenerate combinations, stat stacking, trivialised bands |
-| `n` | **Name** | A naming pass consistent with Infinite's voice ("Bellwether", "The Thin", "Hanging Archive") |
+| `f` | Fill | candidates for an empty spot, built to fit their neighbours |
+| `v` | Vary | siblings of an entity: same role, different identity |
+| `o` | Oppose | the strongest inversion of an entity or a rule |
+| `a` | Alloy | two entities combined into something neither is |
+| `p` | Push | the same thing at 10× strength, weirdness or cost |
+| `g` | Ground | ties an entity to bands, biomes, materials and creatures, with reasons |
+| `c` | Cost | 2 or 3 acquisition routes with their total effort |
+| `r` | Break | exploits, degenerate combinations, trivialised bands |
+| `n` | Name | a naming pass in the world's own voice |
 
-**Direction** is a single line ("more about sound", "no combat", "something you
-would only find by accident"). It's not a chat.
+- **Output:** 8 to 16 candidates **streamed** onto a field with two axes you
+  choose. One of them is a wildcard generated without your taste rules.
+- **Triage:**
+  - `k` keep, as an idea at the spot
+  - `x` kill, followed by a one-key reason
+  - `m` merge marked candidates
+  - `→` follow with another move
+  - `u` undo
+- **Kill reasons** (editable in Taste):
+  1. just a number
+  2. seen it
+  3. off-tone
+  4. wrong place
+  5. fiddly
+  6. redundant
+  7. breaks a rule
+  0. other (type a few words)
 
-### The field
+## 5. When the AI runs
 
-Candidates are placed on a 2D field. You choose the axes, with defaults per move:
+The AI runs only at these moments. Nothing else calls the API.
 
-- power ↔ utility
-- common ↔ exotic
-- simple ↔ fiddly
-- depth-flavoured ↔ sky-flavoured
+| Moment | Trigger | Requests | Result |
+|---|---|---|---|
+| **Suggest one** | `tab` on a focused field | 1 | One grey suggestion in the field. `tab` accepts, `tab` again gives another, `esc` dismisses |
+| **Suggest three** | `shift+tab` on a focused field | 1 | Three alternatives under the field. `1`/`2`/`3` picks one, `esc` dismisses |
+| **Fill entity** | `ctrl+enter` on the Bench | 1 | Proposals for every empty field of the entity, each accepted or rejected on its own |
+| **Critique** | When you **finish editing** an entity (focus leaves it after changes, or `ctrl+s`), when its state changes, or on demand (`?`) | 1 | Notes on the entity: just a number, clashes with a rule, duplicates another entity, contradicts a relation, weak identity |
+| **Spread** | You start one | 1 (streamed) | Candidates on the field |
+| **Patterns** | After every 25 judgements, or on demand in Taste | 1 | New or updated patterns for you to promote or dismiss |
+| **Spec draft** | Export | 1 per spec | A markdown spec for you to edit |
 
-Clusters show which ideas are really the same idea. One slot is always a
-**wildcard**, generated without taste rules and marked as such.
+Rules for all of them:
 
-### Triage
+- **Content-hash cache.** A critique of an unchanged entity, with unchanged
+  context and taste, is never sent twice.
+- **One request at a time per entity.** A new trigger cancels the stale one.
+- **Mechanical checks** (an empty lane run, a dangling relation, a material
+  found nowhere, a formula error, an imbalance between depth and sky) run
+  locally on every change, at no cost. They're not AI.
+- **Visible cost.** Every result shows its cost in the AI log. The status line
+  shows session spend against the budget in settings.
+- **Off switch.** `ctrl+shift+a` turns all AI off for the session.
 
-| Key | Does |
-|---|---|
-| `k` | **Keep**: becomes an *idea* card at the spot |
-| `x` | **Kill**: asks for a reason with one key (below) |
-| `m` | **Merge**: mark two or more and they combine into one card |
-| `→` | **Follow**: a new spread from this card, move chosen next |
-| `space` | Peek at the full card |
-| `u` | Undo |
+## 6. Taste
 
-**Kill reasons** (one key each; editable in Taste):
+- **Rules** you write, each switchable on or off per spread.
+- **Kill reasons:** the vocabulary, and how often each is used.
+- **Patterns:** learned from your keeps and kills, each with its examples, for
+  you to promote to a rule or dismiss.
 
-- `1` just a number
-- `2` seen it (a direct lift from another game)
-- `3` off-tone
-- `4` wrong band
-- `5` fiddly
-- `6` redundant
-- `7` breaks canon
-- `0` other (type a few words)
+Active rules, the top patterns and examples of kill reasons go into every AI
+request.
 
-A spread ends when every card is kept, killed or left. Cards left undecided go
-into a "maybe" tray attached to the spread.
+## 7. Export
 
-## 4. The Bench (`b`, or `enter` on any card)
+Choose decided entities (by kind, band or hand-picked). Carbon drafts
+`exports/YYYY-MM-DD-<name>.md` containing a summary, each entity with its fields,
+attributes, relations and why, the formulas they depend on, and acceptance
+questions for Claude Code to test against. You edit it, and the entities are
+marked *exported*. Carbon never opens a pull request and never calls Claude Code.
 
-One card's sheet. Every field can be edited and anything Claude contributed is
-marked.
-
-| Section | Contents |
-|---|---|
-| **Identity** | Name, a one-line fantasy ("you hear the cave before you see it"), lane, band |
-| **Change** | The *verb*: what the player can now do, or do differently. It has to be more than a number. |
-| **Numbers** | Stats, with live consequences next to each (e.g. defense → damage taken at each band for a reference hit) |
-| **Trade-off** | What it costs to wear or use: a slot, weight, a downside, an opportunity cost |
-| **Route** | Source → process → station → total effort (travel, collection, processing) |
-| **Moment** | The scene where the player gets it, and what they do in the next ten minutes |
-| **Relations** | Supersedes / combines with / conflicts with / required by |
-| **Why** | Your reasons for its current state. Required when you mark it *decided*. |
-| **Sync** | Read-only: whether it's in Infinite, and any drift between the spec and the game |
-
-Every section header has an inline **move** button (Vary this trade-off, Cost
-this route, Name this) that opens a small spread aimed at just that field.
-
-## 5. Curves (`3`)
-
-The numbers lab. The curves:
-
-- **Mitigation:** `taken = raw · k / (k + defense)`, with `k` read from
-  `combat.ron`. The x axis is total defense on a log scale up to six figures.
-  Every armor set and decided card is a dot on the curve.
-- **Power budget by band:** the intended total defense, damage and health at each
-  band. You draw it as a curve, and the cards show as dots above or below it.
-- **Time to kill:** a reference mob at each band against each tier of weapon.
-- **Effort by band:** total effort for each tier's materials.
-
-You can drag control points on the intended curve. Dots that drift too far from
-it turn into pressure notes. Nothing here changes the game: it changes the
-*intent*, which then goes into specs.
-
-## 6. Card lifecycle
+## 8. Lifecycle
 
 ```mermaid
 stateDiagram-v2
-    [*] --> idea: kept from a spread / typed in
-    idea --> shaped: identity + change + trade-off filled
+    [*] --> idea: kept from a spread / created
+    idea --> shaped: required fields filled
     shaped --> decided: you, with a written Why
-    decided --> handed: included in a handoff spec
-    handed --> ingame: Sync finds it in Infinite
-    ingame --> drift: Infinite data ≠ spec
-    drift --> decided: you update the spec or accept the game
+    decided --> exported: included in an export
+    exported --> decided: edited after export (flagged)
     idea --> graveyard: killed (reason)
     shaped --> graveyard: killed (reason)
     graveyard --> idea: resurrect
 ```
 
-The graveyard is searchable and shows on the Column as faint ghosts when you
-choose to display it. Ideas you killed are still information.
+## 9. Keyboard
 
-## 7. Taste (`4`)
-
-Your taste, written down where you can read it.
-
-- **Canon:** rules imported from Infinite's docs, with links back to where they
-  came from. For example:
-  - Mining is never hard-blocked.
-  - Sky and depth have equal progression importance.
-  - New regions don't invalidate everything you own.
-  - Capabilities come first, and a recipe is just one way to get them.
-  - Height multiplies a place's character; it isn't a ladder.
-  - The inventory never shows how many accessory slots there can be.
-- **Rules:** your own, written or promoted from patterns. For example: "No pure
-  +stat accessories" or "Every sky piece has a depth counterpart".
-- **Patterns:** what carbon has noticed from your kills and keeps, each with
-  examples. You can promote a pattern to a rule or dismiss it.
-- **Kill reasons:** the reason vocabulary and how often each is used over time.
-
-Each rule can be switched on or off per spread.
-
-## 8. Handoff (`5`)
-
-Turns decided cards into a spec.
-
-1. Pick decided cards (by system, band or hand-picked).
-2. Carbon writes `handoff/2026-11-04-first-accessories.md`. It contains a summary,
-   then for each card its identity, change, numbers, trade-off, route, relations
-   and why. It ends with acceptance questions Claude Code can test against.
-3. You read it, edit it and mark it *handed*.
-4. In a Claude Code terminal: `implement ../carbon/handoff/2026-11-04-first-accessories.md`.
-5. Later, Sync reads Infinite's RON files, marks the cards *in game*, and flags
-   any drift.
-
-Carbon never opens a pull request, never writes to Infinite and never calls
-Claude Code.
-
-## 9. A session
-
-> You open `carbon` on workspace 4. The status line says Infinite has moved 6
-> commits since yesterday and one card has drifted. You glance at it: the
-> spec said iron leggings defense 8, the game has 8. That's fine; it was a
-> bronze piece. Accept.
->
-> The Column shows the Accessories lane empty above the Surface, and a pressure
-> note: *"The sky has no accessories; the depths have 4."* Press `space` on
-> Low Sky × Accessories, then `f`, with the direction "something about falling".
-> Sixteen cards spread across a power↔utility field. Kill five as `1` (just a
-> number), two as `2` (seen it). Keep three. Two of the kept ones are close, so
-> `m` merges them. The third goes to `→ o`: oppose it. One of the opposites is
-> better than the original. Keep it, open the Bench, write the trade-off
-> yourself, then `c` for routes.
->
-> Twenty minutes in, three sky accessories are *shaped*, one is *decided* with a
-> Why. The Taste view shows a new pattern, "you kill anything that only reduces
-> fall damage", ready to promote to a rule.
-
-## 10. Keyboard
-
-| Key | Everywhere |
+| Key | Action |
 |---|---|
-| `1`–`5` | Column, Spread, Curves, Taste, Handoff |
-| `b` | Toggle Bench |
-| `/` | Search all cards, including the graveyard |
-| `i` | Inbox (cards without a place) |
-| `space` | Spread at the selection |
-| `f v o a p g c r n` | Moves |
-| `k x m →` | Triage |
-| `d` | Mark decided (asks for Why) |
-| `?` | All keys |
+| `1`–`7` | views |
+| `b` | toggle Bench |
+| `ctrl+k` | command palette |
+| `/` | search |
+| `i` | Inbox |
+| `n` | new entity at selection |
+| `space` | spread at selection |
+| `tab` / `shift+tab` | suggest one / three |
+| `ctrl+enter` | fill entity |
+| `?` | critique now |
+| `d` | mark decided (asks for Why) |
+| `ctrl+z` / `ctrl+shift+z` | undo / redo |
+| `ctrl+l` | AI log |
+| `ctrl+shift+a` | AI off for the session |

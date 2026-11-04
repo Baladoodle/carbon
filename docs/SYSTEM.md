@@ -1,8 +1,7 @@
 # Carbon: the system
 
-How carbon is built. What the product does and why is in
-[`PRODUCT.md`](PRODUCT.md); how it looks and behaves is in
-[`EXPERIENCE.md`](EXPERIENCE.md).
+How carbon is built. Product: [`PRODUCT.md`](PRODUCT.md). Behaviour:
+[`EXPERIENCE.md`](EXPERIENCE.md). Build plan: [`BUILD.md`](BUILD.md).
 
 ---
 
@@ -10,230 +9,265 @@ How carbon is built. What the product does and why is in
 
 ```mermaid
 flowchart LR
-    subgraph OS["Omarchy desktop"]
-        subgraph Carbon["carbon (Electron)"]
-            UI["Renderer<br/>React + SVG/canvas<br/>Column · Spread · Bench · Curves · Taste · Handoff"]
-            Main["Main process<br/>store · reader · engine · client"]
-            UI <-->|IPC| Main
-        end
-        Store[("carbon repo<br/>world/ · handoff/")]
-        Inf[("Infinite checkout<br/>assets/*.ron · docs/*.md")]
-        CC["Claude Code<br/>(separate terminal)"]
+    subgraph App["carbon (Electron)"]
+        R["Renderer<br/>React + TS<br/>views · Bench · palette"]
+        M["Main process<br/>store · commands · numbers · checks · AI gateway"]
+        R <-->|typed IPC| M
     end
-    API["Claude API"]
-
-    Main <-->|read/write| Store
-    Main -->|read only, watched| Inf
-    Main <-->|spreads, pressure| API
-    CC -->|reads specs| Store
-    CC -->|implements| Inf
+    W[("World directory<br/>~/infinite-bible (git)")]
+    API["Claude API<br/>Haiku, &lt;100k tokens per request"]
+    X[("exports/*.md")] --> CC["Claude Code → Infinite"]
+    M <-->|atomic read/write, watched| W
+    M <-->|deliberate requests| API
+    M --> X
 ```
 
-There are three data sources with strict directions:
-
-| Source | Carbon can | Never |
-|---|---|---|
-| Carbon's store (`world/`, `handoff/`) | read, write | n/a |
-| Infinite checkout | read and watch | write, run, build |
-| Claude API | send requests built by carbon, receive structured cards | tools, file access, agent loops |
+- **The main process owns all state and all side effects.** The renderer is a
+  view: it sends commands and receives state updates (snapshots, then patches).
+- **Layers in `src/core`** (pure TypeScript, no Electron, no I/O): the domain
+  model, schemas, commands, the numbers engine, mechanical checks, the context
+  packer, the request builders. Everything here is unit-testable and always
+  gives the same output for the same input.
+- **`src/main`:** the store (files, git, watching), the AI gateway (SDK, cache,
+  log), IPC.
+- **`src/renderer`:** the UI.
 
 ## 2. Stack
 
-- **Electron** with **Vite + React + TypeScript**. One window with no frame;
-  Hyprland tiles it.
-- **Rendering:** SVG for the Column, the spread field and curves (crisp at any
-  zoom, easy hit-testing). Canvas only if the Column grows past a few thousand
-  glyphs.
-- **State:** a single in-memory store in the main process, mirrored to the
-  renderer over IPC. Disk is the source of truth.
-- **Launch:** `carbon` is a shell wrapper on `$PATH` that starts the app, or
-  focuses its window if it's already open (`hyprctl dispatch focuswindow`).
-- **Theme:** reads the active Omarchy theme
-  (`~/.config/omarchy/current/theme/`) and maps it to CSS variables, falling back
-  to a built-in dark palette. Reloads when the theme changes.
-- **Config:** `carbon.toml` holds the path to the Infinite checkout, the model
-  choices and the spend budget. The API key comes from the environment
-  (`ANTHROPIC_API_KEY`) or the system keyring and is never stored in the repo.
-
-## 3. The store: plain files in this repo
-
-Everything carbon knows is a readable, diffable file. Git is the history.
-Claude Code can read any of it directly.
-
-```
-world/
-  cards/
-    lantern-moth-jar.md      one file per card (frontmatter + prose)
-    copper-set.md            imported "in game" cards for existing content
-  spreads/
-    2026-11-04T2114-low-sky-accessories-fill.json   every spread: request, candidates, triage
-  taste.md                   rules (yours + canon) — edited in the Taste view or by hand
-  patterns.json              patterns carbon noticed, with example card ids
-  curves.json                intended curves (control points per band)
-  decisions.log              append-only: time, card, from → to, why
-handoff/
-  2026-11-04-first-accessories.md
-carbon.toml
-```
-
-### A card
-
-```markdown
----
-id: lantern-moth-jar
-name: Lantern Moth Jar
-lane: accessory
-band: The Hollows
-state: shaped            # idea | shaped | decided | handed | ingame | drift | graveyard
-change: "Light follows you at walking pace and lingers where you've been for 30 s."
-numbers: { light: 9, linger_s: 30 }
-tradeoff: "Hollow creatures with positive menace track the lingering trail."
-route:
-  - { step: collect, what: "lantern moth", where: "Fungal forest, dark period" }
-  - { step: craft, station: "clay kiln", with: ["clay jar", "binding"] }
-relations: { conflicts: [glow-moss-band] }
-origin: { spread: 2026-11-04T2114-hollows-accessories-fill, move: fill, by: claude }
-edited_by_you: [tradeoff, route]
----
-
-**Moment.** You've been lighting your way torch by torch; the first time the jar
-fills, you turn around and see the path you came down still glowing.
-
-**Why.** (required to mark decided)
-```
-
-The example content is a placeholder. It shows the format, not a design decision.
-
-## 4. The Infinite reader
-
-A read-only module that parses Infinite's data into a **digest**. It re-runs
-when the checkout's files change (an fs watch on `assets/` and `docs/`) or `HEAD`
-moves.
-
-| Reads | For |
+| Concern | Choice |
 |---|---|
-| `assets/strata_layers.ron`: band names, `bottom`/`top`, biome lists | The Column's bands |
-| `assets/combat.ron`: `defense_k`, `max_health`, `regen`, `accessory_slots`, … | Curves; Bench consequences |
-| `assets/blocks.ron`: `armor:`, `tool:` (`class`, `speed`, `tier`), `tooling:` | Existing items as *in game* cards; tiers |
-| `assets/recipes.ron`: groups, stations, outputs | Routes; what's craftable |
-| `assets/mobs.ron`: species, habitat bands, `menace` | The Threats lane |
-| `docs/*.md`: headings and **canon** sentences carbon is told about | Canon rules in Taste, linked back to their source lines |
+| Shell | Electron, frameless, with `contextIsolation` and a typed preload bridge |
+| Build | Vite + `electron-vite` (or an equivalent setup), TypeScript `strict` |
+| UI | React; SVG for the Column, Climate, curves and spread field; a virtualised table for the Codex |
+| Validation | zod schemas for every file, every IPC message and every AI output |
+| AI | `@anthropic-ai/sdk`, model `claude-haiku-5-5`, structured outputs (`output_config.format`) |
+| Tests | Vitest (unit and property tests with fast-check), Playwright `_electron` (end to end), recorded AI fixtures |
+| Lint | ESLint + Prettier + `tsc --noEmit` in `npm run check` |
 
-RON is parsed with a small tolerant parser that skips whatever it doesn't
-understand and reports what it skipped. A broken Infinite file shows as a
-warning in the status line, never a crash.
+## 3. The domain model
 
-**Formula mirrors.** Carbon's consequence engine copies Infinite's formulas in
-TypeScript, for example `taken = raw·k/(k+def)` and `TIER_GAP = 4`. Each mirror
-records the Infinite file and symbol it copies (`Combat::mitigate`). The reader
-warns when that file changes, so a stale mirror can't go unnoticed. Mirrors are
-the only way carbon "knows" game code, and they are deliberately few.
+### Entities
 
-## 5. Claude in carbon
+Every entity has **common fields**:
 
-### Where it's used
+- `id` (a stable slug)
+- `kind`
+- `name`
+- `identity` (a one-line fantasy)
+- `description`
+- `state`
+- `why`
+- `tags`
+- `attributes` (named numbers)
+- `relations`
+- `origin` (whether you or the AI wrote it, and from which spread or suggestion)
+- `ai_fields` (which fields still carry the `ai` marker)
+- `created` and `updated`
 
-| Use | Trigger | Model class |
-|---|---|---|
-| **Spread** (all moves) | You, explicitly | Most capable Claude model |
-| **Field placement**: scoring candidates on the chosen axes | Part of a spread | Same call, structured output |
-| **Pressure** (judgement checks) | On open and after big changes, at most once an hour, cancellable | Fast small model |
-| **Pattern noticing** from kills and keeps | After every 25 judgements | Fast small model |
-| **Handoff drafting** | You, explicitly | Most capable model |
+Each kind adds its own fields:
 
-Nothing else. There is no chat endpoint.
+| Kind | Kind-specific fields |
+|---|---|
+| `band` | `y_bottom`, `y_top` (either can be ±∞ for the endless ends), `character`, `danger` (a range), `air` / `light` / `hazard` notes |
+| `biome` | `band`, `climate` (temperature and moisture rectangle, 0..1), `mood`, `ground`, `signature` |
+| `material` | `properties` (named qualities), `rarity`, `processing` |
+| `creature` | `temperament`, `menace` (−1..1), `behaviour`, `drops` |
+| `structure` | `purpose`, `scale`, `rewards` |
+| `capability` | `verb` (what the player can now do), `gates` (what it opens) |
+| `item` | `subkind` (armor, accessory, tool, weapon, consumable), `slot`, `change`, `tradeoff`, `moment`, `route` (steps) |
+| `feat` | `deed`, `reveal`, `unlocks` |
 
-### How a request is built
+Kinds, fields and their requirements per state ("shaped needs identity, change
+and tradeoff") come from **kind schemas in data** (`world/schema.json`), with
+defaults built in. Adding a field never needs new code.
 
-Every request is assembled in the same order. The stable parts come first so
-prompt caching covers them.
+### Relations
+
+Relations are typed and directed. Each type has a source kind, a target kind
+and its own rules:
+
+| Relation | Rule |
+|---|---|
+| `in_band` | entity → band |
+| `in_biome` | entity → biome |
+| `found_in` | material → biome or band |
+| `lives_in` | creature → biome or band |
+| `made_from` | item → material |
+| `drops` | creature → material |
+| `requires` | entity → capability or item |
+| `unlocks` | feat → capability or slot |
+| `counters` | item or capability → creature or hazard |
+| `supersedes` | item → item; acyclic |
+| `conflicts` | symmetric |
+| `pairs_with` | symmetric |
+
+Relation types are data too. The store enforces their rules (kinds, symmetry,
+no cycles where declared) on every command.
+
+### Placement
+
+An entity's place on Y is its explicit band or biome if it has one. Otherwise
+it's **inferred** from its relations, through a deterministic resolver (for
+example, an item's place is the highest-danger place among the earliest steps
+of its route). Inferred placement is marked as such and can be pinned by hand.
+
+## 4. The store
 
 ```
-┌ cached ───────────────────────────────────────────────┐
-│ 1. Carbon's role & output schema                      │
-│ 2. Infinite digest: bands, combat constants, tiers,   │
-│    existing items, mobs, canon (from the reader)      │
-│ 3. Taste: active rules + top patterns + kill reasons  │
-│    with 2–3 examples each                             │
-└───────────────────────────────────────────────────────┘
-  4. The spot's neighbourhood: cards in this band and lane,
-     ±1 band, related cards, graveyard ghosts at this spot
-  5. Move instructions (fill / vary / oppose / alloy / …)
-  6. Your direction (one line, optional)
-  7. Diversity contract: N candidates, axes, 1 wildcard ignoring taste,
-     no two candidates sharing a verb
+~/infinite-bible/                ← world directory (its own git repo; path in settings)
+  carbon.json                    format version, settings
+  schema.json                    kinds, fields, relation types (overrides defaults)
+  entities/<kind>/<id>.md        YAML frontmatter (validated) + markdown body
+  numbers/variables.json
+  numbers/formulas.carbon        the expression-language source
+  taste/rules.json  taste/reasons.json  taste/patterns.json
+  spreads/<timestamp>-<spot>.json
+  ai-log/<date>.jsonl            every AI request: metadata, usage, cost (and the full request when debug is on)
+  exports/<date>-<name>.md
 ```
 
-The output is a JSON array of candidate cards, constrained by a tool or JSON
-schema: name, change, numbers, trade-off, route sketch, moment, and an axis
-score for each field axis. Carbon validates the cards and drops malformed ones.
+- **Atomic writes:** write a temporary file, fsync, then rename. A crash never
+  leaves a half-written entity.
+- **Validation on load:** invalid files are quarantined and reported, never
+  silently dropped. **Versioned migrations** upgrade older formats on open,
+  with a backup first.
+- **Git snapshots:** carbon commits the world directory every N minutes of idle
+  time and on quit, with a generated message. History and recovery come for
+  free.
+- **External edits** (by hand or by Claude Code) are picked up by the file
+  watcher. Conflicts with unsaved in-app edits ask you which to keep.
 
-### Cost
+## 5. Commands and undo
 
-- Each spread shows its estimated cost before you run it, and its actual cost
-  after.
-- The status line has a budget meter against `budget_usd` in `carbon.toml`
-  (default 100).
-- Because of caching, follow-up spreads in the same session mostly pay for the
-  neighbourhood, the move and the output.
+Every change to the world is a **command**: `{type, payload}` → a validated
+patch. Commands are applied in the main process, validated against schemas and
+relation rules, persisted, and pushed to the renderer.
 
-## 6. Pressure checks
+- The **undo stack** holds the inverse of each patch. Accepting an AI
+  suggestion is a command like any other, so it undoes the same way.
+- **Transactions** group several commands into one undo step (for example,
+  merging candidates from a spread).
+- Commands are pure functions in `src/core`, tested with property-based tests:
+  applying a command then its inverse returns exactly the starting state, and
+  applying any command leaves the world valid.
 
-Notes in the Column's margin. Two kinds:
+## 6. The numbers engine
 
-**Deterministic** (computed locally, free, instant):
+A small expression language, parsed and evaluated **without `eval`**.
 
-- an empty lane over a run of bands
-- depth/sky imbalance in each lane (canon: equal importance)
-- clustering: several cards in one cell with the same verb
-- curve drift: a card's numbers far from the intended curve at its band
-- Sync drift: a decided card differs from Infinite's data
-- dangling relations: references to killed or missing cards
+```
+k = 100
+base_health = 100
+taken(raw, def) = raw * k / (k + def)
+band_defense(b) = sum(items where subkind == "armor" and band == b, .defense)
+ttk(c, w) = ceil(c.health / taken(w.damage, c.defense))
+```
 
-**Judgement** (fast model, batched, cached):
+| Part | Contents |
+|---|---|
+| Values | Numbers, booleans, strings, entity references, lists |
+| Operators | Arithmetic, comparison, `and`/`or`/`not` |
+| Built-ins | `min`, `max`, `clamp`, `log`, `exp`, `pow`, `sqrt`, `floor`, `ceil`, `round`, `lerp`, `sum`/`count`/`avg` over entity queries |
+| Pipeline | A Pratt parser produces an AST, then name resolution, then a type check, then a dependency graph with cycle detection, then incremental re-evaluation of what changed |
+| Errors | Each has a precise source span (shown inline) and a fix hint where possible |
+| Determinism | No randomness, no clock, no I/O; evaluation is bounded (step limit) |
+| Tests | A golden test suite and property tests (parser round-trip, evaluation idempotence) |
 
-- a card that's "just a number" (it has no verb)
-- two cards that are the same idea under different names
-- a card that breaks an active taste or canon rule
+## 7. Mechanical checks
 
-Every note says why it appeared and links to the cards involved. Notes can be
-dismissed with a reason, and dismissals feed into taste.
+These are pure functions of the world and run on every change, incrementally.
+They're never AI.
 
-## 7. Sync
+- an empty lane over a run of bands, and depth/sky imbalance per lane
+- a material found nowhere, a creature living nowhere, an unreachable item
+  (its route needs things that don't exist)
+- dangling or invalid relations, cycles in `supersedes`
+- a required field missing for the entity's state
+- formula errors, and an attribute far off its intent curve
+- duplicate or near-duplicate names (normalised edit distance)
 
-For decided and handed cards, carbon looks for a matching id in Infinite's
-data, using a naming convention (`infinite:<card-id>`) or an explicit
-`infinite_id` in the card. A match moves the card to *in game*. If the game's
-numbers differ from the card's, it moves to *drift* and shows a two-column
-comparison. Resolving drift means one of two things, both done inside carbon:
-update the spec, or accept the game's values.
+Each check produces notes with a stable id, the entities involved and their
+height. A dismissed note stays dismissed until its inputs change.
 
-## 8. Build plan
+## 8. The AI gateway
 
-The design is meant to be built in slices. Each slice is usable on its own.
+All AI goes through one module. Each request moves through these steps:
 
-| Slice | Contains | Useful because |
-|---|---|---|
-| **0. Skeleton** | Electron shell, `carbon.toml`, Omarchy theme, store read/write, Infinite reader (bands, combat, armor, tools, mobs) | Infinite's progression appears as cards on its own |
-| **1. Column** | Symlog axis, bands, lanes, card glyphs, navigation, Bench (read and edit) | You can see the whole progression and its gaps |
-| **2. Spreads** | Request builder, fill/vary/oppose, field layout, triage keys, kill reasons, spread files | The core loop works |
-| **3. Taste** | Taste view, canon import, rules toggle, pattern noticing | Spreads get better as you use them |
-| **4. Curves** | Mitigation and budget curves, draggable intent, drift notes | Numbers are something you can feel |
-| **5. Handoff + Sync** | Spec writer, handed/in game/drift states | The loop back to Claude Code is closed |
-| **6. The rest** | Remaining moves, pressure (judgement), graveyard ghosts, cost meter polish | Depth |
+1. **Trigger:** one of the moments in `EXPERIENCE.md` §5. There are no other
+   entry points.
+2. **Build:** the request builder for that moment produces:
+   - a **system prompt**: carbon's role and the moment's instructions
+     (static, cached)
+   - a **world digest**: compact summaries of the bands and biomes, plus counts
+     and names per kind (changes slowly, cached)
+   - **taste**: active rules, top patterns, kill-reason examples (changes
+     slowly, cached)
+   - **focus**: the entity being edited, its relation neighbourhood, the
+     entities near it on the Column, and what the move or field asks for
+     (changes per request, sent after the cache breakpoint)
+3. **Pack:** the context packer ranks candidate entities by relevance (direct
+   relations, then the same cell, then the same band, then the same kind, then
+   recency) and fills a token budget (default 60k, hard limit 95k), choosing
+   between full and summary renderings. Tokens are estimated locally; near the
+   limit, carbon calls `count_tokens`. **No request goes over 100k tokens.**
+4. **Cache:** the static and slow-changing parts come first and carry cache
+   breakpoints. The cache key for the result is a hash of the canonical request
+   plus the moment.
+5. **Call:** `claude-haiku-5-5`, structured output with a JSON schema for each
+   moment, streaming for spreads. Retries are typed (429, 5xx and network
+   errors back off; 400s don't retry). Cancellation goes through an
+   `AbortController`.
+6. **Validate:** the output is parsed with zod against the moment's schema.
+   Every entity it references must exist. Invalid items are dropped and
+   counted, and never shown as if they were fine.
+7. **Log:** a JSONL record with the moment, the entity, a hash of the request,
+   usage (input, output, cache read and cache write tokens), cost, latency and
+   the outcome.
 
-**For one evening with parallel cloud sessions:** slice 0 goes first, in a single
-session, because the other slices depend on its interfaces. Then three sessions
-run in parallel: **Column**, **Spreads** (request builder plus field) and
-**Bench + store editing**. Each works from this document and the mockups.
-Slices 3 to 6 come later.
+**Budget:** the spend for the session and the month is computed from usage at
+Haiku's prices (a pricing table in settings). When the budget is reached, the
+AI pauses until you raise it.
+
+**Without a key:** the AI is disabled, the surfaces say so, and everything else
+works.
+
+### Prompt evals
+
+`evals/` holds seeded fixture worlds and, for each moment, a set of cases. The
+deterministic metrics, run against the real API (`npm run eval`, cost reported
+after each run):
+
+| Metric | Target |
+|---|---|
+| Schema validity | 100% |
+| References resolve to existing entities | 100% |
+| No duplicates of existing names | ≥ 95% |
+| Critique catches seeded flaws (a pure-number item, a duplicate, a rule break, a dangling relation) | recall ≥ 0.9 |
+| Critique raises no notes on seeded clean entities | precision ≥ 0.8 |
+| Spread diversity (pairwise name and verb overlap) | below a threshold |
+| Every request under 100k tokens | always, with the cache read rate reported |
+
+Prompt changes go in only if these metrics don't drop.
 
 ## 9. Testing
 
-- **Reader:** fixture copies of Infinite's RON files, plus a test against the
-  real checkout when `INFINITE_PATH` is set.
-- **Formula mirrors:** table tests against the numbers in Infinite's docs (e.g.
-  `ARMOR.md`'s "a 20-point hit lands for 17.9 / 17.2 / 16.1").
-- **Request builder:** snapshot tests of the assembled request for each move.
-- **UI:** Playwright against the Electron app for the triage keys and Column
-  navigation.
+| Layer | How |
+|---|---|
+| `src/core` | Vitest unit tests and fast-check property tests (commands, numbers, checks, packer). Coverage ≥ 90% |
+| Store | Tests on temporary directories: atomic writes, migrations, quarantining invalid files, external edits |
+| AI gateway | Record/replay fixtures, so tests are deterministic and offline. Contract tests check the request shape for every moment |
+| End to end | Playwright `_electron` under Xvfb: keyboard flows for every view, undo across AI accept, and a screenshot of each view |
+| Performance | Column with 2,000 entities at ≥ 50 fps while panning; cold start < 2 s; a command's round trip < 16 ms |
+
+`npm run check` runs the lint, the type check, the unit tests and the end-to-end
+smoke test, and must pass before anything is merged.
+
+## 10. Packaging for Omarchy
+
+- `npm run dist` produces an AppImage, or an unpacked directory for running in
+  place.
+- `scripts/install-omarchy.sh` installs a `carbon` launcher on `$PATH` (which
+  focuses the existing window if carbon is already running), a `.desktop`
+  entry and a suggested Hyprland window rule.
+- The API key comes from `ANTHROPIC_API_KEY` or the system keyring. It's never
+  stored in the world directory.

@@ -1,194 +1,140 @@
 # Carbon: the product
 
-**Carbon is a desktop design studio for Infinite's progression.** It is where you
-and Claude invent, shape and decide the armor, accessories, feats, tools and
-capabilities a player earns, and the curves they sit on. Nothing is implemented
-here. Carbon produces decisions and specs; Claude Code turns them into the game.
+**Carbon is a live design studio for Infinite, with AI built in.** The world
+bible (bands, biomes, materials, creatures, structures), the progression
+(capabilities, items, feats) and the numbers that hold them together (variables,
+formulas, curves) are all designed here, from scratch, in one tool. Claude is
+part of the surface: it suggests, critiques and generates at moments you choose.
+Nothing is handed off to run on its own.
 
 > Carbon is for design. Claude Code is for implementation. Infinite is the game.
-> Carbon reads Infinite and never writes to it.
+> Carbon exports specs. It doesn't read Infinite and never writes to it.
 
 ---
 
 ## 1. The problem
 
-Progression is the part of Infinite that most needs a human. Feel, identity,
-trade-offs and the moment a reward is revealed can't be handed to an agent and
-reviewed afterwards. Right now that design work happens in three places, and none
-of them is built for it:
+The parts of Infinite that most need a human are the world's identity, how the
+player's power grows (progression), and how both feel. Today they live in
+scattered prose docs, numbers in data files and chat sessions whose ideas
+disappear into scrollback. None of those is a design surface:
 
-- **Prose.** `docs/CRAFTING-SYSTEMS.md` is a 680-line proposal. `docs/ARMOR.md` ends
-  with "Accessories: not in the game yet."
-- **Numbers in RON.** `defense_k: 100.0` in `assets/combat.ron`, `tier: 3` scattered
-  through `assets/blocks.ron`.
-- **Chat sessions.** Ideas come up, get discussed and then disappear into scrollback.
+- You can't see the whole world and progression at once, so gaps, clumps and
+  imbalances stay invisible.
+- Numbers are edited in one place and their consequences felt nowhere.
+- AI help means handing work to an agent and reviewing whatever comes back.
+  That leaves you further from the design, not closer.
 
-What exists so far shows how much is still open:
-
-| Fact (read from Infinite, Nov 2026) | What it means for design |
-|---|---|
-| 3 accessory slots, more "through big feats", the count never shown | The whole accessory and feat system is unwritten |
-| Copper, bronze and iron armor: defense 12, 16 and 24 | With `taken = raw·100/(100+def)`, iron saves **1.8 HP** per 20-point hit compared with copper. Is that how the first upgrade should feel? |
-| Tool tiers 1 to 4, each tier short ×4 break time, mining never hard-blocked | Tiers are a pacing tool, not a gate |
-| Authored bands from the Crush (Y −1000) to the Thin (Y +1000); the world itself is endless | Progression must keep going past every band that has been authored |
-| Danger: ±0.22 at the surface, ±0.62 at 20 km, the same up and down | "Height is a multiplier on local character, not a ladder" |
-| Damage is meant to reach six figures late in the game | The curves must hold across five orders of magnitude |
-
-To design at this scale you have to hold dozens to hundreds of pieces, across 8+
-bands, an endless curve and a consistent taste, all in your head. That is the job
-you would otherwise do badly or not at all. Carbon exists to make it easy and
-good.
+Carbon makes a hard job easy and good: holding an endless vertical world, its
+biomes, materials, creatures and an unbounded progression consistent with each
+other and with your taste.
 
 ## 2. What carbon is
 
-Three things in one window:
+- **One model of the world.** Every band, biome, material, creature, structure,
+  capability, item and feat is a typed entity with fields and typed relations
+  ("found in", "made from", "unlocks", "counters", …). Everything has a place on
+  Infinite's Y axis.
+- **Live surfaces to design on.** The Column (everything along Y), the Climate
+  plane (biomes per band), the Codex (every entity as a filterable table), the
+  Bench (one entity in depth) and Numbers (formulas and curves).
+- **AI at deliberate moments.** Suggestions when you ask for them in a field.
+  Critique when you finish editing an entity. Spreads of candidates when you
+  start one. Every call is visible, logged and costed.
+- **Taste that builds up.** Your rules, kill reasons and the patterns carbon
+  learns from your keeps and kills shape every AI request.
+- **Specs out.** Decided entities export as markdown specs that Claude Code
+  implements in Infinite.
 
-1. **A canvas: the Column.** Infinite's Y axis drawn as a vertical strip, from the
-   endless depths through the surface to the endless sky. Every piece of
-   progression sits at the height where it is earned. Gaps, clumps, cliffs and
-   imbalance between the depths and the sky become visible.
-2. **A generator: Spreads.** Point at a place on the Column, pick a *move* (fill,
-   vary, oppose, cross, push, break, …), and Claude lays out a spread of 8 to 24
-   candidates. You judge them by eye and keyboard: keep, kill, merge, push further.
-3. **A memory: Taste and Decisions.** Every kill carries a reason. Reasons turn
-   into rules you can read and edit. Every decision is logged with why it was
-   made. All of it feeds back into the next spread.
+## 3. Who it's for and when
 
-Its output is **decided cards** bundled into **handoff specs**: markdown files
-that you point Claude Code at.
-
-## 3. Who it's for, and when
-
-- **One user:** you. It's tuned for your taste and Infinite's canon, with no
-  settings for anyone else.
-- **Where:** your Omarchy desktop, in its own Hyprland workspace, next to the game
-  and a Claude Code terminal. It opens with one command: `carbon`.
-- **When:** design sessions from 20 minutes to 3 hours. It works in short bursts
-  too: open it, run one spread, triage it, close it.
+- **One user:** you. It's tuned for your taste and for Infinite's shape.
+- **Where:** your Omarchy desktop, in its own Hyprland workspace, opened with
+  `carbon`.
+- **When:** design sessions of any length, from one spread over coffee to an
+  evening of world-building.
 
 ## 4. Principles
 
-Each principle has a *so that*. If a feature doesn't serve one of them, it doesn't
-go in.
-
-1. **You decide; Claude doesn't.** Claude proposes. Only you can mark a card
-   *decided*. There are no autonomous loops and nothing runs in the background
-   to make choices. *So that the progression is yours.*
-2. **Show many options at once and judge them by eye.** Generation always returns
-   a spread of cards, never a paragraph. Scanning 16 cards laid out on axes is far
-   faster than reading 16 ideas in prose. *So that judging keeps up with
-   generating.*
-3. **Every idea has a place.** A card lives at a height on the Column, in a lane.
-   An idea without a place waits in the Inbox until it gets one. *So that the
-   shape of the whole is always visible.*
-4. **Consequences show up instantly.** Changing a number updates every curve and
-   every affected card while you type. *So that numbers are something you feel,
-   not something you calculate.*
-5. **Grounded by default.** Infinite's real data, its canon and your taste go into
-   every request automatically. You never explain the game again. *So that ideas
-   fit Infinite rather than generic games.*
-6. **Taste builds up over time.** Killing a card means giving a reason (one key).
-   Reasons become rules. *So that week 5 spreads are better than week 1 spreads.*
-7. **Separate by construction.** Carbon reads Infinite and never writes to it.
-   It produces specs, never code. *So that it can't turn into a second Claude Code.*
-8. **Keyboard first, native to Omarchy.** Every action has a key. The colours
-   follow your Omarchy theme. *So that it feels like part of your OS, not a
-   website.*
+1. **You decide.** AI proposes; you accept. Every AI change arrives as a
+   proposal, and nothing changes the world without your keypress. There are no
+   background agents and no autonomous loops.
+2. **The AI is deliberate, not noisy.** It runs at defined moments (§5 of
+   `EXPERIENCE.md`), never on every keystroke. Results are cached by content, so
+   unchanged content is never sent twice. The cheap mechanical checks run
+   locally, for free.
+3. **The tool is live.** Edits, numbers, curves and the mechanical checks update
+   immediately. The AI answers in seconds, streaming where possible.
+4. **Rigor over features.** A validated data model, a numbers engine that always
+   gives the same answer for the same input, undo for everything (AI included),
+   atomic saves, tests and measured prompt quality. One feature that works
+   perfectly beats three that almost work.
+5. **Everything has a place.** Every entity sits somewhere on the Y axis, in a
+   band, a biome or both. Ideas without a place wait in the Inbox.
+6. **Grounded by construction.** Every AI request is assembled from the relevant
+   slice of *your* world, your taste and the entity in focus, never from generic
+   game knowledge. Each request stays under 100k tokens.
+7. **Separate from Claude Code.** No chat box, no code, no access to Infinite.
+   Carbon shapes things; Claude Code builds them.
+8. **Keyboard first, native to Omarchy.** Every action has a key, and the colours
+   follow your Omarchy theme.
 
 ## 5. How it's separate from Claude Code
-
-### The test
 
 > **If the answer is text you read once, it belongs to Claude Code.
 > If the answer is an object you keep shaping with your hands, it belongs to carbon.**
 
-### Where each task goes
-
-| Task | Where | Why |
-|---|---|---|
-| "Implement the Lantern Moth Jar accessory" | Claude Code | Code, assets and tests in Infinite |
-| "Why does iron armor feel weak?", meaning *how is mitigation computed?* | Claude Code | One-off question about the code |
-| "Why does iron armor feel weak?", meaning *what should the curve be?* | Carbon (Curves) | A shape you drag and live with |
-| "Give me 20 accessory ideas for the Hollows" | Carbon (Spread) | Many candidates, triaged and placed, with kills that teach taste |
-| "Which blocks have no recipe?" | Claude Code | One-off query |
-| "Is the sky as rewarding as the depths?" | Carbon (Column + Pressure) | Ongoing; visible on every open |
-| "Does decided item X match what's in the game?" | Carbon (Sync) | Read-only check against Infinite's RON files, shown as drift on the card |
-| "Write the accessory system design doc" | Carbon produces the spec, Claude Code commits it into Infinite | Carbon never writes to Infinite |
-
-### What a chat structurally can't do
-
-A chat (Claude Code, or claude.ai) is linear, text-only, one exchange at a time
-and forgotten when it ends. Carbon is:
-
-1. **Spatial and persistent.** Ideas are objects with a place and a state, not
-   paragraphs. The model of the whole progression is always on screen.
-2. **Built for judging many options.** Spreads are laid out on axes you choose and
-   triaged with single keys.
-3. **Instant.** Changing a number updates every curve and every affected card.
-4. **Grounded automatically.** Each request is assembled from exactly the right
-   slice of Infinite's data, canon, the neighbouring cards and your taste. A chat
-   gets whatever you remember to paste in.
-5. **Cumulative.** Taste and the decision log carry across sessions and weeks and
-   shape every generation.
-6. **Aware of the game.** It knows what is already in Infinite, what's only
-   decided, and where the two disagree.
-
-### What carbon deliberately does not have
-
-- **No chat box on the main surface.** Moves accept a one-line *direction* ("more
-  about light", "nothing combat") and that's all. A free-form conversation
-  belongs in Claude Code or claude.ai.
-- No editing Infinite's files, no shell, no code tools, no running the game.
-- No autonomous agents. Each spread is one request with a structured answer.
-
-## 6. Why a native app is the right form
-
-| Form | Why not, or why |
+| Task | Where |
 |---|---|
-| **Electron app** ✅ | Chromium gives a rich canvas (the Column, spreads on axes, draggable curves). Node gives the filesystem: it reads the Infinite checkout, watches it for changes and keeps its own store on disk. It runs as a tiled window in its own workspace and starts with one command. |
-| Web page | No filesystem or file watching without a server; a browser tab gets lost among others and doesn't feel native to the OS. |
-| Terminal UI | Can't show cards laid out on axes, draggable curves or a scaled Y axis. |
-| Claude Code plugin or panel | Would sit next to a chat and drift into being one. Carbon's state has to outlive sessions. |
-| Spreadsheet or Notion | No grounding in Infinite, no generation, no consequences, no taste. |
+| Implement the decided accessory set in Infinite | Claude Code (from carbon's exported spec) |
+| How does the game compute damage today? | Claude Code |
+| What should the damage curve be across the bands? | Carbon (Numbers) |
+| Give me candidates for the Low Sky accessory gap | Carbon (Spread) |
+| Does this material appear in any biome? | Carbon (mechanical check, always visible) |
+| Does this creature feel like it belongs in the Hollows? | Carbon (critique on finishing the edit) |
+
+What a chat can't do and carbon does: keep a persistent, spatial model of the
+whole world; let you judge many options at once; show consequences instantly;
+ground every request in your world automatically; and build up taste across
+weeks.
+
+## 6. Why a native app
+
+Electron gives a rich surface (the Column, the Climate plane, curves, spreads)
+plus the filesystem (a git-backed world directory, file watching, atomic
+writes). It runs as a tiled window in its own workspace and starts with one
+command. A web page lacks the filesystem and native presence. A terminal UI
+lacks the visual surfaces. A plugin inside Claude Code would drift into being a
+chat.
 
 ## 7. Scope
 
-**In:** progression content and the numbers that hold it together:
+**In:**
 
-- capabilities (what the player can *do*: light a route, cross a gap, breathe thin air)
-- armor, accessories, tools and weapons, consumables
-- feats and the accessory slots they open
-- tiers and acquisition routes (source → process → total effort)
-- curves: defense, damage, health, time to kill, effort per band
+- **World bible:** bands, biomes, materials, creatures, structures
+- **Progression:** capabilities, items (armor, accessories, tools, weapons,
+  consumables), feats and slot unlocks, acquisition routes
+- **Numbers:** variables, formulas, curves, attributes on entities
 
-**Read-only context** (shown, never designed here): bands, biomes, materials,
-mobs, combat constants, crafting stations, existing items.
-
-**Out:** world generation, biome design, textures, structures, code,
-playtesting, other people.
+**Out:** terrain generation, visuals and textures, code, playtesting, reading
+Infinite, other users.
 
 ## 8. Success
 
-"Done" means: *working with carbon got me further in the same time than I
-would have got otherwise.*
-
-- **First week:** the first accessory set (3 starting slots, the first feat that
-  opens a 4th) is decided. Every accessory has an identity, a trade-off and a
-  band, and a handoff spec has gone to Claude Code.
-- **Signals carbon tracks for you:** cards judged per hour; kill reasons over
-  time (fewer *generic* kills means taste is being learned); how many decided
-  cards survive implementation without being redesigned; how often you open a
-  spread versus the Bench.
-- **The honest failure signal:** you're back to brainstorming in a chat because
-  it's faster. If that happens, carbon has failed at its one job.
+- **Week 1:** the band structure and its first biomes exist with clear
+  identities. The first accessory set and the feat that opens slot 4 are decided
+  and exported, in less time than it would have taken in chat and docs.
+- **Measured inside carbon:** judgements per hour; kill reasons over time;
+  suggestion acceptance rate; critique notes acted on versus dismissed; AI spend.
+- **The failure signal:** you're back to brainstorming in a chat because it's
+  faster.
 
 ## 9. Risks
 
 | Risk | Answer |
 |---|---|
-| Spreads all feel the same (mode collapse) | Spreads are laid out on axes and diversity is enforced; every spread has a *wildcard* slot that ignores taste; the **Oppose** and **Push** moves |
-| Taste overfits and suggestions get narrow | Rules are visible and editable; the wildcard slot; rules can be switched off per spread |
-| It turns into a second chat | No chat box; the test from §5 is applied to every feature |
-| Numbers in carbon drift away from the game's | Formula parameters are read from Infinite; Sync flags drift between decided cards and the game's data |
-| Too big to build in an evening | Build in slices; see `SYSTEM.md` §8. The first evening ships the Column, Spreads and card files. |
-| Spending the API credits | Each spread shows its estimated cost; the stable part of each request is cached; a budget meter shows spending against the $100 |
+| The AI is noisy or expensive | Deliberate triggers only, a content-hash cache, a visible log, a spend meter and a hard per-request cap |
+| AI suggestions are generic | The context packer grounds each request in your world and taste; prompt evals measure grounding |
+| The world grows past what fits in a request | The context packer ranks entities by relevance and packs to a token budget below 100k |
+| Data corruption | Schema-validated files, atomic writes, git snapshots, versioned migrations |
+| Scope creep | §7, plus the principle "rigor over features" |
