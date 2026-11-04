@@ -195,6 +195,11 @@ export const INVOKE = {
   },
   'export:write': { request: ExportWriteRequestSchema, response: ExportWriteResultSchema },
   'export:list': { request: none, response: z.array(ExportRecordSchema) },
+  // Added by W4 (ai): the request a logged AI call sent (prompt text and params), for the AI log.
+  'ai:request': {
+    request: z.object({ id: z.string() }),
+    response: z.object({ text: z.string(), params: z.record(z.string(), z.unknown()) }).nullable(),
+  },
   'window:control': {
     request: z.enum(['minimize', 'maximize', 'close', 'devtools']),
     response: done,

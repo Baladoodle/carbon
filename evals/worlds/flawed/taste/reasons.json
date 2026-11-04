@@ -1,0 +1,42 @@
+[
+  {
+    "key": "1",
+    "label": "just a number",
+    "count": 0
+  },
+  {
+    "key": "2",
+    "label": "seen it",
+    "count": 0
+  },
+  {
+    "key": "3",
+    "label": "off-tone",
+    "count": 0
+  },
+  {
+    "key": "4",
+    "label": "wrong place",
+    "count": 0
+  },
+  {
+    "key": "5",
+    "label": "fiddly",
+    "count": 0
+  },
+  {
+    "key": "6",
+    "label": "redundant",
+    "count": 0
+  },
+  {
+    "key": "7",
+    "label": "breaks a rule",
+    "count": 0
+  },
+  {
+    "key": "0",
+    "label": "other",
+    "count": 0
+  }
+]

@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import type { SaveStatus } from '@shared/ipc';
-import { useAiStatus } from '../ai/client';
+import { AiStatus } from '../ai/AiStatus';
 import { invoke, on } from '../bridge';
 import { useNotes } from '../state/notes';
 import { useWorld, useWorldMeta } from '../state/world';
@@ -27,7 +27,6 @@ export function StatusLine(): ReactNode {
   const meta = useWorldMeta();
   const count = useWorld((w) => Object.keys(w.entities).length);
   const notes = useNotes();
-  const ai = useAiStatus();
   const save = useSaveStatus();
   const quarantined = meta.issues.some((i) => i.message.includes('.carbon/quarantine/'));
   return (
@@ -60,11 +59,7 @@ export function StatusLine(): ReactNode {
         </Tooltip>
       )}
       <span className="spacer" />
-      <span data-testid="status-ai" data-mode={ai.mode} className={ai.enabled ? 't-ai' : 't-3'}>
-        {ai.enabled
-          ? `$${ai.spend.sessionUsd.toFixed(2)}${ai.pending > 0 ? ' …' : ''}`
-          : `AI off${ai.reason ? `: ${ai.reason}` : ''}`}
-      </span>
+      <AiStatus />
       <span
         data-testid="status-save"
         data-state={save.state}

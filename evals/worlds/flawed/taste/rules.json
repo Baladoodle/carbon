@@ -1,0 +1,12 @@
+[
+  {
+    "id": "no-pure-numbers",
+    "text": "Nothing is just a bigger number.",
+    "enabled": true
+  },
+  {
+    "id": "no-free-healing",
+    "text": "Healing always costs something: time, a resource or a risk.",
+    "enabled": true
+  }
+]

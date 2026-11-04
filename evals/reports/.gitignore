@@ -1,0 +1,4 @@
+# Timestamped reports of offline dry runs are noise; latest-dry.md is kept.
+*-dry.md
+*-dry.json
+!latest-dry.md

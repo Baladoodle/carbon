@@ -1,0 +1,106 @@
+/* The AI's own surfaces: the AI log overlay and the status-line pieces.
+   Everything the AI produced is drawn in --ai, and only --ai (VISUAL.md §6.6). */
+
+.ai-log {
+  width: min(1080px, 94vw);
+  max-height: 76vh;
+  display: flex;
+  flex-direction: column;
+  padding: 0 8px 8px;
+  overflow: hidden;
+}
+.ai-log-empty {
+  margin: 0;
+  padding: 16px 8px 8px;
+}
+.ai-log-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 4px 4px 0;
+  min-height: 36px;
+}
+.ai-log-totals {
+  font-size: var(--text-dense);
+  white-space: nowrap;
+}
+.ai-log-body {
+  overflow: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.ai-log .ui-table {
+  font-size: var(--text-dense);
+}
+.ai-log .ui-table tbody tr[data-current] {
+  outline: 1px solid color-mix(in srgb, var(--ai) 35%, transparent);
+  outline-offset: -1px;
+  background: color-mix(in srgb, var(--ai) 7%, transparent);
+}
+.ai-log .ui-table tbody tr[data-current] > td:first-child {
+  box-shadow: inset 2px 0 0 var(--ai);
+}
+.ai-log tbody tr {
+  cursor: default;
+}
+.ai-log-entity {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ai-log-request {
+  flex: 0 0 auto;
+  max-height: 38vh;
+  display: flex;
+  flex-direction: column;
+  margin-top: 8px;
+  border-top: 1px solid var(--line);
+}
+.ai-log-params {
+  padding: 8px 4px 4px;
+  font-size: var(--text-meta);
+}
+.ai-log-prompt {
+  margin: 0;
+  padding: 8px;
+  overflow: auto;
+  font-size: var(--text-meta);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  color: var(--text-2);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+}
+
+/* Status line */
+.ai-status-paused {
+  appearance: none;
+  border: 0;
+  padding: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+.ai-status-paused:focus-visible {
+  outline: none;
+  box-shadow: var(--ring);
+  border-radius: 4px;
+}
+.ai-status-pending {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin-left: 6px;
+  vertical-align: middle;
+  border-radius: 50%;
+  background: var(--ai);
+  box-shadow: 0 0 6px var(--ai);
+}
+.ai-budget-form {
+  display: grid;
+  gap: 12px;
+  min-width: 280px;
+}
