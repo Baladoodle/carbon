@@ -1,10 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { actionStore, allActions, handleKey, keyOf, registerActions } from './actions';
 
-const ev = (
-  key: string,
-  mods: Partial<Record<'ctrlKey' | 'altKey' | 'shiftKey' | 'metaKey', boolean>> = {},
-): KeyboardEvent =>
+type Mods = Partial<Record<'ctrlKey' | 'altKey' | 'shiftKey' | 'metaKey', boolean>>;
+const ev = (key: string, mods: Mods = {}, preventDefault: () => void = vi.fn()): KeyboardEvent =>
   ({
     key,
     ctrlKey: false,
@@ -12,7 +10,7 @@ const ev = (
     shiftKey: false,
     metaKey: false,
     target: null,
-    preventDefault: vi.fn(),
+    preventDefault,
     ...mods,
   }) as unknown as KeyboardEvent;
 
