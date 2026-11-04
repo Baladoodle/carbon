@@ -147,6 +147,10 @@ test.describe('spreads', () => {
   });
 
   test('shows near-duplicates as hairlines and screenshots the field', async () => {
+    // Escape leaves the spot picker without changing the spot.
+    await page().locator('body').press('s');
+    await page().getByRole('combobox', { name: 'Spot' }).press('Escape');
+    await expect(page().getByTestId('spread-spot')).toBeVisible();
     await aim('Low Sky · items');
     await page().locator('body').press('e');
     await page().keyboard.type('things that make the sky feel smaller');

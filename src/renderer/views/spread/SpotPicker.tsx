@@ -45,6 +45,14 @@ export function SpotPicker({
     <div
       className="spread-spot-picker"
       onBlur={(e) => !e.currentTarget.contains(e.relatedTarget) && onClose()}
+      onKeyDownCapture={(e) => {
+        // One escape cancels the picker, list and all (before the list takes it).
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          e.stopPropagation();
+          onClose();
+        }
+      }}
     >
       <Combobox
         autoFocus
