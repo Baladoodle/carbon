@@ -360,6 +360,14 @@ describe('layoutCell', () => {
     );
   });
 
+  it('keeps a name beside the +N chip in a one-line cell, shrinking it', () => {
+    const many = Array.from({ length: 8 }, (_, i) => ce(`e${i}`, `A long entity name ${i}`));
+    const l = layoutCell({ x: 0, y: 0, w: 100, h: 30 }, many, measure);
+    expect(l.glyphs.length).toBe(1);
+    expect(l.glyphs[0]!.text.endsWith('…')).toBe(true);
+    expect(l.more?.count).toBe(7);
+  });
+
   it('aligns to the bottom for endless-sky bands', () => {
     const l = layoutCell({ x: 0, y: 0, w: 200, h: 300 }, [ce('a')], measure, true);
     expect(l.glyphs[0]!.y + CHIP_H).toBeCloseTo(300 - CELL_PAD, 5);

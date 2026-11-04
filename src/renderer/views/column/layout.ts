@@ -206,6 +206,8 @@ const CHIP_PAD_R = 7;
 const CHIP_GLYPH = 14;
 /** The "+N" chip's minimum width. */
 const MORE_MIN_W = 28;
+/** The narrowest a chip may shrink to beside a "+N" chip. */
+const SHRINK_MIN_W = 44;
 
 /** Measures text width in px at the chip font. Injected so layout stays pure. */
 export type Measure = (text: string) => number;
@@ -314,6 +316,16 @@ export function layoutCell(
         if (end + moreW(n) <= innerW || !tail) {
           more = { x: end, y: 0, w: Math.min(innerW, moreW(n)), h: CHIP_H, count: n };
           break;
+        }
+        // Rather than drop the tail chip, shrink it (shorter name) when it can still say something.
+        const room = innerW - tail.x - CHIP_GAP - moreW(n);
+        if (room >= SHRINK_MIN_W && room < tail.w) {
+          const text = fitText(tail.e.name, room - CHIP_PAD_L - CHIP_GLYPH - CHIP_PAD_R, measure);
+          if (text !== '' && text !== '…') {
+            const w = Math.ceil(CHIP_PAD_L + CHIP_GLYPH + measure(text) + CHIP_PAD_R);
+            shown = [...shown.slice(0, -1), { ...tail, w, text }];
+            continue;
+          }
         }
         shown = shown.slice(0, -1);
       }

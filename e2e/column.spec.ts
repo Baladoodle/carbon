@@ -210,6 +210,21 @@ test.describe('the Column', () => {
     await press(page, '+');
   });
 
+  test('i jumps to the Inbox', async () => {
+    const { page } = carbon;
+    await focusOn(carbon, 'glide');
+    await press(page, 'i');
+    await expect(bench(page)).toHaveAttribute('data-entity', 'sky-coral');
+    await press(page, 'l');
+    await press(page, 'l');
+    await press(page, 'l');
+    await press(page, 'l');
+    // Items group by subkind: the accessory, then the weapon.
+    await expect(bench(page)).toHaveAttribute('data-entity', 'cloud-anklet');
+    await press(page, 'j');
+    await expect(bench(page)).toHaveAttribute('data-entity', 'cinder-sting');
+  });
+
   test('space starts a spread at the cell', async () => {
     const { page } = carbon;
     await focusOn(carbon, 'glide');
@@ -227,6 +242,8 @@ test.describe('the Column', () => {
     const g = (await chip(page, 'vent-glass-visor').boundingBox())!;
     const n = (await note.boundingBox())!;
     expect(Math.abs(n.y - g.y)).toBeLessThan(60);
+    await page.mouse.move(5, 5);
+    await expect(page.locator('.ui-toast')).toHaveCount(0, { timeout: 15000 });
     await carbon.screenshot('column-notes');
   });
 });
@@ -452,36 +469,36 @@ test.describe('the Bench', () => {
     await expect(page.locator('[data-rel-in="drops:moss-grazer"]')).toContainText('dropped by');
   });
 
-  test('finishing an edit (leaving the entity) runs a critique', async () => {
+  test('finishing an edit (leaving the entity, or ctrl+s) runs a critique', async () => {
     const { page } = carbon;
+    const critiques = async (): Promise<number> =>
+      (await carbon.invoke('ai:log', {})).filter(
+        (l) => l.moment === 'critique' && l.entity === 'sunken-stair',
+      ).length;
     await focusOn(carbon, 'sunken-stair');
-    const before = (await carbon.invoke('ai:log', {})).filter(
-      (l) => l.moment === 'critique' && l.entity === 'sunken-stair',
-    ).length;
+    const before = await critiques();
     const id = field(page, 'identity').locator('input');
     await id.fill('Stairs.');
     await press(page, 'Enter');
     await focusOn(carbon, 'glide');
-    await expect
-      .poll(
-        async () =>
-          (await carbon.invoke('ai:log', {})).filter(
-            (l) => l.moment === 'critique' && l.entity === 'sunken-stair',
-          ).length,
-      )
-      .toBe(before + 1);
+    await expect.poll(critiques).toBe(before + 1);
     // Leaving without changes doesn't call the AI.
     await focusOn(carbon, 'sunken-stair');
     await focusOn(carbon, 'glide');
     await page.waitForTimeout(200);
-    expect(
-      (await carbon.invoke('ai:log', {})).filter(
-        (l) => l.moment === 'critique' && l.entity === 'sunken-stair',
-      ).length,
-    ).toBe(before + 1);
-    // The weak identity shows on the Bench and in the margin.
+    expect(await critiques()).toBe(before + 1);
+    // ctrl+s finishes the edit without leaving.
     await focusOn(carbon, 'sunken-stair');
+    await id.fill('Down.');
+    await press(page, 'Control+s');
+    await expect.poll(critiques).toBe(before + 2);
+    await expect
+      .poll(() => read(carbon, 'entities/structure/sunken-stair.md'))
+      .toContain('identity: Down.');
+    // The weak identity shows on the Bench and in the margin.
     await expect(page.getByTestId('bench-notes')).toContainText('sharper');
+    await page.mouse.move(5, 5);
+    await expect(page.locator('.ui-toast')).toHaveCount(0, { timeout: 15000 });
     await carbon.screenshot('column-bench');
   });
 });
@@ -551,9 +568,11 @@ test.describe('performance (SYSTEM §9)', () => {
 
   test('a command round-trips in under 16 ms', async () => {
     const { page } = carbon;
+    // Let the pan test's rendering and GC settle; the first 5 runs warm up and aren't counted.
+    await page.waitForTimeout(1000);
     const times = await page.evaluate(async () => {
       const out: number[] = [];
-      for (let i = 0; i < 30; i++) {
+      for (let i = 0; i < 35; i++) {
         const t0 = performance.now();
         const patched = new Promise<void>((resolve) => {
           const off = window.carbon.on('world:patch', () => {
@@ -570,7 +589,7 @@ test.describe('performance (SYSTEM §9)', () => {
           ],
         });
         await patched;
-        out.push(performance.now() - t0);
+        if (i >= 5) out.push(performance.now() - t0);
       }
       return out.sort((a, b) => a - b);
     });

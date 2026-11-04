@@ -143,8 +143,17 @@ export const Ruler = memo(function Ruler({ frame }: { frame: Frame }): ReactNode
 
 /** Band names and spans in the label column. */
 export const BandLabels = memo(function BandLabels({ rows }: { rows: RowBox[] }): ReactNode {
+  const height = rows.length > 0 ? Math.max(...rows.map((r) => r.bottom)) : 0;
   return (
-    <g className="column-labels">
+    <g className="column-labels" clipPath="url(#column-label-clip)">
+      <clipPath id="column-label-clip">
+        <rect
+          x={RULER_W}
+          y={Math.min(0, ...rows.map((r) => r.top))}
+          width={LABEL_W - 4}
+          height={height + 1}
+        />
+      </clipPath>
       {rows.map((r) => {
         if (r.row.kind !== 'band') return null;
         const h = r.bottom - r.top;
