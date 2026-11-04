@@ -23,6 +23,7 @@ import { learnIfDue } from '../taste/learn';
 import { defineView } from '../define';
 import { follow, followWith, keep, kill, merge, toggleMark, undoLast } from './actions';
 import { Detail } from './Detail';
+import { clearHandoff, handedSpot, handoffKey } from './handoff';
 import { SpotPicker } from './SpotPicker';
 import { ChoiceList, Field, type FieldCard } from './Field';
 import {
@@ -51,19 +52,21 @@ const sameWorld = (a: World, b: World): boolean => a === b;
 function SpreadView(): ReactNode {
   const world = useWorld(whole, sameWorld);
   const s = useSession((x) => x);
-  const uiSpot = useUi((u) => u.spot);
-  // The hand-off: a spot set in UI state by another view (see start.ts).
+  const handoff = useUi(handoffKey);
+  // The hand-off: a spot set in UI state by another view (see start.ts, handoff.ts).
   useEffect(() => {
     const w = currentWorld();
-    if (!uiSpot || !w) return;
-    adoptSpot(w, uiSpot);
-    setUi({ spot: null });
-  }, [uiSpot]);
+    const ui = uiStore.get();
+    const spot = handedSpot(ui);
+    if (!spot || !w) return;
+    adoptSpot(w, spot);
+    setUi(clearHandoff(ui));
+  }, [handoff]);
   // No hand-off and nothing on the field: aim at the selection or the Bench entity.
   useEffect(() => {
     const w = currentWorld();
     const cur = sessionStore.get();
-    if (!w || uiStore.get().spot || cur.live || cur.current || cur.setup.spot) return;
+    if (!w || handedSpot(uiStore.get()) || cur.live || cur.current || cur.setup.spot) return;
     const spot = spotFromUi(w, uiStore.get());
     if (spot) adoptSpot(w, spot);
   }, []);
