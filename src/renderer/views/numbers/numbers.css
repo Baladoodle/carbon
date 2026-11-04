@@ -1,0 +1,451 @@
+/* The Numbers view (docs/VISUAL.md §6.5: numbers that look like instruments). Tokens only. */
+.numbers-view {
+  --numbers-line: 20px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  height: 100%;
+  min-height: 0;
+}
+.numbers-main {
+  overflow: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+.numbers-side {
+  overflow: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  background: var(--surface-1);
+  border-left: 1px solid var(--line);
+}
+.numbers-empty {
+  margin: 0;
+  font-size: var(--text-dense);
+}
+
+/* ── The formula editor ─────────────────────────────────────────────────── */
+.numbers-editor {
+  flex: none;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--surface-1);
+  box-shadow: var(--highlight);
+  overflow: hidden;
+  transition: border-color var(--dur-hover) var(--ease);
+}
+.numbers-editor:focus-within {
+  border-color: var(--line-strong);
+}
+.numbers-editor-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(120px, 34%);
+  max-height: 380px;
+  min-height: calc(4 * var(--numbers-line) + 16px);
+  overflow-y: auto;
+}
+.numbers-code {
+  position: relative;
+  overflow-x: auto;
+  overflow-y: hidden;
+  min-height: calc(4 * var(--numbers-line) + 16px);
+}
+.numbers-code-inner {
+  position: relative;
+  height: 100%;
+}
+.numbers-layer,
+.numbers-input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  padding: 8px 12px;
+  border: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-body);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--numbers-line);
+  letter-spacing: 0;
+  white-space: pre;
+  tab-size: 2;
+  overflow: hidden;
+}
+.numbers-layer {
+  color: var(--text);
+  pointer-events: none;
+}
+.numbers-layer-marks {
+  color: transparent;
+}
+.numbers-mark {
+  background: none;
+  color: transparent;
+  text-decoration: underline wavy var(--danger);
+  text-decoration-skip-ink: none;
+  text-underline-offset: 4px;
+}
+.numbers-mark-warn {
+  text-decoration-color: var(--warn);
+}
+.numbers-input {
+  background: transparent;
+  color: transparent;
+  caret-color: var(--text);
+  resize: none;
+  outline: none;
+}
+.numbers-input::placeholder {
+  color: var(--text-3);
+}
+.numbers-input::selection {
+  background: color-mix(in srgb, var(--accent) 28%, transparent);
+  color: transparent;
+}
+.hl-kw,
+.hl-op,
+.hl-str {
+  color: var(--text-2);
+}
+.hl-cmt {
+  color: var(--text-3);
+}
+.hl-def {
+  font-weight: 500;
+}
+.numbers-gutter {
+  margin: 0;
+  padding: 8px 12px 8px 12px;
+  list-style: none;
+  border-left: 1px solid var(--line);
+  font-family: var(--font-mono);
+  font-size: var(--text-dense);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--numbers-line);
+  text-align: right;
+  min-width: 0;
+}
+.numbers-gutter li {
+  height: var(--numbers-line);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.gutter-type,
+.gutter-muted {
+  color: var(--text-3);
+}
+.gutter-error {
+  color: var(--danger);
+  font-family: var(--font-ui);
+}
+.gutter-warn {
+  color: var(--warn);
+  font-family: var(--font-ui);
+}
+.gutter-muted {
+  font-family: var(--font-ui);
+}
+.numbers-problem {
+  display: flex;
+  gap: 12px;
+  padding: 6px 12px;
+  border-top: 1px solid var(--line);
+  font-size: var(--text-dense);
+}
+.numbers-problem:empty {
+  display: none;
+}
+
+/* ── Curves ─────────────────────────────────────────────────────────────── */
+.numbers-curves {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: stretch;
+}
+.numbers-curves > .ui-icon-btn {
+  align-self: flex-start;
+}
+.numbers-curve {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--surface-1);
+  box-shadow: var(--highlight);
+}
+.numbers-curve-head,
+.numbers-curve-dots {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  white-space: nowrap;
+}
+.numbers-curve-dots > .t-3 {
+  font-size: var(--text-dense);
+}
+.numbers-view .numbers-curve-y {
+  flex: 1;
+  min-width: 0;
+}
+.numbers-view .numbers-curve-axis {
+  width: 150px;
+  flex: none;
+}
+.numbers-view .numbers-curve-range {
+  width: 64px;
+  flex: none;
+}
+.numbers-view .numbers-curve-query {
+  flex: 2;
+  min-width: 0;
+}
+.numbers-view .numbers-curve-value {
+  flex: 1;
+  min-width: 0;
+}
+.numbers-curve-missing {
+  font-size: var(--text-dense);
+}
+.numbers-plot {
+  position: relative;
+}
+.numbers-plot svg {
+  display: block;
+  overflow: visible;
+}
+.plot-grid line {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+.plot-grid text {
+  fill: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: var(--text-meta);
+  font-variant-numeric: tabular-nums;
+}
+.plot-grid text.plot-band {
+  font-family: var(--font-ui);
+}
+.plot-line {
+  fill: none;
+  stroke: var(--text);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+.plot-line-point {
+  fill: var(--text);
+}
+.plot-intent {
+  fill: none;
+  stroke: var(--text-2);
+  stroke-width: 1.5;
+  stroke-dasharray: 5 4;
+}
+.plot-handle {
+  fill: var(--bg);
+  stroke: var(--text-2);
+  stroke-width: 1.5;
+  cursor: ns-resize;
+  outline: none;
+  transition:
+    fill var(--dur-hover) var(--ease),
+    stroke var(--dur-hover) var(--ease);
+}
+.plot-handle:hover,
+.plot-handle[data-active] {
+  fill: var(--accent);
+  stroke: var(--accent);
+}
+.plot-dot {
+  stroke-width: 1.5;
+  cursor: pointer;
+}
+.plot-dot[data-state='idea'] {
+  fill: var(--bg);
+  stroke: var(--state-idea);
+}
+.plot-dot[data-state='shaped'] {
+  fill: var(--state-shaped);
+  stroke: var(--state-shaped);
+}
+.plot-dot[data-state='decided'] {
+  fill: var(--state-decided);
+  stroke: var(--state-decided);
+}
+.plot-dot[data-state='exported'] {
+  fill: var(--state-exported);
+  stroke: var(--state-exported);
+}
+.plot-off {
+  fill: none;
+  stroke: var(--warn);
+  stroke-width: 1;
+}
+.numbers-plot-tip {
+  position: absolute;
+  transform: translate(-50%, calc(-100% - 10px));
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 2;
+}
+
+/* ── Variables ──────────────────────────────────────────────────────────── */
+.numbers-vars ul {
+  margin: 0 0 4px;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.numbers-vars li {
+  display: grid;
+  grid-template-columns: minmax(0, 44%) auto minmax(0, 1fr) 24px;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+}
+.numbers-var-name,
+.numbers-var-value,
+.numbers-cell {
+  display: block;
+  width: 100%;
+  min-height: 26px;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: none;
+  color: var(--text);
+  text-align: left;
+  cursor: text;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: background var(--dur-hover) var(--ease);
+}
+.numbers-var-name,
+.numbers-var-value {
+  font-size: var(--text-body);
+}
+.numbers-var-name:hover,
+.numbers-var-value:hover,
+.numbers-cell:hover {
+  background: var(--surface-2);
+}
+.numbers-var-name:focus-visible,
+.numbers-var-value:focus-visible,
+.numbers-cell:focus-visible {
+  box-shadow: var(--ring);
+  outline: none;
+}
+.numbers-var-error {
+  grid-column: 1 / -1;
+}
+.numbers-row-action {
+  opacity: 0;
+  transition: opacity var(--dur-hover) var(--ease);
+}
+li:hover > .numbers-row-action,
+tbody:hover .numbers-row-action,
+.numbers-row-action:focus-visible {
+  opacity: 1;
+}
+
+/* ── Attributes ─────────────────────────────────────────────────────────── */
+.numbers-attrs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.numbers-attrs-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.numbers-view .numbers-attrs-head > .ui-select {
+  flex: 1;
+  width: auto;
+}
+.numbers-attr-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-dense);
+  table-layout: fixed;
+}
+.numbers-attr-table th {
+  padding: 4px 4px;
+  color: var(--text-3);
+  font-size: var(--text-meta);
+  font-weight: 400;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+}
+.numbers-attr-table th.ui-num,
+.numbers-attr-table td.ui-num {
+  text-align: right;
+}
+.numbers-attr-table th:nth-child(1) {
+  width: 30%;
+}
+.numbers-attr-table th:nth-child(2),
+.numbers-attr-table th:nth-child(3),
+.numbers-attr-table th:nth-child(4) {
+  width: 14%;
+}
+.numbers-attr-table th:nth-child(6) {
+  width: 28px;
+}
+.numbers-attr-table td {
+  padding: 2px 2px;
+  overflow: hidden;
+}
+.numbers-attr-table .numbers-when-row td {
+  padding: 0 2px 4px;
+  border-bottom: 1px solid var(--line);
+}
+.numbers-attr-table td.numbers-attr-key {
+  padding-left: 4px;
+}
+.numbers-attr-key {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.numbers-cell.numbers-when {
+  min-height: 18px;
+  padding: 0 4px;
+  color: var(--text-3);
+  font-size: var(--text-meta);
+}
+.numbers-cell.num {
+  text-align: right;
+}
+.numbers-view .numbers-cell-input {
+  min-height: 26px;
+  padding: 2px 6px;
+  font-size: var(--text-dense);
+}
+.numbers-attr-spread {
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: var(--text-meta);
+}
+
+.numbers-when[data-empty] {
+  opacity: 0;
+}
+tbody:hover .numbers-when[data-empty],
+.numbers-when[data-empty]:focus-visible {
+  opacity: 1;
+}

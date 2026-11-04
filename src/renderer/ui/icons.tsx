@@ -83,3 +83,10 @@ export const IconSpark = (): ReactNode => (
     <path d="M8 2v3M8 11v3M2 8h3M11 8h3M4 4l1.8 1.8M10.2 10.2 12 12M4 12l1.8-1.8M10.2 5.8 12 4" />
   </Svg>
 );
+/** A dashed curve with a square control point (Numbers: the intent curve). */
+export const IconIntent = (): ReactNode => (
+  <Svg>
+    <path d="M2 13c3-1 4-6 7-7.5S12.5 4 14 3" strokeDasharray="2 2" />
+    <rect x="7.5" y="4.5" width="3" height="3" />
+  </Svg>
+);

@@ -1,0 +1,258 @@
+=== constants and functions
+k = 100
+taken(raw, def) = raw * k / (k + def)
+--- printed
+k = 100
+taken(raw, def) = raw * k / (k + def)
+
+=== precedence
+a = 1 + 2 * 3 ^ 2 ^ 2 - -4
+b = (1 + 2) * 3
+c = -2 ^ 2
+d = (-2) ^ 2
+--- printed
+a = 1 + 2 * 3 ^ 2 ^ 2 - -4
+b = (1 + 2) * 3
+c = -2 ^ 2
+d = (-2) ^ 2
+
+=== logic
+a = not x == 1 and y or z
+b = not (x and y)
+c = x < 1 or x >= 10
+--- printed
+a = not x == 1 and y or z
+b = not (x and y)
+c = x < 1 or x >= 10
+
+=== queries
+band_defense(b: band) = sum(items where subkind == "armor" and band == b, .defense)
+n = count(items where it.tier > 0)
+m = (items where tier > 0) where tier < 3
+--- printed
+band_defense(b: band) = sum(items where subkind == "armor" and band == b, .defense)
+n = count(items where it.tier > 0)
+m = items where tier > 0 where tier < 3
+
+=== members and calls
+ttk(c, w) = ceil(c.health / taken(w.damage, c.defense))
+x = f(a)(b)
+--- printed
+ttk(c, w) = ceil(c.health / taken(w.damage, c.defense))
+x = ?
+--- diagnostics
+2:9 error parse.call "(": Only a name can be called (hint: Join it with an operator, like *)
+
+=== literals
+a = 1_000
+b = 1.5e3
+c = .5
+d = "say \"hi\"\n"
+e = [1, 2, 3]
+f = []
+g = true
+h = none
+--- printed
+a = 1000
+b = 1500
+c = 0.5
+d = "say \"hi\"\n"
+e = [1, 2, 3]
+f = []
+g = true
+h = none
+
+=== comments and blank lines
+# header
+
+
+k = 1  # the constant
+
+# section
+j = k
+--- printed
+# header
+
+k = 1  # the constant
+
+# section
+j = k
+
+=== continuation inside brackets
+f(a, b) = max(a,
+  b,
+  0)
+g = 1
+--- printed
+f(a, b) = max(a, b, 0)
+g = 1
+
+=== missing equals
+k 100
+j = 2
+--- printed
+j = 2
+--- diagnostics
+1:3 error parse.expected "100": Expected "=" after k, found "100" (hint: Give it a value:  k = …)
+
+=== double equals as definition
+k == 100
+--- printed
+
+--- diagnostics
+1:3 error parse.def_eq "==": Use = to define a name (hint: Write  k = …)
+
+=== assignment in an expression
+k = a = 1
+--- printed
+k = ?
+--- diagnostics
+1:7 error parse.assign "=": Use == to compare (hint: One line defines one name)
+
+=== chained comparison
+k = 1 < x < 3
+--- printed
+k = ?
+--- diagnostics
+1:11 error parse.chain "<": Comparisons don't chain (hint: Write  a < b and b < c)
+
+=== unclosed parenthesis stays on its line
+k = (1 + 2
+j = 3
+--- printed
+k = ?
+j = 3
+--- diagnostics
+1:11 error parse.expected "": Expected ")", found end of line (hint: Close the parenthesis)
+
+=== unmatched closer
+k = 1 + 2)
+--- printed
+k = ?
+--- diagnostics
+1:10 error parse.unbalanced ")": Unmatched ")" (hint: Remove it, or open it earlier)
+
+=== trailing token
+k = 1 2
+--- printed
+k = ?
+--- diagnostics
+1:7 error parse.trailing "2": Unexpected "2" (hint: Join it with an operator, like + or and)
+
+=== empty value
+k =
+--- printed
+k = ?
+--- diagnostics
+1:3 error parse.empty "=": k has no value (hint: Write its value after "=", like  k = 1)
+
+=== keyword as name
+and = 1
+--- printed
+
+--- diagnostics
+1:1 error parse.keyword_name "and": "and" is a keyword, not a name (hint: Choose another name)
+
+=== bad characters
+k = 1 & 2
+j = 3 | 4
+--- printed
+k = ?
+j = ?
+--- diagnostics
+1:7 error lex.char "&": "&" isn't part of the language (hint: Use and)
+2:7 error lex.char "|": "|" isn't part of the language (hint: Use or)
+
+=== unterminated string
+k = "abc
+j = 1
+--- printed
+k = "abc"
+j = 1
+--- diagnostics
+1:5 error lex.unterminated "\"abc": This string never ends (hint: Close it with ")
+
+=== bad escape
+k = "a\qb"
+--- printed
+k = "aqb"
+--- diagnostics
+1:7 error lex.escape "\\q": "\q" is not an escape (hint: Escapes are \" \\ \n and \t)
+
+=== backslash at the end of a string
+k = "a\
+j = 1
+--- printed
+k = "a"
+j = 1
+--- diagnostics
+1:5 error lex.unterminated "\"a\\": This string never ends (hint: Close it with ")
+
+=== number with a name stuck to it
+k = 3x
+--- printed
+k = 3
+--- diagnostics
+1:5 error lex.number_suffix "3x": "3x" is not a number or a name (hint: Write 3 * x to multiply, or start the name with a letter)
+
+=== bad underscore
+k = 1__0
+--- printed
+k = 0
+--- diagnostics
+1:5 error lex.number "1__0": "1__0" is not a number (hint: Use _ only between digits, like 1_000)
+
+=== unary plus
+k = +1
+--- printed
+k = ?
+--- diagnostics
+1:5 error parse.plus "+": There is no unary + (hint: Remove the +)
+
+=== empty parentheses
+k = ()
+--- printed
+k = ?
+--- diagnostics
+1:5 error parse.value "()": Empty parentheses (hint: Put a value inside, or remove them)
+
+=== dangling operator
+k = 1 +
+--- printed
+k = ?
+--- diagnostics
+1:7 error parse.operand "+": "+" needs a value after it
+
+=== where without condition
+k = items where
+--- printed
+k = ?
+--- diagnostics
+1:11 error parse.where "where": "where" needs a condition (hint: Like  items where subkind == "armor")
+
+=== bad parameter
+f(1) = 2
+g(a:) = 1
+--- printed
+f() = ?
+g(a) = ?
+--- diagnostics
+1:3 error parse.param "1": Expected a parameter name, found "1" (hint: Parameters are names, like  f(raw, def))
+2:5 error parse.annotation ")": Expected a type after ":", found ")" (hint: Types are number, bool, string, list, entity or a kind such as band)
+
+=== call on a non-name
+k = 2(3)
+--- printed
+k = ?
+--- diagnostics
+1:6 error parse.call "(": Only a name can be called (hint: Join it with an operator, like *)
+
+=== dot without a name
+k = a.
+j = sum(items, .)
+--- printed
+k = ?
+j = ?
+--- diagnostics
+1:7 error parse.member "": Expected a property name after ".", found end of line (hint: Like  c.health)
+2:17 error parse.member ")": Expected a property name after ".", found ")" (hint: Like  .defense)

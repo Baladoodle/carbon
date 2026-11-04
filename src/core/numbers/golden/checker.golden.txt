@@ -1,0 +1,76 @@
+--- types
+taken: (number, number) → number
+band_defense: (band) → number
+armor: list of item
+names: number
+ident: (any) → any
+twice: number
+words: bool
+ttk: (item, item) → number  (blocked)
+oops: any  (blocked)
+wrong: number  (blocked)
+mixed: number  (blocked)
+cmp: number  (blocked)
+unknown: number  (blocked)
+typo: any  (blocked)
+fv: any  (blocked)
+bv: any  (blocked)
+kv: any  (blocked)
+noprop: list of item  (blocked)
+range: list of band  (blocked)
+climate: list of biome  (blocked)
+acc: any  (blocked)
+itout: any  (blocked)
+ent: list of band  (blocked)
+iff: number  (blocked)
+dup: number
+p: (any, any2) → any2  (blocked)
+ann: (any) → any  (blocked)
+shadow: (any) → number
+loop_a: number  (blocked)
+loop_b: number  (blocked)
+self: number  (blocked)
+uses_loop: number  (blocked)
+uses_err: number  (blocked)
+lists: list of number  (blocked)
+minl: number
+minn: number
+agg: number  (blocked)
+cnt: number  (blocked)
+neg: number  (blocked)
+nott: bool  (blocked)
+chained: bool  (blocked)
+--- diagnostics
+8:20 error prop.unknown "health": No kind has a property health (hint: Define health as an attribute of a kind)
+9:8 error call.arity "taken(1)": taken takes 2 arguments, not 1 (hint: Call it as taken(raw, def))
+10:15 error type.mismatch "\"a\"": Argument raw of taken must be a number, not a string
+11:13 error type.mismatch "\"a\"": Each side of + must be a number, not a string
+12:20 error type.mismatch "bands where tier == 0": Argument b of band_defense must be a band, not list of band
+13:11 error name.unknown "defence": Unknown name defence (hint: Define it on its own line, like  defence = 1, or add a variable defence)
+14:8 error call.unknown "sqr": Unknown function sqr (hint: Did you mean sqrt?)
+15:6 error name.func_value "taken": taken is a function (hint: Call it: taken(raw, def))
+16:6 error name.builtin_value "sum": sum is a function (hint: Call it: sum(list) or sum(list, .value))
+17:6 error call.not_function "k": k is a variable, not a function (hint: Use it without parentheses: k)
+18:22 error name.unknown "weight": An item has no weight, and nothing else is called weight (hint: Define weight as an attribute of item)
+19:21 error prop.unusable "danger": danger is a range (hint: Use danger_min or danger_max)
+20:24 error prop.unusable "climate": climate is a climate rectangle, not a value
+21:7 error name.accessor ".defense": .defense only works inside where or an aggregate (hint: Like  sum(items, .defense))
+22:9 error name.it "it": "it" only means something inside where or an aggregate (hint: Like  items where it.tier > 0)
+23:22 error type.compare "==": Can't compare a band with a string (hint: Compare names or ids, like  band.name == "Low Sky"  or  band.id == "low-sky")
+24:19 error type.branches "\"a\"": The two branches of if must have the same type, not number and string
+25:1 error name.reserved "sum": sum is a built-in function (hint: Choose another name)
+26:1 error name.reserved "k": k is also a variable (hint: Rename it, or remove the variable k)
+28:1 error name.duplicate "dup": dup is defined twice (hint: Rename one of them, or remove one)
+29:6 error name.param_duplicate "a": a is a parameter twice (hint: Rename one of them)
+30:8 error type.annotation "thing": "thing" is not a type (hint: Types are number, bool, string, list, entity, band, biome, material, creature, structure, capability, item, feat)
+31:37 warning name.shadowed "subkind": subkind here is the element's subkind, not the parameter subkind (hint: Rename the parameter, or write it.subkind to make it explicit)
+31:48 warning name.shadowed "subkind": subkind here is the element's subkind, not the parameter subkind (hint: Rename the parameter, or write it.subkind to make it explicit)
+32:10 error cycle "loop_b": loop_a depends on itself: loop_a → loop_b → loop_a (hint: A formula cannot use its own result; break the loop with a variable)
+33:10 error cycle "loop_a": loop_b depends on itself: loop_b → loop_a → loop_b (hint: A formula cannot use its own result; break the loop with a variable)
+34:8 error cycle "self": self depends on itself (hint: A formula cannot use its own result; break the loop with a variable)
+37:13 error type.mismatch "\"a\"": Every element of a list must be a number, not a string (hint: A list holds one type)
+40:11 error type.mismatch "items": Each element of sum's list must be a number, not an item (hint: Say what to sum: sum(…, .value))
+41:20 error type.mismatch ".defense": The second argument of count must be a bool, not a number (hint: Give a condition, like  .tier > 0)
+42:8 error type.mismatch "\"a\"": What - negates must be a number, not a string
+43:12 error type.mismatch "1": What not negates must be a bool, not a number
+44:11 error type.mismatch "(1 < 2)": Each side of < must be a number, not a bool

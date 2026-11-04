@@ -5,6 +5,7 @@ export * from './schema';
 export * from './defaults';
 export * from './entity';
 export * from './notes';
+export * from './curves';
 export * from './world';
 export * from './lifecycle';
 export * from './validate';

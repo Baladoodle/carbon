@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { Patch } from '../commands/patch';
 import { ENTITY_KINDS, type EntityKind } from '../model/kinds';
+import { CurveSchema } from '../model/curves';
 import { SchemaFileSchema } from '../model/schema';
 import { entityProblems } from '../model/validate';
 import {
@@ -27,6 +28,7 @@ export const PATHS = {
   schema: 'schema.json',
   variables: 'numbers/variables.json',
   formulas: 'numbers/formulas.carbon',
+  curves: 'numbers/curves.json',
   rules: 'taste/rules.json',
   reasons: 'taste/reasons.json',
   patterns: 'taste/patterns.json',
@@ -109,6 +111,8 @@ export function worldFromFiles(files: FileMap): { world: World; issues: LoadIssu
       issues,
     ) ?? {};
   world.numbers.formulas = files.get(PATHS.formulas) ?? '';
+  const curves = parseJson(files, PATHS.curves, z.array(CurveSchema), issues);
+  if (curves) world.numbers.curves = curves;
   world.taste.rules =
     parseJson(files, PATHS.rules, z.array(TasteRuleSchema), issues) ?? world.taste.rules;
   world.taste.reasons =
@@ -182,6 +186,9 @@ export function worldToFiles(world: World): FileMap {
     [PATHS.schema, json(world.schema)],
     [PATHS.variables, json(world.numbers.variables)],
     [PATHS.formulas, world.numbers.formulas],
+    ...(world.numbers.curves
+      ? [[PATHS.curves, json(world.numbers.curves)] as [string, string]]
+      : []),
     [PATHS.rules, json(world.taste.rules)],
     [PATHS.reasons, json(world.taste.reasons)],
     [PATHS.patterns, json(world.taste.patterns)],
@@ -214,6 +221,10 @@ export function filesForPatch(before: World, after: World, patch: Patch): FileCh
           write.set(PATHS.variables, json(after.numbers.variables));
         if (key === undefined || key === 'formulas')
           write.set(PATHS.formulas, after.numbers.formulas);
+        if (key === undefined || key === 'curves') {
+          if (after.numbers.curves) write.set(PATHS.curves, json(after.numbers.curves));
+          else if (before.numbers.curves) remove.add(PATHS.curves);
+        }
         break;
       case 'taste':
         if (key === undefined || key === 'rules') write.set(PATHS.rules, json(after.taste.rules));

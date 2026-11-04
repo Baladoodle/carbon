@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { CurveSchema } from './curves';
 import { DEFAULT_SCHEMA } from './defaults';
 import { EntitySchema, type Entity } from './entity';
 import type { EntityId } from './ids';
@@ -29,10 +30,12 @@ export const SettingsSchema = z.looseObject({
 });
 export type Settings = z.infer<typeof SettingsSchema>;
 
-/** `numbers/variables.json` and `numbers/formulas.carbon` (W3 owns their meaning). */
+/** `numbers/variables.json`, `numbers/formulas.carbon` and `numbers/curves.json` (W3 owns their meaning). */
 export const NumbersSchema = z.object({
   variables: z.record(z.string(), z.union([z.number(), z.string(), z.boolean()])).default({}),
   formulas: z.string().default(''),
+  /** Added by W3: the Numbers view's curves. Absent until the first curve is made. */
+  curves: z.array(CurveSchema).optional(),
 });
 export type Numbers = z.infer<typeof NumbersSchema>;
 

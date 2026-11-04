@@ -277,6 +277,11 @@ describe('command labels', () => {
       'spread.remove': { id: 's' },
       'placement.pin': { id: 'glide' },
       'placement.unpin': { id: 'glide' },
+      'numbers.putCurve': { curve: { id: 'c', y: 'x', over: { axis: 'tier' } } },
+      'numbers.removeCurve': { id: 'c' },
+      'numbers.setIntent': { id: 'c', points: null },
+      'numbers.removeAttributeDef': { kind: 'item', key: 'w' },
+      'numbers.renameVariable': { from: 'k', to: 'kk' },
     };
     for (const [type, def] of Object.entries(COMMANDS)) {
       const label = def.label(def.payload.parse(payloads[type as CommandType]) as never, w);
