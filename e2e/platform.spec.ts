@@ -31,7 +31,7 @@ test('@smoke the palette ranks entities and actions fuzzily, by keyboard', async
   await carbon.screenshot('platform-palette');
   await page().keyboard.press('Enter');
   await expect(palette).toHaveCount(0);
-  await expect(page().getByTestId('bench')).toContainText('Glide');
+  await expect(page().getByTestId('bench-entity').getByLabel('Name')).toHaveValue('Glide');
 
   // Arrows move, tab jumps between groups, escape closes.
   await page().locator('body').press('Control+k');

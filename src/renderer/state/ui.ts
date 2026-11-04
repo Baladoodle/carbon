@@ -19,8 +19,8 @@ export interface UiState {
   /**
    * A spot handed to the Spread view (W5): a Column cell, a Climate region, a
    * Codex selection, an entity or a note. Set it together with the view —
-   * `setUi({ view: 'spread', spot })`, or `startSpread(spot)` from
-   * views/spread/start.ts — and the Spread view takes it and clears it.
+   * `startSpreadAt(spot)` below (or `startSpread(spot, move)` from
+   * views/spread/start.ts) — and the Spread view takes it and clears it.
    */
   spot: Spot | null;
 }

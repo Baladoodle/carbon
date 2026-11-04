@@ -35,6 +35,8 @@ const ROOT = fileURLToPath(new URL('..', import.meta.url));
 export interface LaunchOptions {
   /** A folder in fixtures/worlds (default `sample`), or null for a brand-new world. */
   world?: string | null;
+  /** A world directory anywhere on disk to copy instead of a fixture (e.g. a generated one). Added by W1. */
+  worldDir?: string;
   /** Extra environment (e.g. `{ CARBON_AI: 'off' }` or `{ CARBON_AI_DELAY_MS: '50' }`). */
   env?: Record<string, string>;
 }
@@ -43,7 +45,8 @@ export async function launchCarbon(opts: LaunchOptions = {}): Promise<CarbonApp>
   const tmp = mkdtempSync(path.join(os.tmpdir(), 'carbon-e2e-'));
   const worldDir = path.join(tmp, 'world');
   const world = opts.world === undefined ? 'sample' : opts.world;
-  if (world) cpSync(path.join(ROOT, 'fixtures/worlds', world), worldDir, { recursive: true });
+  if (opts.worldDir) cpSync(opts.worldDir, worldDir, { recursive: true });
+  else if (world) cpSync(path.join(ROOT, 'fixtures/worlds', world), worldDir, { recursive: true });
   const userData = path.join(tmp, 'user-data');
   mkdirSync(userData, { recursive: true });
 
