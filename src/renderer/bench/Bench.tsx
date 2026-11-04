@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type FocusEvent, type ReactNode } from 're
 import { cmd } from '@core/commands/registry';
 import type { Entity } from '@core/model/entity';
 import { schemaOf, type World } from '@core/model/world';
-import { useActions, type Action } from '../actions';
+import { useActions, type Action, RANK } from '../actions';
 import { dismissNote, useNotes } from '../state/notes';
 import { useStore } from '../state/store';
 import { flash, focusEntity, uiStore, useUi } from '../state/ui';
@@ -251,7 +251,8 @@ function EntityBench({ world, entity }: { world: World; entity: Entity }): React
       run: () => void remove(entity),
     },
   ];
-  useActions(actions);
+  // Below the views (their keys win while you're in them), above every layer while focus is in the Bench.
+  useActions(actions, true, { rank: RANK.panel, within: root });
 
   const where = placementOf(world, entity.id);
   const place = where.places[0];

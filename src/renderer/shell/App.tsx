@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { installKeymap, useActions, type Action } from '../actions';
+import { installKeymap, useActions, type Action, RANK } from '../actions';
 import { AiLog } from '../ai/AiLog';
 import { ai, startAiSync } from '../ai/client';
 import { Bench } from '../bench/Bench';
@@ -89,7 +89,8 @@ function useShellActions(): void {
       run: () => setUi({ overlay: null }),
     },
   ];
-  useActions(actions);
+  // The floor: a view or the Bench binding the same key wins over the shell.
+  useActions(actions, true, { rank: RANK.shell });
 }
 
 export function App(): ReactNode {
@@ -116,6 +117,7 @@ export function App(): ReactNode {
       },
     ],
     devTools,
+    { rank: RANK.shell },
   );
   const viewId = useUi((s) => s.view);
   const benchOpen = useUi((s) => s.benchOpen);
