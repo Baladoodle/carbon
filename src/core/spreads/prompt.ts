@@ -184,24 +184,26 @@ export function spreadFocus(
   world: World,
   req: MomentRequest<'spread'>,
   parent?: Candidate,
+  /** `false` when a context packer renders the focus entities and neighbours itself. */
+  withEntities = true,
 ): string {
   const r = SpreadRequestSchema.parse(req);
   const kind = spotKind(world, r.spot);
   const lines = ['<focus>', `Spot: ${renderSpot(world, r.spot)}`];
   const band = spotBand(world, r.spot);
-  const bandE = band ? getEntity(world, band) : undefined;
+  const bandE = band && withEntities ? getEntity(world, band) : undefined;
   if (bandE) lines.push('The band:', renderEntity(world, bandE));
   if (r.spot.type === 'region') {
     lines.push('Biomes already on this band’s climate plane:');
     for (const b of entitiesOfKind(world, 'biome').filter((x) => x.fields.band === band))
       lines.push(`- ${b.name} [${b.id}] climate ${fmt(b.fields.climate)}`);
   }
-  const focus = spotEntities(world, r.spot).slice(0, LIMITS.focusEntities);
+  const focus = withEntities ? spotEntities(world, r.spot).slice(0, LIMITS.focusEntities) : [];
   if (focus.length > 0) {
     lines.push('In focus:');
     for (const id of focus) lines.push(renderEntity(world, getEntity(world, id) as Entity));
   }
-  const near = neighbours(world, r.spot, kind);
+  const near = withEntities ? neighbours(world, r.spot, kind) : [];
   if (near.length > 0) {
     lines.push('Nearby (do not repeat these):');
     for (const e of near) lines.push(summary(e));

@@ -6,3 +6,4 @@ export * from './record';
 export * from './triage';
 export * from './prompt';
 export { spreadCommands } from './commands';
+export * from './builders';
