@@ -21,6 +21,13 @@ export interface DiskState {
   known: Map<string, string>;
   base: Map<string, string | null>;
   lastWrite: Map<string, number>;
+  /**
+   * How many writes carbon has recorded. A watcher scan compares it before
+   * and after reading: a write recorded in between may not have landed when
+   * the file was read, so the scan reads again instead of mistaking carbon's
+   * own older content for an external edit.
+   */
+  writes: number;
   settleMs: number;
   readOnly: string | null;
   now: () => number;
@@ -37,6 +44,7 @@ export function diskState(dir: string): DiskState {
       known: new Map(),
       base: new Map(),
       lastWrite: new Map(),
+      writes: 0,
       settleMs: DEFAULT_SETTLE_MS,
       readOnly: null,
       now: () => Date.now(),
@@ -66,6 +74,7 @@ export function noteWrite(s: DiskState, rel: string, content: string | null): vo
   if (content === null) s.known.delete(rel);
   else s.known.set(rel, content);
   s.lastWrite.set(rel, t);
+  s.writes++;
 }
 
 /** Records content that carbon accepted from outside (no window: it is settled). */

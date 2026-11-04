@@ -66,6 +66,39 @@ describe('WorldWatcher', () => {
     expect(events.length).toBe(before);
   });
 
+  it('a command saved while a scan reads is carbon’s own write, not an external edit', async () => {
+    const { s, conflicts, events } = await open();
+    // An earlier edit opens the settle window (its base is the original file).
+    s.dispatch([cmd('entity.update', { id: 'glide', set: { identity: 'First.' } })]);
+    await s.flush();
+    // A session whose second flush (the scan's re-read) lets a new command in
+    // and doesn't wait for its save: the save records its write, then lands
+    // while the scan is reading.
+    let calls = 0;
+    const racing = {
+      get world() {
+        return s.world;
+      },
+      flush: (): Promise<void> => {
+        calls++;
+        if (calls === 2)
+          s.dispatch([cmd('entity.update', { id: 'glide', set: { identity: 'Second.' } })]);
+        return calls === 2 ? Promise.resolve() : s.flush();
+      },
+      applyExternal: (next: Parameters<WorldSession['applyExternal']>[0]) => s.applyExternal(next),
+    };
+    const w = new WorldWatcher(dir, racing, { onConflicts: (c) => conflicts.push(c) });
+    const before = events.length;
+    await w.scan();
+    await s.flush();
+    await w.scan();
+    expect(conflicts).toEqual([]);
+    expect(events.length).toBe(before + 1); // the second command's own patch, nothing external
+    expect(s.world.entities['glide']?.identity).toBe('Second.');
+    expect(await readFile(file(GLIDE), 'utf8')).toContain('identity: Second.');
+    expect(diskState(dir).known.get(GLIDE)).toBe(await readFile(file(GLIDE), 'utf8'));
+  });
+
   it('takes an external edit of a file carbon hasn’t touched, as an external patch', async () => {
     const { s, w, events, conflicts } = await open();
     await editFile(GLIDE, (e) => ({ ...e, identity: 'Edited by hand.' }));

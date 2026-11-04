@@ -111,10 +111,11 @@ test.describe('the Column', () => {
     await expect.poll(() => read(carbon, 'entities/band/groundline.md')).not.toContain('y_top: 96');
     const top = Number(/y_top: (\d+)/.exec(read(carbon, 'entities/band/groundline.md'))?.[1]);
     expect(top).toBeGreaterThan(96);
-    expect(read(carbon, 'entities/band/low-sky.md')).toContain(`y_bottom: ${top}`);
+    // The two files of the transaction are written one after the other (durably), so poll both.
+    await expect.poll(() => read(carbon, 'entities/band/low-sky.md')).toContain(`y_bottom: ${top}`);
     await press(page, 'Control+z');
     await expect.poll(() => read(carbon, 'entities/band/groundline.md')).toContain('y_top: 96');
-    expect(read(carbon, 'entities/band/low-sky.md')).toContain('y_bottom: 96');
+    await expect.poll(() => read(carbon, 'entities/band/low-sky.md')).toContain('y_bottom: 96');
   });
 
   test('alt+k and alt+j nudge the band edges from the keyboard', async () => {
@@ -128,7 +129,7 @@ test.describe('the Column', () => {
     await expect
       .poll(() => read(carbon, 'entities/band/groundline.md'))
       .not.toContain('y_bottom: -64');
-    expect(read(carbon, 'entities/band/hollows.md')).not.toContain('y_top: -64');
+    await expect.poll(() => read(carbon, 'entities/band/hollows.md')).not.toContain('y_top: -64');
     await press(page, 'Control+z');
     await press(page, 'Control+z');
     await expect.poll(() => read(carbon, 'entities/band/groundline.md')).toContain('y_top: 96');
@@ -365,11 +366,17 @@ test.describe('the Bench', () => {
     await page.getByTestId('why-input').fill('One more step is the whole Low Sky.');
     await press(page, 'Control+Enter');
     await expect(bench(page)).toHaveAttribute('data-state', 'decided');
-    expect(read(carbon, 'entities/item/cloud-anklet.md')).toContain(
-      'why: One more step is the whole Low Sky.',
-    );
-    const log = await carbon.invoke('ai:log', {});
-    expect(log.some((l) => l.moment === 'critique' && l.entity === 'cloud-anklet')).toBe(true);
+    await expect
+      .poll(() => read(carbon, 'entities/item/cloud-anklet.md'))
+      .toContain('why: One more step is the whole Low Sky.');
+    // The state change critiques the entity (asynchronously).
+    await expect
+      .poll(async () =>
+        (await carbon.invoke('ai:log', {})).some(
+          (l) => l.moment === 'critique' && l.entity === 'cloud-anklet',
+        ),
+      )
+      .toBe(true);
     await press(page, 'Control+z');
     await expect(bench(page)).toHaveAttribute('data-state', 'idea');
   });
@@ -382,7 +389,9 @@ test.describe('the Bench', () => {
     await expect(page.getByTestId('kill-reasons')).toBeVisible();
     await press(page, '2');
     await expect(bench(page)).toHaveAttribute('data-state', 'graveyard');
-    expect(read(carbon, 'entities/material/vent-glass.md')).toContain('reason: seen it');
+    await expect
+      .poll(() => read(carbon, 'entities/material/vent-glass.md'))
+      .toContain('reason: seen it');
     await press(page, 'Control+z');
     await expect(bench(page)).toHaveAttribute('data-state', 'idea');
   });

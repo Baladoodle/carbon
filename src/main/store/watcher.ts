@@ -165,10 +165,15 @@ export class WorldWatcher {
   private async scanOnce(): Promise<void> {
     const disk = diskState(this.dir);
     await this.session.flush();
+    const writes = disk.writes;
     const files = await readWorldFiles(this.dir);
     // A save that started while we read: read again once it's done.
     const settled = await this.session.flush().then(() => readWorldFiles(this.dir));
-    if (!sameFiles(files, settled)) {
+    // A save recorded since the reads began may not have landed when a file
+    // was read (it records its write first): scan again rather than take
+    // carbon's own older content for an external edit. Nothing below awaits
+    // before the comparison, so no save can slip in after this check.
+    if (!sameFiles(files, settled) || disk.writes !== writes) {
       this.again = true;
       return;
     }
