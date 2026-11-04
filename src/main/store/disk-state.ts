@@ -12,6 +12,12 @@
  * - `readOnly`: why writes are refused (a world from a newer carbon).
  */
 export interface DiskState {
+  /** What the last open did beyond reading (for the store's notices). */
+  lastLoad?: {
+    migrated?: { from: number; to: number; backup: string };
+    quarantined: string[];
+    cleaned: string[];
+  };
   known: Map<string, string>;
   base: Map<string, string | null>;
   lastWrite: Map<string, number>;

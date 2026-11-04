@@ -209,6 +209,7 @@ export async function loadWorldDir(dir: string, opts: LoadOptions = {}): Promise
   } else issues.push(...fileIssues);
 
   noteRead(disk, kept);
+  disk.lastLoad = { ...(migrated ? { migrated } : {}), quarantined, cleaned };
   return {
     world: loaded.world,
     issues,
