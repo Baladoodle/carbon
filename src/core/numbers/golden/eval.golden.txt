@@ -1,0 +1,49 @@
+hit = 19.2308
+armor = [Vent Glass Visor]
+armor_count = 1
+defense_total = 4
+low ! eval.static: low has an error
+placed = 1
+sky = 4
+tiers = [Groundline, High Drift, Low Sky]
+mean_menace = −0.05
+strongest = 12
+danger_top ! eval.empty_field: High Drift has no danger yet
+highest = 640
+rounded = 19.23
+clamped = 10
+lerped = 2.5
+logs = 3
+pw = 1536
+roots = 12
+mod = 1
+cond = "big"
+has = true
+tagged = 0
+props = [Lumen Spore]
+biome_band = [Cloud Reef]
+names ! eval.static: names has an error
+div ! eval.div_zero: Division by zero
+no_tier ! eval.unplaced: Cinder Sting has no place yet, so no tier
+unset ! eval.attribute_when: defense doesn't apply to Cinder Sting: its subkind is weapon, not armor
+empty_avg ! eval.empty: avg of an empty list
+neg_sqrt ! eval.sqrt: sqrt of -1
+bad_log ! eval.log: log of 0
+bad_clamp ! eval.clamp: clamp's low (2) is above its high (0)
+bad_round ! eval.round: round to 1.5 digits
+uses_div ! eval.dependency: div has an error: Division by zero
+none_prop ! eval.none: There is no entity here to read tier from
+--- diagnostics
+7:20 error type.mismatch "bands where name == \"Hollows\"": Argument b of band_defense must be a band, not list of band
+13:30 error eval.empty_field "danger_max": High Drift has no danger yet (hint: Fill in danger on the Bench)
+27:27 error type.mismatch "name": Each side of > must be a number, not a string
+27:34 error type.mismatch "\"\"": Each side of > must be a number, not a string
+28:7 error eval.div_zero "1 / (k - 100)": Division by zero (hint: Guard it, like  if(d == 0, 0, n / d))
+29:23 error eval.unplaced "tier": Cinder Sting has no place yet, so no tier (hint: Leave out unplaced entities, like  where band != none and tier > 0)
+30:69 error eval.attribute_when "defense": defense doesn't apply to Cinder Sting: its subkind is weapon, not armor (hint: Filter first, like  where subkind == "armor")
+31:13 error eval.empty "avg(items where name == \"nobody\", .defense)": avg of an empty list (hint: Guard it, like  if(count(list) == 0, 0, avg(list, .value)))
+32:12 error eval.sqrt "sqrt(0 - 1)": sqrt of -1 (hint: sqrt needs a number of 0 or more; use abs() first)
+33:11 error eval.log "log(0)": log of 0 (hint: log needs a number above 0)
+34:13 error eval.clamp "clamp(1, 2, 0)": clamp's low (2) is above its high (0) (hint: Swap them)
+35:27 error eval.round "1.5": round to 1.5 digits (hint: Use a whole number from 0 to 15)
+37:36 error eval.none "tier": There is no entity here to read tier from (hint: Filter first, like  where band != none)

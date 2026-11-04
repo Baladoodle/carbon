@@ -163,6 +163,11 @@ export function lex(source: string): LexResult {
         if (d === '\n') break;
         if (d === '\\') {
           const n = source.charAt(i + 1);
+          // A backslash at the end of the line or source can't escape anything.
+          if (n === '' || n === '\n') {
+            i++;
+            break;
+          }
           const map: Record<string, string> = { n: '\n', t: '\t', '"': '"', '\\': '\\' };
           const m = map[n];
           if (m === undefined) {

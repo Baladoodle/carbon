@@ -152,7 +152,9 @@ export class NumbersEngine {
     const source = world.numbers.formulas;
     const schema = schemaOf(world);
     const parsed = prev && prev.source === source ? prev.parsed : parseProgram(source);
-    const schemaSame = prev !== undefined && prev.world.schema === world.schema;
+    const schemaSame =
+      prev !== undefined &&
+      (prev.world.schema === world.schema || deepEqual(prev.world.schema, world.schema));
     const checkKey = varSignature(world.numbers.variables);
     let checker: Checker;
     let graph: Graph;

@@ -380,6 +380,7 @@ export interface ParseResult {
 /** Parses a whole `formulas.carbon` source. Never throws. */
 export function parseProgram(source: string): ParseResult {
   const { tokens, diagnostics } = lex(source);
+  const lexErrors = [...diagnostics];
   const items: Item[] = [];
   let line: Token[] = [];
   let comment: Token | undefined;
@@ -406,7 +407,11 @@ export function parseProgram(source: string): ParseResult {
       items.push(def);
     } catch (e) {
       if (!(e instanceof Stop)) throw e;
-      diagnostics.push(e.diagnostic);
+      // One error per line: a lexer error on this line already explains it.
+      const lineStart = first?.span.start ?? 0;
+      const lineEndAt = last?.span.end ?? lineStart;
+      if (!lexErrors.some((d) => d.span.start >= lineStart && d.span.start <= lineEndAt))
+        diagnostics.push(e.diagnostic);
       // Keep the name defined (with an error body), so other lines don't also
       // report it as unknown.
       const name = first;
@@ -448,6 +453,7 @@ export function parseProgram(source: string): ParseResult {
     }
     line.push(t);
   }
+  diagnostics.sort((a, b) => a.span.start - b.span.start || a.span.end - b.span.end);
   return { program: { items }, diagnostics };
 }
 

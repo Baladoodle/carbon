@@ -369,10 +369,24 @@ export class Checker {
       return this.u.fresh();
     }
     let depth = 0;
+    let elementKind: EntityKind | null = null;
     for (let s: Scope | undefined = scope; s; s = s.parent, depth++) {
       if (s.element) {
         const el = this.u.shallow(s.element);
         const maybeEntity = el.t === 'entity' || el.t === 'var';
+        if (el.t === 'entity') {
+          const k = this.u.kind(el.kind);
+          if (k.k === 'kind') {
+            elementKind ??= k.kind;
+            // A field with no value form (a range, a climate) is still the
+            // element's: say so instead of looking further out.
+            const bad = propsOf(this.env.schema, k.kind).unusable.get(n);
+            if (bad && !propsOf(this.env.schema, k.kind).props.has(n)) {
+              this.report('prop.unusable', bad.why, e.span, bad.hint);
+              return this.u.fresh();
+            }
+          }
+        }
         if (maybeEntity && kindsWithProp(this.env.schema, n).length > 0) {
           const elKind = el.t === 'entity' ? this.u.kind(el.kind) : null;
           const hasIt =
@@ -401,7 +415,7 @@ export class Checker {
         return s.bindings.get(n) as Type;
       }
     }
-    return this.global(e, n);
+    return this.global(e, n, elementKind);
   }
 
   private lookupOuter(n: string, scope: Scope): string | null {
@@ -414,7 +428,7 @@ export class Checker {
     return null;
   }
 
-  private global(e: ExprOf<'name'>, n: string): Type {
+  private global(e: ExprOf<'name'>, n: string, elementKind: EntityKind | null = null): Type {
     if (Object.prototype.hasOwnProperty.call(this.env.variables, n)) {
       this.resolutions.set(e, { to: 'var', name: n });
       this.current?.uses.variables.add(n);
@@ -459,6 +473,17 @@ export class Checker {
       ...Object.keys(this.env.variables),
       ...Object.keys(COLLECTIONS),
     ];
+    if (elementKind) {
+      const props = [...propsOf(this.env.schema, elementKind).props.keys()];
+      const near = closest(n, [...props, ...candidates]);
+      this.report(
+        'name.unknown',
+        `${article(elementKind, true)} has no ${n}, and nothing else is called ${n}`,
+        e.span,
+        near ? `Did you mean ${near}?` : `Define ${n} as an attribute of ${elementKind}`,
+      );
+      return this.u.fresh();
+    }
     const near = closest(n, candidates);
     this.report(
       'name.unknown',
@@ -509,6 +534,16 @@ export class Checker {
       return inst.result;
     }
     const info = BUILTINS[n];
+    if (!info && Object.prototype.hasOwnProperty.call(this.env.variables, n)) {
+      for (const a of e.args) this.expr(a, scope);
+      this.report(
+        'call.not_function',
+        `${n} is a variable, not a function`,
+        e.calleeSpan,
+        `Use it without parentheses: ${n}`,
+      );
+      return this.u.fresh();
+    }
     if (!info) {
       for (const a of e.args) this.expr(a, scope);
       const near = closest(n, [
