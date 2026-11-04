@@ -361,7 +361,7 @@ export class ClaudeAiGateway implements AiGateway {
         params: {
           model: params.model,
           max_tokens: params.max_tokens,
-          output_config: { effort: built.effort },
+          effort: built.effort,
           stream: built.stream,
         },
       };

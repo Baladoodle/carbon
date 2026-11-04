@@ -190,23 +190,26 @@ export function replayFetch(
       };
       return body.stream ? replyStream({ ...reply, chunks: 24 }) : replyJson(reply);
     }
-    // Emulated prompt caching over the system blocks up to the last breakpoint.
+    // Emulated prompt caching: the longest prefix ending at a breakpoint that was
+    // seen before is read from the cache; the rest up to the last breakpoint is written.
     const system = (Array.isArray(body.system) ? body.system : []) as Block[];
-    const last = system.map((b) => !!b.cache_control).lastIndexOf(true);
-    const prefix = system
-      .slice(0, last + 1)
-      .map((b) => b.text)
-      .join('');
-    const prefixTokens = Math.ceil(prefix.length / 3);
+    const tokensOf = (blocks: Block[]): number =>
+      Math.ceil(blocks.map((b) => b.text).join('').length / 3);
+    const breakpoints = system.flatMap((b, i) => (b.cache_control ? [i] : []));
+    let read = 0;
+    for (const i of breakpoints) {
+      const key = hashValue(system.slice(0, i + 1).map((b) => b.text));
+      if (seenPrefixes.has(key)) read = tokensOf(system.slice(0, i + 1));
+      seenPrefixes.add(key);
+    }
+    const last = breakpoints.at(-1);
+    const cachedTotal = last === undefined ? 0 : tokensOf(system.slice(0, last + 1));
     const total = Math.ceil(chars / 3);
-    const prefixKey = hashValue(prefix);
-    const cached = last >= 0 && seenPrefixes.has(prefixKey);
-    if (last >= 0) seenPrefixes.add(prefixKey);
     const usage = {
-      input_tokens: Math.max(1, total - (last >= 0 ? prefixTokens : 0)),
+      input_tokens: Math.max(1, total - cachedTotal),
       output_tokens: 0,
-      cache_read_input_tokens: cached ? prefixTokens : 0,
-      cache_creation_input_tokens: !cached && last >= 0 ? prefixTokens : 0,
+      cache_read_input_tokens: read,
+      cache_creation_input_tokens: cachedTotal - read,
     };
     const schema: Schema = (body.output_config as { format?: { schema?: Schema } } | undefined)
       ?.format?.schema ?? { type: 'object', properties: {} };

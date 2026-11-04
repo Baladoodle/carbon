@@ -33,9 +33,13 @@
 .ai-log .ui-table {
   font-size: var(--text-dense);
 }
-.ai-log .ui-table tr[data-current] {
+.ai-log .ui-table tbody tr[data-current] {
+  outline: 1px solid color-mix(in srgb, var(--ai) 35%, transparent);
+  outline-offset: -1px;
+  background: color-mix(in srgb, var(--ai) 7%, transparent);
+}
+.ai-log .ui-table tbody tr[data-current] > td:first-child {
   box-shadow: inset 2px 0 0 var(--ai);
-  background: color-mix(in srgb, var(--ai) 8%, transparent);
 }
 .ai-log tbody tr {
   cursor: default;
