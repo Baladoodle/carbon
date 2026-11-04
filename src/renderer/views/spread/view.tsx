@@ -39,7 +39,11 @@ import {
   useSession,
   type SpreadSession,
 } from './session';
+import { startFindingNotes } from './notes';
 import './spread.css';
+
+// Kept findings are notes in every view, not only while Spread is open.
+startFindingNotes();
 
 const whole = (w: World): World => w;
 const sameWorld = (a: World, b: World): boolean => a === b;
@@ -251,6 +255,10 @@ function SpreadBody({ world, s }: { world: World; s: SpreadSession }): ReactNode
   // Only one empty state carries a message: there's nothing to aim at.
   const empty = !s.setup.spot ? (
     <span className="t-3">Nothing to spread on. s to choose a spot.</span>
+  ) : !status.enabled && !live && !spread ? (
+    <span className="t-3" data-testid="spread-ai-off">
+      {status.reason ?? 'AI is off'}
+    </span>
   ) : null;
 
   return (
@@ -368,27 +376,29 @@ function Bar({
         value={setup.direction}
         onChange={(e) => patchSetup({ direction: e.target.value })}
       />
-      <Select
-        aria-label="x axis"
-        className="spread-axis-select"
-        value={axes.x.label}
-        options={axisOptions}
-        onValueChange={(v) => {
-          const a = axisBy(v);
-          if (a) patchSetup({ axes: { x: a, y: a.label === axes.y.label ? axes.x : axes.y } });
-        }}
-      />
-      <span className="t-3 spread-times">×</span>
-      <Select
-        aria-label="y axis"
-        className="spread-axis-select"
-        value={axes.y.label}
-        options={axisOptions}
-        onValueChange={(v) => {
-          const a = axisBy(v);
-          if (a) patchSetup({ axes: { y: a, x: a.label === axes.x.label ? axes.y : axes.x } });
-        }}
-      />
+      <div className="spread-axes">
+        <Select
+          aria-label="x axis"
+          className="spread-axis-select"
+          value={axes.x.label}
+          options={axisOptions}
+          onValueChange={(v) => {
+            const a = axisBy(v);
+            if (a) patchSetup({ axes: { x: a, y: a.label === axes.y.label ? axes.x : axes.y } });
+          }}
+        />
+        <span className="t-3 spread-times">×</span>
+        <Select
+          aria-label="y axis"
+          className="spread-axis-select"
+          value={axes.y.label}
+          options={axisOptions}
+          onValueChange={(v) => {
+            const a = axisBy(v);
+            if (a) patchSetup({ axes: { y: a, x: a.label === axes.x.label ? axes.y : axes.x } });
+          }}
+        />
+      </div>
       <Select
         aria-label="Candidates"
         className="spread-count"

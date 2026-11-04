@@ -639,3 +639,46 @@ describe('triage', () => {
     expect(checked).toBeGreaterThan(100);
   });
 });
+
+describe('kept findings as notes', () => {
+  it('turns kept Break findings into notes on the entities involved', async () => {
+    const { findingNotes } = await import('./findings');
+    const { world, spread } = spreadIn(
+      sampleWorld(),
+      { type: 'cell', band: 'low-sky', lane: 'items' },
+      'break',
+      [
+        cand('c1', {
+          kind: null,
+          name: 'Glide loop',
+          identity: 'Glide resets on every island.',
+          relations: [
+            { type: 'pairs_with', target: 'glide' },
+            { type: 'pairs_with', target: 'ghost' },
+          ],
+        }),
+        cand('c2', { kind: null, name: 'Not kept' }),
+      ],
+    );
+    expect(findingNotes(world)).toEqual([]);
+    const a = apply(world, must(keepCommands(world, spread, 'c1')).commands);
+    const notes = findingNotes(a.world);
+    expect(notes).toHaveLength(1);
+    expect(notes[0]).toMatchObject({
+      id: 's1:c1'.replace(/^/, 'spread:'),
+      source: 'ai',
+      kind: 'break',
+      severity: 'warn',
+      text: 'Glide loop: Glide resets on every island.',
+      entities: ['glide', 'low-sky'],
+    });
+    expect(findingNotes(a.world)).toEqual(notes);
+    // Kept new entities are not findings.
+    const v = spreadIn(sampleWorld(), { type: 'entity', entity: 'glide' }, 'vary', [
+      cand('c1', { kind: 'capability' }),
+    ]);
+    expect(
+      findingNotes(apply(v.world, must(keepCommands(v.world, v.spread, 'c1')).commands).world),
+    ).toEqual([]);
+  });
+});

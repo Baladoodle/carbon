@@ -85,14 +85,22 @@
   box-shadow: var(--ring);
 }
 .spread-direction {
-  flex: 1 1 200px;
+  flex: 1 1 260px;
   min-width: 160px;
 }
-.spread-axis-select {
-  width: 120px;
+.spread-axes {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
-.spread-count {
-  width: 58px;
+.spread-bar .spread-axis-select {
+  flex: none;
+  width: 124px;
+}
+.spread-bar .spread-count {
+  flex: none;
+  width: 60px;
 }
 .spread-times {
   margin: 0 -4px;
@@ -300,8 +308,10 @@
   position: absolute;
   z-index: 5;
 }
-.spread-prompt:focus {
+.spread-prompt:focus,
+.spread-prompt:focus-visible {
   outline: none;
+  box-shadow: none;
 }
 .spread-choices {
   display: flex;

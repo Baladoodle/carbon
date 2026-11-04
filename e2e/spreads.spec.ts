@@ -65,6 +65,7 @@ test.describe('spreads', () => {
     // x then a reason key kills it, and the reason is counted.
     await page().locator('body').press('x');
     await expect(page().getByTestId('spread-kill-reasons')).toBeVisible();
+    await carbon.screenshot('spreads-kill');
     await page().keyboard.press('3');
     await expect(openCards()).toHaveCount(10);
     w = await world();
@@ -154,6 +155,80 @@ test.describe('spreads', () => {
     await page().locator('body').press('Tab');
     await page().locator('body').press('Tab');
     await carbon.screenshot('spreads-field');
+  });
+});
+
+test.describe('moves, findings and pattern learning', () => {
+  test.beforeAll(async () => {
+    carbon = await launchCarbon();
+  });
+  test.afterAll(async () => {
+    await carbon.close();
+  });
+
+  test('a kept Break finding becomes a note, and undo takes it away', async () => {
+    await carbon.gotoView('spread', '5');
+    await aim('Glide');
+    await expect(page().getByTestId('spread-move-vary')).toHaveAttribute('aria-checked', 'true');
+    await expect(page().getByTestId('spread-move-fill')).toBeDisabled();
+    await page().locator('body').press('r');
+    await expect(page().getByTestId('spread-move-break')).toHaveAttribute('aria-checked', 'true');
+    await spread();
+    const before = Object.keys((await world()).entities).length;
+    await page().locator('body').press('k');
+    await expect(openCards()).toHaveCount(11);
+    await expect(page().getByTestId('status-line')).toContainText('1 note');
+    expect(Object.keys((await world()).entities).length).toBe(before);
+    await page().locator('body').press('u');
+    await expect(page().getByTestId('status-line')).not.toContainText('note');
+  });
+
+  test('Ground changes the entity it is about instead of making a new one', async () => {
+    await aim('Cloud Anklet');
+    await page().locator('body').press('g');
+    await spread();
+    const before = await world();
+    await page().locator('body').press('k');
+    await expect(openCards()).toHaveCount(11);
+    const after = await world();
+    expect(Object.keys(after.entities).length).toBe(Object.keys(before.entities).length);
+    const judged = Object.values(after.spreads)
+      .flatMap((sp) =>
+        Object.values(
+          (sp as unknown as { judgements: Record<string, { entity?: string }> }).judgements,
+        ),
+      )
+      .filter((j) => j.entity === 'cloud-anklet');
+    expect(judged).toHaveLength(1);
+  });
+
+  test('after 25 judgements the patterns moment runs by itself', async () => {
+    await aim('Hollows · items');
+    await page().locator('body').press('Enter');
+    await expect(openCards()).toHaveCount(12);
+    // 1 judged above (the Ground keep); 24 more across two spreads.
+    for (let i = 0; i < 12; i++) await page().locator('body').press('k');
+    await expect(openCards()).toHaveCount(0);
+    await aim('Hollows · materials');
+    await page().locator('body').press('Enter');
+    await expect(openCards()).toHaveCount(12);
+    for (let i = 0; i < 12; i++) {
+      await page().locator('body').press('x');
+      await page().keyboard.press(i % 2 ? '2' : '5');
+    }
+    await expect(page().getByText(/patterns? to review/)).toBeVisible();
+    const w = await world();
+    expect(w.taste.patterns.length).toBeGreaterThan(0);
+    expect((w.settings as { patterns?: { judged?: number } }).patterns?.judged).toBe(25);
+  });
+
+  test('with the AI off, the field says so and nothing runs', async () => {
+    await page().locator('body').press('Control+Shift+a');
+    await aim('Low Sky · feats');
+    await expect(page().getByTestId('spread-ai-off')).toBeVisible();
+    await expect(page().getByTestId('spread-run')).toBeDisabled();
+    await page().locator('body').press('Control+Shift+a');
+    await expect(page().getByTestId('spread-run')).toBeEnabled();
   });
 });
 
