@@ -77,4 +77,27 @@ describe('patch', () => {
       { numRuns: 400 },
     );
   });
+
+  it('property: a patch copies each container once, mutating neither the document nor the op values', () => {
+    fc.assert(
+      fc.property(doc, fc.array(op, { maxLength: 6 }), (d, ops) => {
+        deepFreeze(d);
+        deepFreeze(ops);
+        let whole: Record<string, unknown>;
+        try {
+          whole = applyPatch(d, ops);
+        } catch (e) {
+          expect(e).toBeInstanceOf(PatchError);
+          return;
+        }
+        // The same as applying the ops one patch at a time.
+        let stepwise: Record<string, unknown> = d;
+        for (const o of ops) stepwise = applyPatch(stepwise, [o]);
+        expect(whole).toEqual(stepwise);
+        // And the inverse path gives the same document.
+        expect(applyWithInverse(d, ops).doc).toEqual(whole);
+      }),
+      { numRuns: 400 },
+    );
+  });
 });

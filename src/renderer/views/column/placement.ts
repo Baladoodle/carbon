@@ -28,13 +28,17 @@ export interface Placement {
 
 export const INBOX: Placement = { places: [], inferred: false };
 
-const cache = new WeakMap<World['entities'], Map<string, Placement>>();
+const cache = new WeakMap<object, Map<string, Placement>>();
 
-/** Placements of every entity, keyed by id (one pass for the Column; memoised per entities). */
+/**
+ * Placements of every entity, keyed by id (one pass for the Column). Memoised
+ * per resolution: the resolver returns the same object while no placing input
+ * changes, so a rename or a state change costs nothing here.
+ */
 export function placementsOf(world: World): Map<string, Placement> {
-  const hit = cache.get(world.entities);
-  if (hit) return hit;
   const all = resolvePlacement(world);
+  const hit = cache.get(all);
+  if (hit) return hit;
   const bandOfBiome = (id: string): string | undefined => all[id]?.bands[0];
   const out = new Map<string, Placement>();
   for (const p of Object.values(all)) {
@@ -57,7 +61,7 @@ export function placementsOf(world: World): Map<string, Placement> {
     const via = inferred ? p.via[0] : undefined;
     out.set(p.id, { places, inferred, ...(via ? { via } : {}) });
   }
-  cache.set(world.entities, out);
+  cache.set(all, out);
   return out;
 }
 

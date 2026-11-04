@@ -426,20 +426,70 @@ class Resolver {
 
 const cache = new WeakMap<object, Placements>();
 
+/** Everything of an entity the resolver reads. Nothing else can change a placement. */
+const placingInputs = (e: Entity): unknown[] => [
+  e.kind,
+  e.relations,
+  e.fields.y_bottom,
+  e.fields.y_top,
+  e.fields.danger,
+  e.fields.band,
+  e.fields.route,
+];
+
+/**
+ * Whether every placement of `prev` holds for `next`: the same ids, and every
+ * entity that changed changed only in what the resolver doesn't read (a name,
+ * an identity, a state, an attribute…).
+ */
+export function samePlacingInputs(prev: World['entities'], next: World['entities']): boolean {
+  if (prev === next) return true;
+  const ids = Object.keys(next);
+  if (ids.length !== Object.keys(prev).length) return false;
+  for (const id of ids) {
+    const a = prev[id];
+    const b = next[id];
+    if (a === b) continue;
+    if (!a || !b) return false;
+    const x = placingInputs(a);
+    const y = placingInputs(b);
+    for (let i = 0; i < x.length; i++)
+      if (x[i] !== y[i] && JSON.stringify(x[i]) !== JSON.stringify(y[i])) return false;
+  }
+  return true;
+}
+
+/** The last resolution, reused for the next world when no placing input changed. */
+let last: { entities: World['entities']; out: Placements } | null = null;
+
 /**
  * Resolves the placement of every entity in the world. Pure, deterministic and
- * memoised per `world.entities` object (worlds are immutable, so a patched world
- * gets a new entities object and a fresh resolution).
+ * memoised per `world.entities` object. A patched world gets a new entities
+ * object; when the patch changed nothing the resolver reads (a rename, an
+ * identity, a state change), the previous resolution is reused as is, so
+ * every consumer (Column, Bench, checks, numbers, the AI context) gets it for
+ * free. A property test holds the reused result equal to a fresh one.
  */
 export function resolvePlacement(world: World): Placements {
   const hit = cache.get(world.entities);
   if (hit) return hit;
+  if (last && samePlacingInputs(last.entities, world.entities)) {
+    cache.set(world.entities, last.out);
+    last = { entities: world.entities, out: last.out };
+    return last.out;
+  }
+  const out = resolveFresh(world);
+  cache.set(world.entities, out);
+  last = { entities: world.entities, out };
+  return out;
+}
+
+/** Resolves every entity from scratch, with no memo (tests compare the memo with it). */
+export function resolveFresh(world: World): Placements {
   const r = new Resolver(world);
   const out: Record<EntityId, Placement> = {};
   for (const id of Object.keys(world.entities).sort(byId)) out[id] = r.placement(id);
-  Object.freeze(out);
-  cache.set(world.entities, out);
-  return out;
+  return Object.freeze(out);
 }
 
 /** One entity's placement, or `undefined` if there's no such entity. */

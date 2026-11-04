@@ -77,6 +77,8 @@ export const NEAR_MIN_LENGTH = 4;
 
 export type NameMatch = 'same' | 'near' | null;
 
+const DIGITS = /[0-9]+/g;
+
 /** A character histogram of a normalised name (a–z, 0–9, space). */
 export function nameSignature(n: string): Uint8Array {
   const h = new Uint8Array(37);
@@ -111,5 +113,9 @@ export function compareNames(
   const max = Math.floor(longer * NEAR_THRESHOLD);
   if (Math.abs(a.length - b.length) > max) return null;
   if (sigs && histogramBound(sigs[0], sigs[1]) > max) return null;
+  // Names that differ only in their numbers are a series ("Ore 0001", "Ore
+  // 0002"; "Tier 2 Plate", "Tier 3 Plate"), not near-duplicates. Without this
+  // a numbered set of n entities raises O(n²) notes.
+  if (a.replace(DIGITS, '#') === b.replace(DIGITS, '#')) return null;
   return editDistance(a, b, max) <= max ? 'near' : null;
 }

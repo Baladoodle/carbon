@@ -25,6 +25,7 @@ import {
   type Row,
 } from './layout';
 import { placementsOf, type Placement } from './placement';
+import { samePlacingInputs } from '@core/placement/resolve';
 
 /**
  * Everything the Column draws, computed from the world (zoom-independent) and
@@ -56,40 +57,16 @@ function drawn(e: Entity): unknown[] {
   ];
 }
 
-/** What of an entity placement depends on (a subset of `drawn`: not names or states). */
-function placing(e: Entity): unknown[] {
-  return [
-    e.kind,
-    e.relations,
-    e.fields.band,
-    e.fields.y_bottom,
-    e.fields.y_top,
-    e.fields.danger,
-    e.fields.route,
-  ];
-}
-
 const same = (x: unknown[], y: unknown[]): boolean =>
   x.every((v, i) => v === y[i] || JSON.stringify(v) === JSON.stringify(y[i]));
 const sameDrawn = (a: Entity, b: Entity): boolean => same(drawn(a), drawn(b));
-const samePlacing = (a: Entity, b: Entity): boolean => same(placing(a), placing(b));
 
-/** Whether every placement in `prev` still holds in `next` (same entities, same placing inputs). */
-export function samePlacementInputs(prev: World, next: World): boolean {
-  if (prev.schema !== next.schema) return false;
-  const a = prev.entities;
-  const b = next.entities;
-  if (a === b) return true;
-  const ka = Object.keys(a);
-  if (ka.length !== Object.keys(b).length) return false;
-  for (const k of ka) {
-    const x = a[k];
-    const y = b[k];
-    if (x === y) continue;
-    if (!x || !y || !samePlacing(x, y)) return false;
-  }
-  return true;
-}
+/**
+ * Whether every placement in `prev` still holds in `next`: nothing the
+ * resolver reads changed (`samePlacingInputs` in src/core/placement).
+ */
+export const samePlacementInputs = (prev: World, next: World): boolean =>
+  samePlacingInputs(prev.entities, next.entities);
 
 /**
  * Whether the Column model of `prev` holds for `next`: same settings and
@@ -115,14 +92,10 @@ export function sameColumnInputs(prev: World, next: World): boolean {
 }
 
 /**
- * The Column model of a world. With the previous world and model, it reuses
- * the placements when no placing input changed (a rename, a state change),
- * since resolving placements is the costliest part.
+ * The Column model of a world. Placements come from the resolver, which
+ * reuses its result when no placing input changed (a rename, a state change).
  */
-export function columnModel(
-  world: World,
-  prev?: { world: World; model: ColumnModel },
-): ColumnModel {
+export function columnModel(world: World): ColumnModel {
   const settings = columnSettings(world);
   const schema = schemaOf(world);
   const laneLabels = {} as Record<Lane, string>;
@@ -131,8 +104,9 @@ export function columnModel(
     if (lane) laneLabels[lane] = schema.kinds[k].plural;
   }
   const bands = bandSpans(world);
-  const placements =
-    prev && samePlacementInputs(prev.world, world) ? prev.model.placements : placementsOf(world);
+  // The resolver reuses its result when no placing input changed (a rename, a
+  // state change), and placementsOf keeps one reshaped map per result.
+  const placements = placementsOf(world);
   return {
     settings,
     lanes: settings.lanes,

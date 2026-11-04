@@ -710,7 +710,7 @@ describe('columnModel reuse', () => {
     );
     if (!r.ok) throw new Error(r.error.message);
     expect(samePlacementInputs(w, r.value.world)).toBe(true);
-    const reused = columnModel(r.value.world, { world: w, model: m });
+    const reused = columnModel(r.value.world);
     expect(reused.placements).toBe(m.placements);
     expect(reused).toEqual(columnModel(r.value.world));
     const moved = applyCommands(
@@ -720,8 +720,8 @@ describe('columnModel reuse', () => {
     );
     if (!moved.ok) throw new Error(moved.error.message);
     expect(samePlacementInputs(w, moved.value.world)).toBe(false);
-    expect(
-      columnModel(moved.value.world, { world: w, model: m }).placements.get('sky-coral')?.places,
-    ).toEqual([{ band: 'low-sky', biome: 'cloud-reef' }]);
+    expect(columnModel(moved.value.world).placements.get('sky-coral')?.places).toEqual([
+      { band: 'low-sky', biome: 'cloud-reef' },
+    ]);
   });
 });

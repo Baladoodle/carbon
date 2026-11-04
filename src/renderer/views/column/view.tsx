@@ -178,10 +178,7 @@ function ColumnView(): ReactNode {
   const [memo, setMemo] = useState<{ world: World; model: ColumnModel } | null>(null);
   let model = memo?.model ?? null;
   if (world && memo?.world !== world) {
-    model =
-      memo && sameColumnInputs(memo.world, world)
-        ? memo.model
-        : columnModel(world, memo ?? undefined);
+    model = memo && sameColumnInputs(memo.world, world) ? memo.model : columnModel(world);
     setMemo({ world, model });
   }
   if (!world || !model) return null;

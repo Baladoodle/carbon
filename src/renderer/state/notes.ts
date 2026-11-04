@@ -20,10 +20,19 @@ export const publishNotes = (source: string, notes: Note[]): void =>
 export const dismissNote = (id: string): void =>
   notesStore.set((s) => ({ ...s, dismissed: { ...s.dismissed, [id]: true } }));
 
-const all = (s: NotesState): Note[] =>
-  Object.values(s.bySource)
-    .flat()
-    .filter((n) => !s.dismissed[n.id]);
+const allCache = new WeakMap<NotesState, Note[]>();
+
+/** The open notes of a state, computed once per state (readers re-render on every world change). */
+const all = (s: NotesState): Note[] => {
+  let hit = allCache.get(s);
+  if (!hit) {
+    hit = Object.values(s.bySource)
+      .flat()
+      .filter((n) => !s.dismissed[n.id]);
+    allCache.set(s, hit);
+  }
+  return hit;
+};
 
 /** Every open note, or those about one entity. */
 export function useNotes(entityId?: string): Note[] {

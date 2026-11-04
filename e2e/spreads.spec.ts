@@ -179,12 +179,17 @@ test.describe('moves, findings and pattern learning', () => {
     await expect(page().getByTestId('spread-move-break')).toHaveAttribute('aria-checked', 'true');
     await spread();
     const before = Object.keys((await world()).entities).length;
+    // The mechanical checks have notes of their own on the sample world: count the finding's.
+    const notes = async (): Promise<number> =>
+      Number((await page().getByTestId('status-notes').getAttribute('data-count')) ?? 0);
+    await expect.poll(notes).toBeGreaterThan(0);
+    const base = await notes();
     await page().locator('body').press('k');
     await expect(openCards()).toHaveCount(11);
-    await expect(page().getByTestId('status-line')).toContainText('1 note');
+    await expect.poll(notes).toBe(base + 1);
     expect(Object.keys((await world()).entities).length).toBe(before);
     await page().locator('body').press('u');
-    await expect(page().getByTestId('status-line')).not.toContainText('note');
+    await expect.poll(notes).toBe(base);
   });
 
   test('Ground changes the entity it is about instead of making a new one', async () => {

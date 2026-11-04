@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import type { EntityState } from '@core/model/kinds';
+import type { World } from '@core/model/world';
 import { benchAi, settled } from '../bench/controller';
 import { uiStore } from '../state/ui';
 import { currentWorld, worldStore } from '../state/world';
@@ -36,21 +36,24 @@ export function useCritiqueTriggers(): void {
 
   // State changes made in carbon (not the first snapshot, not after a gap).
   useEffect(() => {
-    let states: Map<string, EntityState> | null = null;
+    let prev: World['entities'] | null = null;
     let rev = -1;
-    const read = (): Map<string, EntityState> =>
-      new Map(Object.values(worldStore.get().world?.entities ?? {}).map((e) => [e.id, e.state]));
     return worldStore.subscribe(() => {
       const s = worldStore.get();
       if (!s.world || s.rev === rev) return;
-      const next = read();
-      const continuous = states !== null && s.rev === rev + 1;
-      const prev = states;
-      states = next;
+      const next = s.world.entities;
+      const continuous = prev !== null && s.rev === rev + 1;
+      const before = prev;
+      prev = next;
       rev = s.rev;
-      if (!continuous || !prev) return;
+      if (!continuous || !before || before === next) return;
+      // Patches share unchanged entities, so only changed objects are compared.
       const changed: string[] = [];
-      for (const [id, state] of next) if (prev.has(id) && prev.get(id) !== state) changed.push(id);
+      for (const id in next) {
+        const e = next[id];
+        const was = before[id];
+        if (e && was && e !== was && e.state !== was.state) changed.push(id);
+      }
       if (changed.length > 0) void triggers.statesChanged(changed);
     });
   }, []);

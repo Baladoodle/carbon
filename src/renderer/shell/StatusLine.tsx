@@ -36,7 +36,11 @@ export function StatusLine(): ReactNode {
           {plural(count ?? 0, 'entity', 'entities')}
         </span>
       </Tooltip>
-      {notes.length > 0 && <span className="t-warn">{plural(notes.length, 'note', 'notes')}</span>}
+      {notes.length > 0 && (
+        <span className="t-warn" data-testid="status-notes" data-count={notes.length}>
+          {plural(notes.length, 'note', 'notes')}
+        </span>
+      )}
       {meta.issues.length > 0 && (
         <Tooltip content={meta.issues.map((i) => `${i.path}: ${i.message}`).join('\n')}>
           <span

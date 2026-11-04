@@ -20,6 +20,8 @@ import {
   type Placement,
 } from './index';
 import { pinRelations } from './commands';
+import { resolveFresh } from './resolve';
+import { commandArb } from '../testing/arbitraries';
 
 const ctx = { now: '2026-11-04T10:00:00.000Z' };
 
@@ -109,11 +111,11 @@ describe('resolvePlacement on the sample world', () => {
       });
   });
 
-  it('covers every entity and is memoised per entities object', () => {
+  it('covers every entity and is memoised (an unchanged copy reuses the resolution)', () => {
     expect(Object.keys(all).sort()).toEqual(Object.keys(w.entities).sort());
     expect(resolvePlacement(w)).toBe(all);
-    expect(resolvePlacement({ ...w, entities: { ...w.entities } })).not.toBe(all);
     expect(resolvePlacement({ ...w, entities: { ...w.entities } })).toEqual(all);
+    expect(resolveFresh({ ...w, entities: { ...w.entities } })).toEqual(all);
   });
 
   it('has helpers for bands, biomes and heights', () => {
@@ -535,6 +537,45 @@ describe('placement properties', () => {
         }
       }),
       { numRuns: 150 },
+    );
+  });
+});
+
+describe('reuse across worlds', () => {
+  it('a rename or a state change reuses the resolution; a relation change does not', () => {
+    const w = sampleWorld();
+    const a = resolvePlacement(w);
+    const renamed = applyCommand(
+      w,
+      cmd('entity.update', { id: 'vent-glass', set: { name: 'Vent Glass II' } }),
+      { now: SAMPLE_TIME },
+    );
+    if (!renamed.ok) throw new Error(renamed.error.message);
+    expect(resolvePlacement(renamed.value.world)).toBe(a);
+    const moved = applyCommand(
+      renamed.value.world,
+      cmd('relation.add', { from: 'cinder-sting', type: 'in_band', to: 'high-drift' }),
+      { now: SAMPLE_TIME },
+    );
+    if (!moved.ok) throw new Error(moved.error.message);
+    const b = resolvePlacement(moved.value.world);
+    expect(b).not.toBe(a);
+    expect(b['cinder-sting']?.bands).toEqual(['high-drift']);
+  });
+
+  it('property: after any command sequence, the reused resolution equals a fresh one', () => {
+    const base = sampleWorld();
+    const ids = Object.keys(base.entities);
+    fc.assert(
+      fc.property(fc.array(commandArb(ids), { maxLength: 12 }), (commands) => {
+        let w = base;
+        for (const c of commands) {
+          const r = applyCommand(w, c, { now: SAMPLE_TIME });
+          if (r.ok) w = r.value.world;
+          expect(resolvePlacement(w)).toEqual(resolveFresh(w));
+        }
+      }),
+      { numRuns: 120 },
     );
   });
 });

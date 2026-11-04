@@ -350,6 +350,11 @@ describe('names', () => {
     expect(compareNames('glass lung', 'glass lung')).toBe('same');
     expect(compareNames('glass lung', 'glass lungs')).toBe('near');
     expect(compareNames('ash', 'ask')).toBeNull();
+    // A numbered series isn't a near-duplicate; the same name still is.
+    expect(compareNames('ore 0001', 'ore 0002')).toBeNull();
+    expect(compareNames('tier 2 plate', 'tier 3 plate')).toBeNull();
+    expect(compareNames('ore 0001', 'ore 0001')).toBe('same');
+    expect(compareNames('glass lung 2', 'glass lungs 2')).toBe('near');
     expect(compareNames('glass lung', 'cloud anklet')).toBeNull();
     const w = bandsWorld([
       ent({ id: 'a', kind: 'item', name: 'Glass Lung', fields: { subkind: 'tool' } }),

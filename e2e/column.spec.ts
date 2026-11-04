@@ -237,7 +237,10 @@ test.describe('the Column', () => {
     const { page } = carbon;
     await focusOn(carbon, 'vent-glass-visor');
     await press(page, '?');
-    const note = page.locator('[data-testid="column-margin"] .column-note').first();
+    // The critique's note (the mechanical checks have notes in the margin too).
+    const note = page
+      .locator('[data-testid="column-margin"] .column-note[data-source="ai"]')
+      .first();
     await expect(note).toBeVisible();
     const g = (await chip(page, 'vent-glass-visor').boundingBox())!;
     const n = (await note.boundingBox())!;

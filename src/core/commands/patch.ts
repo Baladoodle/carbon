@@ -46,13 +46,24 @@ export const hasAt = (doc: unknown, path: readonly string[]): boolean => {
   return isPlainObject(parent) && has(parent, path[path.length - 1] ?? '');
 };
 
-/** Returns a copy of `doc` with one op applied, sharing every untouched branch. */
-function applyOne<T>(doc: T, op: PatchOp): T {
+/**
+ * Returns a copy of `doc` with one op applied, sharing every untouched branch.
+ * `fresh` holds the containers this patch has already copied: those are
+ * modified in place instead of copied again, so a patch of several ops copies
+ * each container on its paths once (a three-op patch on one entity copies the
+ * entities table once, not three times). Nothing outside `fresh` is mutated.
+ */
+function applyOne<T>(doc: T, op: PatchOp, fresh: WeakSet<object>): T {
   const rec = (node: unknown, i: number): unknown => {
     if (!isPlainObject(node))
       throw new PatchError(`not an object at ${op.path.slice(0, i).join('.')}`, op.path);
     const key = op.path[i] as string;
-    const copy: Record<string, unknown> = { ...node };
+    let copy: Record<string, unknown>;
+    if (fresh.has(node)) copy = node;
+    else {
+      copy = { ...node };
+      fresh.add(copy);
+    }
     if (i === op.path.length - 1) {
       if (op.op === 'set') copy[key] = op.value;
       else delete copy[key];
@@ -68,8 +79,9 @@ function applyOne<T>(doc: T, op: PatchOp): T {
 
 /** Applies ops in order. Throws `PatchError` on a malformed path. Never mutates `doc`. */
 export function applyPatch<T>(doc: T, patch: Patch): T {
+  const fresh = new WeakSet<object>();
   let cur = doc;
-  for (const op of patch) cur = applyOne(cur, op);
+  for (const op of patch) cur = applyOne(cur, op, fresh);
   return cur;
 }
 
@@ -79,6 +91,10 @@ export function applyPatch<T>(doc: T, patch: Patch): T {
  */
 export function applyWithInverse<T>(doc: T, patch: Patch): { doc: T; inverse: Patch } {
   const inverse: Patch = [];
+  // A captured inverse value is never a container this patch mutates later:
+  // capturing happens only at an op's own path, which that op then replaces
+  // or removes, so the captured container is unreachable from then on.
+  const fresh = new WeakSet<object>();
   let cur = doc;
   for (const op of patch) {
     const existed = hasAt(cur, op.path);
@@ -88,7 +104,7 @@ export function applyWithInverse<T>(doc: T, patch: Patch): { doc: T; inverse: Pa
         ? { op: 'set', path: op.path, value: getAt(cur, op.path) }
         : { op: 'remove', path: op.path },
     );
-    cur = applyOne(cur, op);
+    cur = applyOne(cur, op, fresh);
   }
   inverse.reverse();
   return { doc: cur, inverse };
