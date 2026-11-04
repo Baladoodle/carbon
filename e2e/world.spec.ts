@@ -156,12 +156,16 @@ test('codex screenshots', async () => {
   await carbon.dispatch(cmd('entity.update', { id: 'glide', set: { tags: ['sky'] } }));
   await carbon.gotoView('codex', '3');
   await filter('lane:items');
-  await page().locator('[data-entity="vent-glass-visor"] td[data-col="name"]').click({
-    modifiers: ['Control'],
-  });
-  await page().locator('[data-entity="cloud-anklet"] td[data-col="name"]').click({
-    modifiers: ['Control'],
-  });
+  await page()
+    .locator('[data-entity="vent-glass-visor"] td[data-col="name"]')
+    .click({
+      modifiers: ['Control'],
+    });
+  await page()
+    .locator('[data-entity="cloud-anklet"] td[data-col="name"]')
+    .click({
+      modifiers: ['Control'],
+    });
   await expect(page().locator('.ui-toast')).toHaveCount(0, { timeout: 15_000 });
   await carbon.screenshot('world-codex');
   await filter('kind:creature menace:>lots');
