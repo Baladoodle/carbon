@@ -129,6 +129,11 @@ export const INVOKE = {
     request: z.object({ limit: z.number().int().min(1).max(5000).optional() }),
     response: z.array(AiLogEntrySchema),
   },
+  // Added by W4 (ai): the request a logged AI call sent (prompt text and params), for the AI log.
+  'ai:request': {
+    request: z.object({ id: z.string() }),
+    response: z.object({ text: z.string(), params: z.record(z.string(), z.unknown()) }).nullable(),
+  },
   'window:control': {
     request: z.enum(['minimize', 'maximize', 'close', 'devtools']),
     response: done,

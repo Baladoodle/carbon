@@ -46,6 +46,9 @@ export const AI_ERROR_CODES = [
   'invalid_output', // the output failed validation entirely
   'not_found', // the request references an entity that doesn't exist
   'unknown',
+  // Added by W4 (ai), additively:
+  'refused', // the model declined (stop_reason "refusal")
+  'truncated', // the output hit max_tokens before it was complete
 ] as const;
 export const AiErrorSchema = z.object({
   code: z.enum(AI_ERROR_CODES),
@@ -85,6 +88,16 @@ export const AiLogEntrySchema = z.object({
   meta: AiCallMetaSchema.optional(),
   /** Number of results shown (candidates, notes, suggestions). */
   results: z.number().int().min(0).optional(),
+  // Added by W4 (ai), additively:
+  /** What triggered it, when the moment has triggers (critique: finish_edit, state_change, on_demand). */
+  trigger: z.string().optional(),
+  /** API attempts made (retries + 1); 0 when served from the cache or refused before calling. */
+  attempts: z.number().int().min(0).optional(),
+  /** The response's stop_reason. */
+  stopReason: z.string().optional(),
+  /** Local token estimate of the request, and the exact count when count_tokens was called. */
+  estimate: z.number().int().min(0).optional(),
+  counted: z.number().int().min(0).optional(),
 });
 export type AiLogEntry = z.infer<typeof AiLogEntrySchema>;
 
