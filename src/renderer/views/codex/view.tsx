@@ -619,7 +619,11 @@ function CodexView(): ReactNode {
       <div className="codex-top">
         <Tabs
           value={tab}
-          onValueChange={(v) => setTab(v as Tab)}
+          onValueChange={(v) => {
+            setTab(v as Tab);
+            // Hand the keys back to the table (the tab strip would keep the arrows).
+            requestAnimationFrame(() => scrollRef.current?.focus());
+          }}
           aria-label="Kind"
           tabs={TABS.map((t) => ({
             value: t,
@@ -656,6 +660,7 @@ function CodexView(): ReactNode {
       <div
         className="codex-scroll"
         ref={scrollRef}
+        tabIndex={-1}
         data-testid="codex-scroll"
         onScroll={(e) =>
           setViewport({ top: e.currentTarget.scrollTop, height: e.currentTarget.clientHeight })
