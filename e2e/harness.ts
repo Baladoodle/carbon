@@ -8,8 +8,8 @@ import type { DispatchResult, InvokeChannel, InvokeRequest, InvokeResponse } fro
 
 /**
  * The end-to-end harness. `launchCarbon()` copies a fixture world to a
- * temporary directory and starts the built app on it (FakeAiGateway, no
- * Omarchy theme, a private userData dir), so tests never touch real data.
+ * temporary directory and starts the built app on it (FakeAiGateway and a
+ * private userData dir), so tests never touch real data.
  */
 export interface CarbonApp {
   app: ElectronApplication;
@@ -56,7 +56,6 @@ export async function launchCarbon(opts: LaunchOptions = {}): Promise<CarbonApp>
       CARBON_WORLD_DIR: worldDir,
       CARBON_USER_DATA: userData,
       CARBON_AI: 'fake',
-      CARBON_THEME_DIR: path.join(tmp, 'no-omarchy-theme'),
       ...opts.env,
     },
   });
@@ -85,7 +84,7 @@ export async function launchCarbon(opts: LaunchOptions = {}): Promise<CarbonApp>
     },
     async screenshot(name) {
       const file = path.join(ROOT, 'test-results/screens', `${name}.png`);
-      await page.screenshot({ path: file });
+      await page.screenshot({ path: file, animations: 'disabled' });
       if (process.env.UPDATE_SCREENS === '1')
         cpSync(file, path.join(ROOT, 'docs/screens', `${name}.png`));
     },

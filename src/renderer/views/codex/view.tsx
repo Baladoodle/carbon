@@ -1,10 +1,11 @@
 import type { ReactNode } from 'react';
-import { Placeholder } from '../../components/Placeholder';
 import { focusEntity, useUi } from '../../state/ui';
 import { useWorld } from '../../state/world';
+import { IconCodex } from '../../ui/icons';
+import { StateGlyph, Table, TBody, TD, TH, THead, TR } from '../../ui';
 import { defineView } from '../define';
 
-/** Placeholder for the Codex (package W2): every entity, click to put it on the Bench. */
+/** Stand-in for the Codex (package W2 replaces it): every entity; click to put it on the Bench. */
 function CodexView(): ReactNode {
   const rows = useWorld((w) =>
     Object.values(w.entities).sort(
@@ -13,31 +14,35 @@ function CodexView(): ReactNode {
   );
   const focus = useUi((s) => s.focus);
   return (
-    <Placeholder title="Codex" owner="W2 (world)">
-      <table className="table" data-testid="codex-table">
-        <thead>
+    <div className="view-scroll">
+      <Table data-testid="codex-table">
+        <THead>
           <tr>
-            <th>kind</th>
-            <th>name</th>
-            <th>state</th>
+            <TH style={{ width: 28 }} aria-label="state" />
+            <TH>name</TH>
+            <TH>kind</TH>
+            <TH>identity</TH>
           </tr>
-        </thead>
-        <tbody>
+        </THead>
+        <TBody>
           {(rows ?? []).map((e) => (
-            <tr
+            <TR
               key={e.id}
-              className={e.id === focus ? 'selected' : undefined}
+              selected={e.id === focus}
               onClick={() => focusEntity(e.id)}
               data-entity={e.id}
             >
-              <td className="dim">{e.kind}</td>
-              <td>{e.name}</td>
-              <td className={`state state-${e.state}`}>{e.state}</td>
-            </tr>
+              <TD>
+                <StateGlyph state={e.state} tooltip={false} />
+              </TD>
+              <TD>{e.name}</TD>
+              <TD className="t-2">{e.kind}</TD>
+              <TD className="t-2">{e.identity}</TD>
+            </TR>
           ))}
-        </tbody>
-      </table>
-    </Placeholder>
+        </TBody>
+      </Table>
+    </div>
   );
 }
 
@@ -46,6 +51,6 @@ export default defineView({
   label: 'Codex',
   key: '3',
   order: 3,
-  glyph: '☰',
+  icon: IconCodex,
   component: CodexView,
 });

@@ -1,0 +1,66 @@
+/* Carbon's design tokens (docs/VISUAL.md §2–§4). Components use these only, never raw hex. */
+:root {
+  /* Surfaces: neutral grays, no blue cast. */
+  --bg: #141416;
+  --surface-1: #19191c;
+  --surface-2: #1f1f23;
+  --surface-3: #26262b;
+  --line: #2a2a2f;
+  --line-strong: #37373d;
+  --text: #ececee;
+  --text-2: #a3a3ab;
+  --text-3: #6e6e78;
+  --accent: #e8a54b;
+  --accent-fg: #1a1205;
+
+  /* Semantic. */
+  --state-idea: #8b8b95;
+  --state-shaped: #7da7d9;
+  --state-decided: #e8a54b;
+  --state-exported: #7fbf8e;
+  --danger: #e5675e;
+  --warn: #d9b45a;
+  --ai: #b39ddb;
+
+  /* Depth tint endpoints (Column bands; see depthTint in tokens.ts). */
+  --tint-deep: #1a1614;
+  --tint-high: #14171a;
+
+  /* Type. */
+  --font-ui: 'Inter Variable', Inter, ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'Geist Mono Variable', 'Geist Mono', 'JetBrains Mono', ui-monospace, monospace;
+  --text-meta: 11px;
+  --text-dense: 12px;
+  --text-body: 13px;
+  --text-name: 15px;
+  --text-title: 20px;
+
+  /* Shape. */
+  --space: 4px;
+  --radius-control: 6px;
+  --radius-card: 8px;
+  --radius-overlay: 10px;
+  --highlight: inset 0 1px 0 rgb(255 255 255 / 0.04);
+  --shadow-overlay: 0 8px 24px rgb(0 0 0 / 0.45);
+  --blur-overlay: blur(8px);
+  --glow:
+    0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent),
+    0 0 16px color-mix(in srgb, var(--accent) 12%, transparent);
+  --ring: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
+
+  /* Motion. */
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --dur-hover: 120ms;
+  --dur-panel: 180ms;
+  --dur-stream: 140ms;
+
+  color-scheme: dark;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-hover: 0ms;
+    --dur-panel: 0ms;
+    --dur-stream: 0ms;
+  }
+}

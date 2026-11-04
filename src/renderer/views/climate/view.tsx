@@ -1,15 +1,15 @@
 import type { ReactNode } from 'react';
-import { Placeholder } from '../../components/Placeholder';
+import { IconClimate } from '../../ui/icons';
 import { defineView } from '../define';
 
-/** Placeholder for Climate (package W2). */
-const ClimateView = (): ReactNode => <Placeholder title="Climate" owner="W2 (world)" />;
+/** Empty until package W2 builds Climate (the rail already says where you are). */
+const ClimateView = (): ReactNode => <div className="view-empty" />; // W2 (world) replaces this
 
 export default defineView({
   id: 'climate',
   label: 'Climate',
   key: '2',
   order: 2,
-  glyph: '◫',
+  icon: IconClimate,
   component: ClimateView,
 });

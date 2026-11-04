@@ -1,4 +1,5 @@
 import type { EntityId } from '@core/model/ids';
+import { toast } from '../ui/Toast';
 import { createStore, useStore } from './store';
 
 /**
@@ -14,8 +15,6 @@ export interface UiState {
   selection: EntityId[];
   /** The open overlay (`palette`, `ai-log`, or a package's own), or null. */
   overlay: string | null;
-  /** A transient message for the status line. */
-  flash: { text: string; tone: 'info' | 'error' } | null;
 }
 
 const STORAGE_KEY = 'carbon.ui';
@@ -27,7 +26,6 @@ function initial(): UiState {
     focus: null,
     selection: [],
     overlay: null,
-    flash: null,
   };
   try {
     const saved: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null');
@@ -60,12 +58,9 @@ export const useUi = <T>(selector: (s: UiState) => T): T => useStore(uiStore, se
 
 export const setUi = (patch: Partial<UiState>): void => uiStore.set((s) => ({ ...s, ...patch }));
 
-let flashTimer: ReturnType<typeof setTimeout> | undefined;
-/** Shows a short message in the status line. */
+/** Shows a short message as a toast (kept for callers; same as `toast`). */
 export function flash(text: string, tone: 'info' | 'error' = 'info'): void {
-  setUi({ flash: { text, tone } });
-  clearTimeout(flashTimer);
-  flashTimer = setTimeout(() => setUi({ flash: null }), 4000);
+  toast(text, { tone });
 }
 
 /** Puts an entity on the Bench (and opens it). */

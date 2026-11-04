@@ -9,7 +9,6 @@ import { MomentSchema } from '@core/ai/moments';
 import { PatchSchema } from '@core/commands/patch';
 import { CommandSchema } from '@core/commands/apply';
 import { WorldSchemaZ } from '@core/model/world';
-import { ThemeTokensSchema } from '@core/theme/theme';
 
 /**
  * The typed contract between the main process and the renderer.
@@ -122,7 +121,6 @@ export const INVOKE = {
   'world:undo': { request: none, response: HistoryResultSchema },
   'world:redo': { request: none, response: HistoryResultSchema },
   'store:status': { request: none, response: SaveStatusSchema },
-  'theme:get': { request: none, response: ThemeTokensSchema },
   'ai:run': { request: AiRunRequestSchema, response: AiRunResponseSchema },
   'ai:cancel': { request: z.object({ requestId: z.string() }), response: done },
   'ai:status': { request: none, response: AiStatusSchema },
@@ -142,7 +140,6 @@ export const EVENTS = {
   /** A whole new snapshot: after a reload, an external change the store couldn't express as a patch, or a gap. */
   'world:reset': WorldSnapshotSchema,
   'store:status': SaveStatusSchema,
-  'theme:changed': ThemeTokensSchema,
   'ai:partial': AiPartialEventSchema,
   'ai:status': AiStatusSchema,
 } as const satisfies Record<string, z.ZodType>;

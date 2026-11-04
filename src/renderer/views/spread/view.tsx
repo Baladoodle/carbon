@@ -1,15 +1,15 @@
 import type { ReactNode } from 'react';
-import { Placeholder } from '../../components/Placeholder';
+import { IconSpread } from '../../ui/icons';
 import { defineView } from '../define';
 
-/** Placeholder for Spread (package W5). */
-const SpreadView = (): ReactNode => <Placeholder title="Spread" owner="W5 (spreads)" />;
+/** Empty until package W5 builds Spread (the rail already says where you are). */
+const SpreadView = (): ReactNode => <div className="view-empty" />; // W5 (spreads) replaces this
 
 export default defineView({
   id: 'spread',
   label: 'Spread',
   key: '5',
   order: 5,
-  glyph: '✣',
+  icon: IconSpread,
   component: SpreadView,
 });

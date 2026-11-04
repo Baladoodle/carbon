@@ -1,0 +1,91 @@
+@import '@fontsource-variable/inter/wght.css';
+@import '@fontsource-variable/geist-mono/wght.css';
+@import './tokens.css';
+
+* {
+  box-sizing: border-box;
+}
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 400 var(--text-body) / 1.45 var(--font-ui);
+  font-feature-settings: 'cv11', 'ss01';
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+input,
+textarea,
+select,
+button {
+  font: inherit;
+  color: inherit;
+}
+input,
+textarea {
+  user-select: text;
+}
+::selection {
+  background: color-mix(in srgb, var(--accent) 30%, transparent);
+}
+:focus {
+  outline: none;
+}
+:focus-visible {
+  box-shadow: var(--ring);
+  border-radius: var(--radius-control);
+}
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border: 3px solid transparent;
+  background-clip: content-box;
+  border-radius: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Utilities: text roles (VISUAL.md §3). */
+.mono,
+.num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.t-2 {
+  color: var(--text-2);
+}
+.t-3 {
+  color: var(--text-3);
+}
+.t-meta {
+  font-size: var(--text-meta);
+}
+.t-dense {
+  font-size: var(--text-dense);
+}
+.t-ai {
+  color: var(--ai);
+}
+.t-danger {
+  color: var(--danger);
+}
+.t-warn {
+  color: var(--warn);
+}
+.section-label {
+  font-size: var(--text-meta);
+  font-weight: 500;
+  color: var(--text-3);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}

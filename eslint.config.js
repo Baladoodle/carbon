@@ -188,6 +188,8 @@ export default tseslint.config(
       '@typescript-eslint/no-non-null-assertion': 'off',
       'no-restricted-properties': 'off',
       'no-restricted-syntax': 'off',
+      // Tests may read fixtures and files from disk in any layer.
+      'no-restricted-imports': 'off',
     },
   },
 );

@@ -25,8 +25,9 @@ test.afterAll(async () => {
 test('@smoke opens the sample world in a frameless window with the shell', async () => {
   const { page, app } = carbon;
   await expect(page.getByTestId('status-entities')).toHaveText('24 entities');
-  await expect(page.getByTestId('status-ai')).toContainText('(fake)');
-  await expect(page.getByTestId('status-save')).toContainText('saved');
+  await expect(page.getByTestId('status-ai')).toHaveAttribute('data-mode', 'fake');
+  await expect(page.getByTestId('status-ai')).toHaveText('$0.00');
+  await expect(page.getByTestId('status-save')).toHaveAttribute('data-state', 'saved');
   // The renderer is isolated: no Node, only the typed bridge.
   const isolation = await page.evaluate(() => ({
     node: typeof (globalThis as { require?: unknown }).require,

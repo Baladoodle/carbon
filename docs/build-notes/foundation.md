@@ -3,7 +3,7 @@
 Branch `claude/blissful-einstein-8u27ty-foundation`. Everything in `BUILD.md` §4
 is done, and `npm run check` passes.
 
-- **Contract for package workers:** §1. Read it before you write code.
+- **Contract for package workers:** §1. Read it before you write code; the UI kit is §1.6a.
 - **Decisions where I interpreted the docs:** §2.
 - **Status, test counts, the API check and spend:** §3.
 
@@ -32,15 +32,15 @@ src/
     files/              entity markdown ⇄ Entity; World ⇄ files; filesForPatch (only touched files)
     ai/                 moments.ts (per-moment request/result schemas), gateway.ts (AiGateway),
                         fake.ts (FakeAiGateway), off.ts (OffAiGateway)
-    theme/              theme tokens, Omarchy parsing, Tokyo Night fallback
     testing/            sampleWorld(), fast-check arbitraries (tests only)
     util/               Result, Json, deepEqual, stableStringify, hashValue, seededRandom
   shared/ipc.ts         THE IPC CONTRACT: INVOKE (request/response) and EVENTS tables, CarbonBridge
   main/                 index.ts (bootstrap), ipc.ts (handle/send/registerIpc), world-session.ts,
-                        modules.ts (package hook), config.ts (world dir), theme.ts, store/ (basic), ai/index.ts
+                        modules.ts (package hook), config.ts (world dir), store/ (basic), ai/index.ts
   preload/index.ts      window.carbon: allow-listed, typed bridge
   renderer/
-    shell/              App, Rail, StatusLine
+    ui/                 THE COMPONENT KIT (VISUAL.md §5) + tokens.css, base.css, kit.css, tokens.ts, icons
+    shell/              App, Rail, StatusLine, shell.css
     views/<id>/view.tsx one folder per view, found automatically (registry.ts, define.ts)
     bench/Bench.tsx     stub (W1 replaces)
     palette/Palette.tsx stub (W6 replaces)
@@ -48,8 +48,7 @@ src/
     state/              store.ts (createStore/useStore), world.ts (mirror + dispatch), ui.ts, notes.ts
     actions.ts          action registry = keymap + palette source
     bridge.ts           invoke/on with zod validation
-    theme/              base.css (layout + tokens as CSS variables), theme.ts
-    components/         Placeholder, Kbd
+    components/         two superseded files, unused (see §3)
 fixtures/worlds/sample/ the sample world (generated from src/core/testing/sample.ts)
 e2e/                    harness.ts (launchCarbon), smoke.spec.ts
 scripts/                run-e2e.mjs, smoke-ai.mjs, eval.mjs (stub for W4), dev-sample.mjs, ensure-electron.mjs
@@ -255,13 +254,67 @@ The shell already binds: `1`–`7`, `b` (Bench), `ctrl+k` (palette), `ctrl+l`
 and `ai-log`. A package overlay renders itself when `useUi(s => s.overlay) ===
 '<name>'`, inside its own view or component.
 
-**Theme:** use CSS variables only: `var(--bg)`, `--bg2`, `--panel`, `--line`,
-`--line2`, `--fg`, `--dim`, `--faint`, `--accent`, `--blue`, `--cyan`,
-`--green`, `--orange`, `--red`, `--purple`, `--yellow`, `--teal`, plus
-`--mono` and `--sans`. They follow Omarchy live. For SVG, use
-`fill="var(--accent)"` or read `useTheme()`. State colours are the classes
-`.state-idea` … `.state-graveyard`. Put your styles in a CSS file inside your
-folder and import it from your component.
+**Text rule (VISUAL.md §1):** a view shows only its content and controls: no
+title, no subtitle, no key legends (keys go in `Tooltip keys=…`, `Menu` items
+and the palette). With nothing to show, show nothing, or what's missing plus
+the one key that fixes it. Look and components: §1.6a below.
+
+### 1.6a The UI kit (`src/renderer/ui/`)
+
+Build every UI from the kit and the tokens. **Never use raw hex colours.**
+
+```tsx
+import { Button, IconButton, Input, Textarea, Field, Select, Combobox, Popover, Menu, Tooltip,
+         Dialog, toast, Tabs, Table, THead, TBody, TR, TH, TD, StateGlyph, Kbd, cx, IconPlus } from '@renderer/ui';
+```
+
+| Component | Use |
+|---|---|
+| `Button` | `variant`: `primary` (one per surface), `secondary` (default), `ghost` or `destructive`; `size`: `sm` or `md` |
+| `IconButton` | Icon-only, with a required `label`, which becomes its tooltip and accessible name. Optional `keys` (shown in the tooltip) and `active` (the accent glow) |
+| `Input`, `Textarea` | `invalid` and `mono`. **`suggestion`** shows the AI's suggestion inline in `--ai` at 70%: the part after a matching prefix, or `→ suggestion`. Accepting it (`tab`) is yours: set the value, then clear the suggestion |
+| `Field` | Wraps one control with an optional `label` (only when it isn't obvious) and an `error` shown underneath. It wires `id`, `aria-invalid` and `aria-describedby` |
+| `Select` | A short fixed list (`options: [{ value, label }]`), using Radix Select |
+| `Combobox` | **The entity picker:** `items: [{ value, label, hint?, glyph? }]`, `value`, `onChange`. Type to filter; ↑/↓, enter and escape work |
+| `Popover`, `Menu`, `Tooltip`, `Dialog` | Radix underneath, with overlay depth and blur from the tokens. `Dialog` needs a `title` (visually hidden unless `showTitle`) and takes a `footer`. `Menu` items: `{ label, onSelect, keys?, destructive?, disabled? }` or `'separator'` |
+| `toast(text, { tone: 'info' \| 'error' \| 'ai', action? })` | Transient results (an error, an undo). `flash()` in `state/ui.ts` forwards to it |
+| `Tabs` | Underline tabs: `tabs: [{ value, label, count? }]` |
+| `Table` + `THead`/`TBody`/`TR`/`TH`/`TD` | Hairline rows and a sticky header (put the table in a scrolling container). `TR selected` gets the accent rule and `TR current` the cursor. `TH`/`TD numeric` are mono, tabular and right-aligned |
+| `StateGlyph` | `state`, `size?`, `tooltip?`. The state is always this shape, never the word |
+| `icons.tsx` | 16px stroke icons on `currentColor`. Add yours there |
+
+**Tokens** (`ui/tokens.css`, mirrored in `ui/tokens.ts` for canvas and
+computed SVG; a test keeps them in sync):
+
+- surfaces: `--bg`, `--surface-1/2/3`, `--line`, `--line-strong`
+- text: `--text`, `--text-2`, `--text-3`
+- accent: `--accent`, `--accent-fg`
+- states: `--state-idea/shaped/decided/exported`
+- semantic: `--danger`, `--warn`, `--ai` (the AI's colour, and nothing else)
+- type: `--font-ui`, `--font-mono`, `--text-meta/dense/body/name/title`
+- shape: `--radius-control/card/overlay`, `--highlight`, `--shadow-overlay`,
+  `--blur-overlay`, `--glow` (soft accent light for selection and the current
+  position), `--ring`
+- motion: `--ease`, `--dur-hover/panel/stream`; all are 0 under
+  `prefers-reduced-motion`
+
+`depthTint(y)` gives the Column's band tint (warm below, cool above, `--bg`
+at 0).
+
+**Utility classes:** `.mono`/`.num` (tabular), `.t-2`, `.t-3`, `.t-meta`,
+`.t-dense`, `.t-ai`, `.t-danger`, `.t-warn`, and `.section-label` (11px
+uppercase, Bench only).
+
+**Fonts:** Inter Variable and Geist Mono Variable, bundled through
+`@fontsource-variable`.
+
+**Your own styles:** put them in a CSS file in your folder, imported from your
+component, built from the tokens, with class names prefixed by your package
+(`.column-…`).
+
+**The gallery:** in dev and e2e builds, the palette's **UI kit** entry shows
+every component in every state. `e2e/ui-kit.spec.ts` drives it, and
+`docs/screens/foundation-ui-kit.png` is a screenshot of it.
 
 ### 1.7 IPC
 
@@ -481,10 +534,22 @@ test('column creates an entity with n', async () => {
     critique results can be shown without persisting them.
 13. **Undo history lives in main** (500 steps) and doesn't survive restarts.
     An external change clears it.
-14. **Theme:** Omarchy's `colors.toml` is read first (newer Omarchy), then
-    `alacritty.toml`; the remaining tokens are derived. The theme directory's
-    parent is watched, so switching theme recolours live. The base CSS has
-    Tokyo Night baked in, so there's no flash.
+14. **Visual design (VISUAL.md, which arrived mid-build):** the Omarchy theme
+    reading and Tokyo Night are gone, along with `core/theme`, `main/theme.ts`
+    and the `theme:get`/`theme:changed` IPC channels. Nothing had merged yet,
+    so no package depends on them. Carbon has one theme of its own, in
+    `ui/tokens.css`. `ViewDef.glyph` became `ViewDef.icon` (a component). The
+    shell follows the text rule:
+    - The rail is icons only, with the name and key in a tooltip.
+    - Views have no title.
+    - The empty Bench and the unbuilt views show nothing.
+    - The status line shows the entity count (the world directory is in its
+      tooltip), notes and unreadable files only when there are some, AI spend
+      in `--ai` (or "AI off: <reason>"), and the save state only while saving
+      or after a failure. This is where EXPERIENCE §1's list and VISUAL §1
+      differ: I followed VISUAL for the world directory and "saved".
+    - Turning the AI off shows no toast, because the status line already
+      changes.
 15. **Tool versions:** Electron 45.2.2, electron-vite 6, Vite 8, React 19,
     zod 4, Vitest 5, fast-check 4. TypeScript is **6.0**, not 7, because
     typescript-eslint supports `<6.1`. `@playwright/test` is 1.63.0, matching
@@ -513,11 +578,13 @@ shell (frameless, rail `1`–`7`, status line, Bench panel, view registry,
 palette stub, Omarchy tokens) ✓; sample world ✓; Playwright `_electron`
 harness ✓; `npm run check` ✓.
 
-**Tests:** 70 Vitest tests in 13 files, including property tests for patch
+**Tests:** 68 Vitest tests in 13 files, including property tests for patch
 inverses, command validity and invertibility, transactions, undo/redo
 sequences, files written only for a patch versus a full rewrite, and world
 diffs. Core coverage is about 97% of lines and functions, and 90% of
-branches. 6 Playwright e2e tests, all `@smoke`: launch, views 1–7 with
+branches. 7 Playwright e2e tests, all `@smoke` (including the UI kit:
+inline AI suggestion, combobox by keyboard, dialog and escape, toast and
+tooltip keys): launch, views 1–7 with
 screenshots, Bench and focus, commands over IPC with persistence and undo,
 the palette, and fake AI with the AI log and the off switch. `npm run check`
 takes about 30 seconds.
@@ -545,5 +612,13 @@ calls. Every test runs without it.
 - In dev only, the renderer's CSP also allows inline scripts, because React
   Refresh injects one (`carbon-dev-csp` in `electron.vite.config.ts`). Built
   and packaged apps keep `script-src 'self'`.
+- Two superseded files are left in place, unused:
+  `src/renderer/components/Placeholder.tsx` and `components/Kbd.tsx` (now
+  `ui/Kbd`). A safety check in this environment blocked the command that
+  would have removed them. Delete them by hand; nothing imports them.
+- The Combobox renders its list only while open. Radix kept a closed list
+  mounted as the top dismissable layer, which swallowed the next escape (an
+  e2e test found this). Keep this in mind if you build popovers with Radix
+  directly.
 - The renderer bundle is about 830 kB (zod and the core schemas). That's fine
   for a local app, and could be split later if cold start needs it.

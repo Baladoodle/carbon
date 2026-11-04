@@ -5,7 +5,6 @@ import { createAiGateway } from './ai';
 import { resolveWorldDir } from './config';
 import { handle, registerIpc, send } from './ipc';
 import { startModules } from './modules';
-import { readTheme, watchTheme } from './theme';
 import { WorldSession } from './world-session';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -32,15 +31,10 @@ async function start(): Promise<void> {
   const worldDir = resolveWorldDir(process.argv, app.getPath('userData'));
   const session = await WorldSession.open(worldDir);
   const ai = createAiGateway(() => session.world);
-  let theme = await readTheme();
 
   const info = { version: app.getVersion(), worldDir, platform: process.platform, e2e: isE2E };
-  registerIpc({ window: () => win, session, ai, theme: () => Promise.resolve(theme), info });
+  registerIpc({ window: () => win, session, ai, info });
   const stopModules = await startModules({ session, ai, info, window: () => win, handle, send });
-  const stopTheme = watchTheme((t) => {
-    theme = t;
-    if (win) send(win, 'theme:changed', t);
-  });
 
   win = new BrowserWindow({
     width: 1440,
@@ -49,7 +43,7 @@ async function start(): Promise<void> {
     minHeight: 560,
     frame: false,
     show: false,
-    backgroundColor: theme.colors.bg,
+    backgroundColor: '#141416', // --bg (docs/VISUAL.md §2)
     title: 'carbon',
     autoHideMenuBar: true,
     webPreferences: {
@@ -79,7 +73,6 @@ async function start(): Promise<void> {
     if (quitting) return;
     e.preventDefault();
     quitting = true;
-    stopTheme();
     void stopModules()
       .then(() => session.flush())
       .finally(() => app.quit());

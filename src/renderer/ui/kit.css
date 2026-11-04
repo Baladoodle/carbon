@@ -1,0 +1,450 @@
+/* Component styles for src/renderer/ui (docs/VISUAL.md §4–§5). Tokens only. */
+
+/* ── Buttons ─────────────────────────────────────────────────────────────── */
+.ui-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background var(--dur-hover) var(--ease),
+    border-color var(--dur-hover) var(--ease),
+    color var(--dur-hover) var(--ease),
+    transform var(--dur-hover) var(--ease);
+}
+.ui-btn:active:not(:disabled) {
+  transform: translateY(0.5px);
+}
+.ui-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.ui-btn-sm {
+  height: 24px;
+  padding: 0 8px;
+  font-size: var(--text-dense);
+}
+.ui-btn-md {
+  height: 30px;
+  padding: 0 12px;
+}
+.ui-btn-primary {
+  background: var(--accent);
+  color: var(--accent-fg);
+  box-shadow: var(--highlight);
+}
+.ui-btn-primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 88%, white);
+}
+.ui-btn-secondary {
+  background: var(--surface-2);
+  border-color: var(--line);
+  box-shadow: var(--highlight);
+}
+.ui-btn-secondary:hover:not(:disabled) {
+  border-color: var(--line-strong);
+}
+.ui-btn-ghost {
+  background: transparent;
+  color: var(--text-2);
+}
+.ui-btn-ghost:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.ui-btn-destructive {
+  background: transparent;
+  border-color: color-mix(in srgb, var(--danger) 45%, transparent);
+  color: var(--danger);
+}
+.ui-btn-destructive:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+}
+.ui-icon-btn.ui-btn-md {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+}
+.ui-icon-btn.ui-btn-sm {
+  width: 24px;
+  padding: 0;
+}
+.ui-icon-btn[data-active] {
+  color: var(--accent);
+  background: var(--surface-2);
+  box-shadow: var(--glow);
+}
+.ui-btn:focus-visible {
+  box-shadow: var(--ring);
+}
+
+/* ── Inputs ──────────────────────────────────────────────────────────────── */
+.ui-input {
+  width: 100%;
+  min-height: 30px;
+  padding: 5px 9px;
+  background: var(--surface-2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-control);
+  color: var(--text);
+  box-shadow: var(--highlight);
+  transition:
+    border-color var(--dur-hover) var(--ease),
+    box-shadow var(--dur-hover) var(--ease);
+}
+.ui-input::placeholder {
+  color: var(--text-3);
+}
+.ui-input:focus,
+.ui-input:focus-visible {
+  border-color: var(--line-strong);
+  box-shadow: var(--ring);
+  border-radius: var(--radius-control);
+}
+.ui-input[aria-invalid='true'] {
+  border-color: var(--danger);
+}
+.ui-textarea {
+  min-height: 64px;
+  resize: vertical;
+  line-height: 1.5;
+}
+.ui-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ui-field-label {
+  font-size: var(--text-meta);
+  color: var(--text-2);
+}
+.ui-field-error {
+  font-size: var(--text-meta);
+  color: var(--danger);
+}
+
+/* AI suggestion: the typed text is mirrored invisibly; the suggestion follows it in --ai at 70%. */
+.ui-suggest {
+  position: relative;
+}
+.ui-suggest > .ui-input {
+  position: relative;
+  background: transparent;
+  z-index: 1;
+}
+.ui-suggest::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--surface-2);
+  border-radius: var(--radius-control);
+}
+.ui-suggest-mirror {
+  position: absolute;
+  inset: 0;
+  padding: 6px 10px;
+  white-space: pre;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 2;
+}
+.ui-suggest-area .ui-suggest-mirror {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+}
+.ui-suggest-typed {
+  color: transparent;
+}
+.ui-suggest-ghost {
+  color: var(--ai);
+  opacity: 0.7;
+}
+
+/* Select trigger. */
+.ui-select {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  text-align: left;
+  cursor: pointer;
+}
+.ui-select[data-placeholder] {
+  color: var(--text-3);
+}
+.ui-select-icon {
+  display: flex;
+  color: var(--text-3);
+}
+
+/* ── Overlays: popover, menu, select content, dialog, toast, tooltip ─────── */
+.ui-overlay {
+  background: color-mix(in srgb, var(--surface-3) 92%, transparent);
+  backdrop-filter: var(--blur-overlay);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-overlay);
+  box-shadow: var(--shadow-overlay), var(--highlight);
+  color: var(--text);
+  z-index: 50;
+  animation: ui-overlay-in var(--dur-panel) var(--ease);
+}
+@keyframes ui-overlay-in {
+  from {
+    opacity: 0;
+    transform: translateY(2px) scale(0.99);
+  }
+}
+.ui-popover {
+  padding: 12px;
+  min-width: 200px;
+  max-width: min(420px, 90vw);
+}
+.ui-menu {
+  min-width: 180px;
+  max-height: min(360px, var(--radix-popper-available-height, 360px));
+  overflow: auto;
+  padding: 4px;
+}
+.ui-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: space-between;
+  min-height: 28px;
+  padding: 4px 8px;
+  border-radius: var(--radius-control);
+  cursor: default;
+  outline: none;
+}
+.ui-menu-item[data-highlighted] {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--text);
+}
+.ui-menu-item[data-disabled],
+.ui-menu-item[aria-disabled='true'] {
+  color: var(--text-3);
+}
+.ui-menu-destructive {
+  color: var(--danger);
+}
+.ui-menu-sep {
+  height: 1px;
+  margin: 4px 0;
+  background: var(--line);
+}
+.ui-menu-check {
+  display: flex;
+  color: var(--accent);
+}
+.ui-combobox {
+  width: var(--radix-popper-anchor-width);
+}
+.ui-combobox-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.ui-combobox-list .ui-menu-item {
+  justify-content: flex-start;
+}
+.ui-combobox-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ui-combobox-empty {
+  padding: 6px 8px;
+}
+
+.ui-tooltip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  background: var(--surface-3);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow-overlay);
+  font-size: var(--text-dense);
+  z-index: 60;
+  animation: ui-overlay-in var(--dur-hover) var(--ease);
+}
+
+.ui-scrim {
+  position: fixed;
+  inset: 0;
+  background: rgb(0 0 0 / 0.4);
+  backdrop-filter: blur(2px);
+  z-index: 40;
+  animation: ui-fade var(--dur-panel) var(--ease);
+}
+@keyframes ui-fade {
+  from {
+    opacity: 0;
+  }
+}
+.ui-dialog {
+  position: fixed;
+  top: 18vh;
+  left: 50%;
+  translate: -50% 0;
+  width: min(480px, 92vw);
+  padding: 16px;
+}
+.ui-dialog-title {
+  margin: 0 0 12px;
+  font-size: var(--text-name);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.ui-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.ui-toast-viewport {
+  position: fixed;
+  right: 16px;
+  bottom: 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 340px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  z-index: 70;
+  outline: none;
+}
+.ui-toast {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 8px 8px 12px;
+  font-size: var(--text-dense);
+}
+.ui-toast-error {
+  border-color: color-mix(in srgb, var(--danger) 55%, var(--line-strong));
+}
+.ui-toast-error .ui-toast-text {
+  color: var(--danger);
+}
+.ui-toast-ai {
+  border-color: color-mix(in srgb, var(--ai) 45%, var(--line-strong));
+}
+.ui-toast[data-state='closed'] {
+  animation: ui-fade var(--dur-hover) var(--ease) reverse;
+}
+
+/* ── Tabs ────────────────────────────────────────────────────────────────── */
+.ui-tabs-list {
+  display: flex;
+  gap: 16px;
+  border-bottom: 1px solid var(--line);
+}
+.ui-tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 2px;
+  background: none;
+  border: 0;
+  color: var(--text-2);
+  cursor: pointer;
+  transition: color var(--dur-hover) var(--ease);
+}
+.ui-tab:hover {
+  color: var(--text);
+}
+.ui-tab[data-state='active'] {
+  color: var(--text);
+}
+.ui-tab[data-state='active']::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+.ui-tab-count {
+  font-size: var(--text-meta);
+  color: var(--text-3);
+}
+
+/* ── Table ───────────────────────────────────────────────────────────────── */
+.ui-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: var(--text-dense);
+}
+.ui-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 8px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+  color: var(--text-2);
+  font-weight: 500;
+  text-align: left;
+}
+.ui-table td {
+  padding: 8px;
+  border-bottom: 1px solid var(--line);
+}
+.ui-table .ui-num {
+  text-align: right;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.ui-table tbody tr {
+  transition: background var(--dur-hover) var(--ease);
+}
+.ui-table tbody tr:hover {
+  background: var(--surface-2);
+}
+.ui-table tbody tr[data-selected] {
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+}
+.ui-table tbody tr[data-selected] > td:first-child {
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.ui-table tbody tr[data-current] {
+  outline: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  outline-offset: -1px;
+}
+
+/* ── Small things ────────────────────────────────────────────────────────── */
+.ui-kbd {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 5px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  font: 500 var(--text-meta) var(--font-mono);
+}
+.ui-state-glyph {
+  display: inline-block;
+  flex: none;
+  vertical-align: -1px;
+  border-radius: 50%;
+}

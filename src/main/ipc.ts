@@ -2,7 +2,6 @@ import { ipcMain, type BrowserWindow, type IpcMainInvokeEvent } from 'electron';
 import type { z } from 'zod';
 import type { AiGateway } from '@core/ai/gateway';
 import type { Moment, MomentRequest } from '@core/ai/moments';
-import type { ThemeTokens } from '@core/theme/theme';
 import {
   EVENTS,
   INVOKE,
@@ -49,7 +48,6 @@ export interface IpcDeps {
   session: WorldSession;
   ai: AiGateway;
   info: AppInfo;
-  theme: () => Promise<ThemeTokens>;
 }
 
 /** Wires every foundation channel. Packages register their own with `handle`. */
@@ -63,7 +61,6 @@ export function registerIpc(deps: IpcDeps): void {
   handle('world:undo', () => session.undo());
   handle('world:redo', () => session.redo());
   handle('store:status', () => session.saveStatus());
-  handle('theme:get', () => deps.theme());
 
   handle('ai:run', async (req, event) => {
     inflight.get(req.requestId)?.abort();

@@ -1,18 +1,24 @@
 import { useMemo, useState, type ReactNode } from 'react';
+import type { EntityState } from '@core/model/kinds';
 import { useActions, useAllActions } from '../actions';
 import { focusEntity, setUi } from '../state/ui';
 import { useWorld } from '../state/world';
+import { Kbd, StateGlyph } from '../ui';
 
 interface Item {
   id: string;
+  group: string;
   label: string;
-  hint: string;
+  keys?: string;
+  hint?: string;
+  state?: EntityState;
   run: () => void;
 }
 
 /**
- * The command palette (ctrl+k). A stub over every registered action and every
- * entity; package W6 owns and extends it (ranking, recent, arguments).
+ * The command palette (ctrl+k): every action and every entity. A stub that
+ * package W6 extends (ranking, recents, arguments). Group labels show only when
+ * there's more than one group (VISUAL.md §5).
  */
 export function Palette(): ReactNode {
   const [query, setQuery] = useState('');
@@ -30,21 +36,25 @@ export function Palette(): ReactNode {
       .filter((a) => !a.hidden && (a.enabled?.() ?? true))
       .map((a) => ({
         id: `action:${a.id}`,
+        group: 'Actions',
         label: a.label,
-        hint: a.keys?.[0] ?? a.group ?? '',
+        ...(a.keys?.[0] ? { keys: a.keys[0] } : {}),
         run: a.run,
       }));
     const fromEntities: Item[] = (entities ?? []).map((e) => ({
       id: `entity:${e.id}`,
+      group: 'Entities',
       label: e.name,
       hint: e.kind,
+      state: e.state,
       run: () => focusEntity(e.id),
     }));
     return [...fromActions, ...fromEntities]
       .filter((i) => q === '' || i.label.toLowerCase().includes(q))
-      .slice(0, 50);
+      .slice(0, 60);
   }, [actions, entities, query]);
 
+  const groups = [...new Set(items.map((i) => i.group))];
   const choose = (item: Item | undefined): void => {
     if (!item) return;
     close();
@@ -52,12 +62,18 @@ export function Palette(): ReactNode {
   };
 
   return (
-    <div className="overlay" onMouseDown={close} data-testid="palette">
-      <div className="overlay-panel" onMouseDown={(e) => e.stopPropagation()}>
+    <div className="palette-scrim" onMouseDown={close}>
+      <div
+        className="ui-overlay palette"
+        data-testid="palette"
+        role="dialog"
+        aria-label="Command palette"
+        onMouseDown={(e) => e.stopPropagation()}
+      >
         <input
           autoFocus
           className="palette-input"
-          placeholder="Search actions and entities…"
+          aria-label="Search actions and entities"
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
@@ -71,20 +87,33 @@ export function Palette(): ReactNode {
             e.preventDefault();
           }}
         />
-        <ul className="palette-list" role="listbox">
-          {items.map((item, i) => (
-            <li
-              key={item.id}
-              role="option"
-              aria-selected={i === index}
-              className={i === index ? 'active' : undefined}
-              onMouseDown={() => choose(item)}
-            >
-              <span>{item.label}</span>
-              <span className="dim mono small">{item.hint}</span>
-            </li>
-          ))}
-        </ul>
+        {items.length > 0 && (
+          <div className="palette-list" role="listbox">
+            {groups.map((g) => (
+              <div key={g} role="group" aria-label={g}>
+                {groups.length > 1 && <div className="palette-group section-label">{g}</div>}
+                {items.map((item, i) =>
+                  item.group !== g ? null : (
+                    <div
+                      key={item.id}
+                      role="option"
+                      aria-selected={i === index}
+                      data-highlighted={i === index ? '' : undefined}
+                      className="palette-item"
+                      onMouseMove={() => setIndex(i)}
+                      onMouseDown={() => choose(item)}
+                    >
+                      {item.state && <StateGlyph state={item.state} tooltip={false} />}
+                      <span className="palette-label">{item.label}</span>
+                      {item.hint && <span className="t-3 t-meta">{item.hint}</span>}
+                      {item.keys && <Kbd>{item.keys}</Kbd>}
+                    </div>
+                  ),
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

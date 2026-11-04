@@ -1,15 +1,15 @@
 import type { ReactNode } from 'react';
-import { Placeholder } from '../../components/Placeholder';
+import { IconExport } from '../../ui/icons';
 import { defineView } from '../define';
 
-/** Placeholder for Export (package W6). */
-const ExportView = (): ReactNode => <Placeholder title="Export" owner="W6 (platform)" />;
+/** Empty until package W6 builds Export (the rail already says where you are). */
+const ExportView = (): ReactNode => <div className="view-empty" />; // W6 (platform) replaces this
 
 export default defineView({
   id: 'export',
   label: 'Export',
   key: '7',
   order: 7,
-  glyph: '⇥',
+  icon: IconExport,
   component: ExportView,
 });

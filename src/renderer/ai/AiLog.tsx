@@ -2,11 +2,12 @@ import { useEffect, useState, type ReactNode } from 'react';
 import type { AiLogEntry } from '@core/ai/gateway';
 import { useActions } from '../actions';
 import { setUi } from '../state/ui';
+import { Table, TBody, TD, TH, THead, TR } from '../ui';
 import { ai, useAiStatus } from './client';
 
 /**
- * The AI log overlay (ctrl+l). A basic list; package W4 owns and extends it
- * (opening the request it sent, cache hits, filters).
+ * The AI log overlay (ctrl+l): every call, newest first, in the AI's colour.
+ * Package W4 owns and extends it (the request it sent, cache hits, filters).
  */
 export function AiLog(): ReactNode {
   const [entries, setEntries] = useState<AiLogEntry[]>([]);
@@ -14,53 +15,58 @@ export function AiLog(): ReactNode {
   useEffect(() => {
     void ai.log(200).then(setEntries);
   }, [status.pending]);
+  const close = (): void => setUi({ overlay: null });
   useActions([
     {
       id: 'ai-log.close',
       label: 'Close the AI log',
       keys: ['escape', 'ctrl+l'],
-      run: () => setUi({ overlay: null }),
+      run: close,
       hidden: true,
     },
   ]);
   return (
-    <div className="overlay" data-testid="ai-log" role="dialog" aria-label="AI log">
-      <div className="overlay-panel wide">
-        <header className="overlay-head">
-          AI log{' '}
-          <span className="dim">
-            · {status.mode} · ${status.spend.sessionUsd.toFixed(2)} this session
-          </span>
-        </header>
+    <div className="palette-scrim" onMouseDown={close}>
+      <div
+        className="ui-overlay ai-log"
+        data-testid="ai-log"
+        role="dialog"
+        aria-label="AI log"
+        onMouseDown={(e) => e.stopPropagation()}
+      >
         {entries.length === 0 ? (
-          <p className="dim pad">No AI calls yet.</p>
+          <p className="ai-log-empty t-2">No AI calls this session.</p>
         ) : (
-          <table className="table">
-            <thead>
+          <Table>
+            <THead>
               <tr>
-                <th>time</th>
-                <th>moment</th>
-                <th>entity</th>
-                <th>outcome</th>
-                <th>tokens in/out</th>
-                <th>cost</th>
+                <TH>time</TH>
+                <TH>moment</TH>
+                <TH>entity</TH>
+                <TH>result</TH>
+                <TH numeric>in</TH>
+                <TH numeric>out</TH>
+                <TH numeric>cost</TH>
               </tr>
-            </thead>
-            <tbody>
+            </THead>
+            <TBody>
               {[...entries].reverse().map((e) => (
-                <tr key={e.id}>
-                  <td className="mono dim">{e.at.slice(11, 19)}</td>
-                  <td>{e.moment}</td>
-                  <td>{e.entity ?? ''}</td>
-                  <td>{e.outcome}</td>
-                  <td className="mono">
-                    {e.meta ? `${e.meta.usage.input}/${e.meta.usage.output}` : ''}
-                  </td>
-                  <td className="mono">{e.meta ? `$${e.meta.costUsd.toFixed(4)}` : ''}</td>
-                </tr>
+                <TR key={e.id}>
+                  <TD mono className="t-3">
+                    {e.at.slice(11, 19)}
+                  </TD>
+                  <TD className="t-ai">{e.moment}</TD>
+                  <TD>{e.entity ?? ''}</TD>
+                  <TD className={e.outcome === 'error' ? 't-danger' : 't-2'}>
+                    {e.error?.code ?? e.outcome}
+                  </TD>
+                  <TD numeric>{e.meta?.usage.input ?? ''}</TD>
+                  <TD numeric>{e.meta?.usage.output ?? ''}</TD>
+                  <TD numeric>{e.meta ? `$${e.meta.costUsd.toFixed(4)}` : ''}</TD>
+                </TR>
               ))}
-            </tbody>
-          </table>
+            </TBody>
+          </Table>
         )}
       </div>
     </div>

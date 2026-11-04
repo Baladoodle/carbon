@@ -13,8 +13,8 @@ export interface ViewDef {
   key: string;
   /** Rail order (ascending). */
   order: number;
-  /** One or two characters for the rail. */
-  glyph: string;
+  /** The rail icon (16px, currentColor; see ui/icons.tsx). The rail shows it with a tooltip. */
+  icon: ComponentType;
   component: ComponentType;
 }
 

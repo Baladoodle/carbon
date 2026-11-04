@@ -1,15 +1,15 @@
 import type { ReactNode } from 'react';
-import { Placeholder } from '../../components/Placeholder';
+import { IconTaste } from '../../ui/icons';
 import { defineView } from '../define';
 
-/** Placeholder for Taste (package W5). */
-const TasteView = (): ReactNode => <Placeholder title="Taste" owner="W5 (spreads)" />;
+/** Empty until package W5 builds Taste (the rail already says where you are). */
+const TasteView = (): ReactNode => <div className="view-empty" />; // W5 (spreads) replaces this
 
 export default defineView({
   id: 'taste',
   label: 'Taste',
   key: '6',
   order: 6,
-  glyph: '♢',
+  icon: IconTaste,
   component: TasteView,
 });

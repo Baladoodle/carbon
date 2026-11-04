@@ -4,10 +4,8 @@ import type { SaveStatus } from '@shared/ipc';
 import { useAiStatus } from '../ai/client';
 import { invoke, on } from '../bridge';
 import { useNotes } from '../state/notes';
-import { useUi } from '../state/ui';
 import { useWorld, useWorldMeta } from '../state/world';
-
-const tildify = (dir: string): string => dir.replace(/^\/(?:home\/[^/]+|root)(?=\/|$)/, '~');
+import { Tooltip } from '../ui';
 
 function useSaveStatus(): SaveStatus {
   const [s, set] = useState<SaveStatus>({ state: 'saved' });
@@ -18,46 +16,49 @@ function useSaveStatus(): SaveStatus {
   return s;
 }
 
-/** world · entities · notes · AI spend · save state (docs/EXPERIENCE.md §1). */
+const plural = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`;
+
+/**
+ * Only things that change and that you act on (VISUAL.md §1): the entity count
+ * (the world directory is in its tooltip), open notes, unreadable files, AI
+ * spend or why the AI is off, and the save state while it isn't simply saved.
+ */
 export function StatusLine(): ReactNode {
   const meta = useWorldMeta();
   const count = useWorld((w) => Object.keys(w.entities).length);
   const notes = useNotes();
-  const aiStatus = useAiStatus();
+  const ai = useAiStatus();
   const save = useSaveStatus();
-  const flash = useUi((s) => s.flash);
-  const ai = !aiStatus.enabled
-    ? `AI off${aiStatus.reason ? `: ${aiStatus.reason}` : ''}`
-    : `AI $${aiStatus.spend.sessionUsd.toFixed(2)}${aiStatus.mode === 'fake' ? ' (fake)' : ''}${aiStatus.pending > 0 ? ' …' : ''}`;
   return (
     <footer className="status" data-testid="status-line">
-      <span title={meta.dir}>world: {tildify(meta.dir)}</span>
-      <span data-testid="status-entities">{count ?? 0} entities</span>
-      <span>
-        {notes.length} {notes.length === 1 ? 'note' : 'notes'}
-      </span>
-      {meta.issues.length > 0 && (
-        <span className="warn" title={meta.issues.map((i) => `${i.path}: ${i.message}`).join('\n')}>
-          {meta.issues.length} unreadable {meta.issues.length === 1 ? 'file' : 'files'}
+      <Tooltip content={meta.dir}>
+        <span data-testid="status-entities" tabIndex={0}>
+          {plural(count ?? 0, 'entity', 'entities')}
         </span>
+      </Tooltip>
+      {notes.length > 0 && <span className="t-warn">{plural(notes.length, 'note', 'notes')}</span>}
+      {meta.issues.length > 0 && (
+        <Tooltip content={meta.issues.map((i) => `${i.path}: ${i.message}`).join('\n')}>
+          <span className="t-danger" tabIndex={0}>
+            {plural(meta.issues.length, 'unreadable file', 'unreadable files')}
+          </span>
+        </Tooltip>
       )}
-      <span data-testid="status-ai" className={aiStatus.enabled ? undefined : 'dim'}>
-        {ai}
+      <span className="spacer" />
+      <span data-testid="status-ai" data-mode={ai.mode} className={ai.enabled ? 't-ai' : 't-3'}>
+        {ai.enabled
+          ? `$${ai.spend.sessionUsd.toFixed(2)}${ai.pending > 0 ? ' …' : ''}`
+          : `AI off${ai.reason ? `: ${ai.reason}` : ''}`}
       </span>
       <span
         data-testid="status-save"
-        className={save.state === 'error' ? 'error' : undefined}
+        data-state={save.state}
+        className={save.state === 'error' ? 't-danger' : undefined}
         title={save.message}
       >
-        {save.state === 'saving'
-          ? '⟳ saving'
-          : save.state === 'error'
-            ? '⚠ save failed'
-            : '✓ saved'}
+        {save.state === 'saving' ? 'saving…' : save.state === 'error' ? 'save failed' : ''}
       </span>
-      <span className="spacer" />
-      {flash && <span className={flash.tone === 'error' ? 'error' : 'accent'}>{flash.text}</span>}
-      {meta.status === 'error' && <span className="error">{meta.error}</span>}
+      {meta.status === 'error' && <span className="t-danger">{meta.error}</span>}
     </footer>
   );
 }

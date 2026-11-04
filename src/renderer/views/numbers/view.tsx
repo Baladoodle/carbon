@@ -1,15 +1,15 @@
 import type { ReactNode } from 'react';
-import { Placeholder } from '../../components/Placeholder';
+import { IconNumbers } from '../../ui/icons';
 import { defineView } from '../define';
 
-/** Placeholder for Numbers (package W3). */
-const NumbersView = (): ReactNode => <Placeholder title="Numbers" owner="W3 (numbers)" />;
+/** Empty until package W3 builds Numbers (the rail already says where you are). */
+const NumbersView = (): ReactNode => <div className="view-empty" />; // W3 (numbers) replaces this
 
 export default defineView({
   id: 'numbers',
   label: 'Numbers',
   key: '4',
   order: 4,
-  glyph: 'ƒ',
+  icon: IconNumbers,
   component: NumbersView,
 });
