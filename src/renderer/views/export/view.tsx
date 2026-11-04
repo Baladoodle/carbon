@@ -335,7 +335,9 @@ function ExportView(): ReactNode {
                     <span className="export-changed" aria-label="changed since exported" />
                   </Tooltip>
                 )}
-                <span className="t-3 t-meta">{label(e.kind).toLowerCase()}</span>
+                <span className="t-3 t-meta">
+                  {schemaOf(world).kinds[e.kind].label.toLowerCase()}
+                </span>
               </div>
             );
           })}
