@@ -288,7 +288,11 @@ export class Evaluator {
         return out(xs.reduce((s, x) => s + x, 0) / xs.length);
       }
       case 'count': {
-        const items = this.list(this.evaluate(arg(0), frame), arg(0).span, "count's first argument");
+        const items = this.list(
+          this.evaluate(arg(0), frame),
+          arg(0).span,
+          "count's first argument",
+        );
         if (!a[1]) return items.length;
         return this.each(
           items,
@@ -329,7 +333,11 @@ export class Evaluator {
         return this.evaluate(c ? arg(1) : arg(2), frame);
       }
       case 'contains': {
-        const items = this.list(this.evaluate(arg(0), frame), arg(0).span, "contains's first argument");
+        const items = this.list(
+          this.evaluate(arg(0), frame),
+          arg(0).span,
+          "contains's first argument",
+        );
         const x = this.evaluate(arg(1), frame);
         return items.some((v) => valueEquals(v, x));
       }
@@ -485,7 +493,11 @@ export class Evaluator {
           : !this.bool(v, e.operand.span, 'What not negates');
       }
       case 'where': {
-        const items = this.list(this.evaluate(e.source, frame), e.source.span, 'What where filters');
+        const items = this.list(
+          this.evaluate(e.source, frame),
+          e.source.span,
+          'What where filters',
+        );
         return listValue(
           items.filter((el) =>
             this.bool(
@@ -498,9 +510,17 @@ export class Evaluator {
       }
       case 'binary': {
         if (e.op === 'and' || e.op === 'or') {
-          const l = this.bool(this.evaluate(e.left, frame), e.left.span, `The left side of ${e.op}`);
+          const l = this.bool(
+            this.evaluate(e.left, frame),
+            e.left.span,
+            `The left side of ${e.op}`,
+          );
           if (e.op === 'and' ? !l : l) return l;
-          return this.bool(this.evaluate(e.right, frame), e.right.span, `The right side of ${e.op}`);
+          return this.bool(
+            this.evaluate(e.right, frame),
+            e.right.span,
+            `The right side of ${e.op}`,
+          );
         }
         const l = this.evaluate(e.left, frame);
         const r = this.evaluate(e.right, frame);
