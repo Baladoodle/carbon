@@ -119,6 +119,7 @@ sky = count(entities where band != none and tier > 0)
 tiers = bands where tier >= 0
 mean_menace = avg(creatures where it.kind == "creature", .menace)
 strongest = max(items where subkind == "weapon", .damage)
+smallest = min(3, 1, 2) + min([4, 5])
 danger_top = max(bands where danger_max > 0, .danger_max)
 highest = max(bands, .y_bottom)
 rounded = round(hit, 2)

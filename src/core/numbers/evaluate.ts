@@ -253,7 +253,7 @@ export class Evaluator {
     fallback: (v: Value) => T,
   ): T[] {
     if (!fn) return items.map(fallback);
-    return items.map((el) => map(this.eval(fn, { element: el, parent: frame }), fn.span));
+    return items.map((el) => map(this.evaluate(fn, { element: el, parent: frame }), fn.span));
   }
 
   private builtin(e: ExprOf<'call'>, frame: Frame): Value {
@@ -261,10 +261,10 @@ export class Evaluator {
     const a = e.args;
     const arg = (i: number): Expr => a[i] as Expr;
     const numArg = (i: number): number =>
-      this.number(this.eval(arg(i), frame), arg(i).span, `${n}'s argument`);
+      this.number(this.evaluate(arg(i), frame), arg(i).span, `${n}'s argument`);
     const out = (v: number, hint?: string): number => this.num(v, e.span, `${n}(…)`, hint);
     const perElementNumbers = (): number[] => {
-      const items = this.list(this.eval(arg(0), frame), arg(0).span, `${n}'s first argument`);
+      const items = this.list(this.evaluate(arg(0), frame), arg(0).span, `${n}'s first argument`);
       return this.each(
         items,
         a[1],
@@ -288,7 +288,7 @@ export class Evaluator {
         return out(xs.reduce((s, x) => s + x, 0) / xs.length);
       }
       case 'count': {
-        const items = this.list(this.eval(arg(0), frame), arg(0).span, "count's first argument");
+        const items = this.list(this.evaluate(arg(0), frame), arg(0).span, "count's first argument");
         if (!a[1]) return items.length;
         return this.each(
           items,
@@ -300,7 +300,7 @@ export class Evaluator {
       }
       case 'min':
       case 'max': {
-        const first = this.eval(arg(0), frame);
+        const first = this.evaluate(arg(0), frame);
         let xs: number[];
         if (isList(first)) {
           xs = this.each(
@@ -325,12 +325,12 @@ export class Evaluator {
         return n === 'min' ? Math.min(...xs) : Math.max(...xs);
       }
       case 'if': {
-        const c = this.bool(this.eval(arg(0), frame), arg(0).span, 'The condition');
-        return this.eval(c ? arg(1) : arg(2), frame);
+        const c = this.bool(this.evaluate(arg(0), frame), arg(0).span, 'The condition');
+        return this.evaluate(c ? arg(1) : arg(2), frame);
       }
       case 'contains': {
-        const items = this.list(this.eval(arg(0), frame), arg(0).span, "contains's first argument");
-        const x = this.eval(arg(1), frame);
+        const items = this.list(this.evaluate(arg(0), frame), arg(0).span, "contains's first argument");
+        const x = this.evaluate(arg(1), frame);
         return items.some((v) => valueEquals(v, x));
       }
       case 'clamp': {
@@ -411,11 +411,11 @@ export class Evaluator {
       this.fail('eval.internal', `${r.name} is not a function`, e.calleeSpan);
     this.reads.add(`def:${r.name}`);
     const params = new Map<string, Value>();
-    def.params.forEach((p, i) => params.set(p.name, this.eval(e.args[i] as Expr, frame)));
-    return this.eval(def.body, { params });
+    def.params.forEach((p, i) => params.set(p.name, this.evaluate(e.args[i] as Expr, frame)));
+    return this.evaluate(def.body, { params });
   }
 
-  eval(e: Expr, frame: Frame): Value {
+  evaluate(e: Expr, frame: Frame): Value {
     if (++this.steps > this.stepLimit)
       this.fail(
         'eval.steps',
@@ -433,7 +433,7 @@ export class Evaluator {
       case 'error':
         return this.fail('eval.syntax', 'This has a syntax error', e.span);
       case 'list':
-        return listValue(e.items.map((x) => this.eval(x, frame)));
+        return listValue(e.items.map((x) => this.evaluate(x, frame)));
       case 'name': {
         const r = this.resolution(e);
         switch (r.to) {
@@ -475,21 +475,21 @@ export class Evaluator {
         return this.prop(f.element, e.name, e.nameSpan);
       }
       case 'member':
-        return this.prop(this.eval(e.object, frame), e.name, e.nameSpan);
+        return this.prop(this.evaluate(e.object, frame), e.name, e.nameSpan);
       case 'call':
         return this.call(e, frame);
       case 'unary': {
-        const v = this.eval(e.operand, frame);
+        const v = this.evaluate(e.operand, frame);
         return e.op === '-'
           ? -this.number(v, e.operand.span, 'What - negates')
           : !this.bool(v, e.operand.span, 'What not negates');
       }
       case 'where': {
-        const items = this.list(this.eval(e.source, frame), e.source.span, 'What where filters');
+        const items = this.list(this.evaluate(e.source, frame), e.source.span, 'What where filters');
         return listValue(
           items.filter((el) =>
             this.bool(
-              this.eval(e.cond, { element: el, parent: frame }),
+              this.evaluate(e.cond, { element: el, parent: frame }),
               e.cond.span,
               'The condition',
             ),
@@ -498,12 +498,12 @@ export class Evaluator {
       }
       case 'binary': {
         if (e.op === 'and' || e.op === 'or') {
-          const l = this.bool(this.eval(e.left, frame), e.left.span, `The left side of ${e.op}`);
+          const l = this.bool(this.evaluate(e.left, frame), e.left.span, `The left side of ${e.op}`);
           if (e.op === 'and' ? !l : l) return l;
-          return this.bool(this.eval(e.right, frame), e.right.span, `The right side of ${e.op}`);
+          return this.bool(this.evaluate(e.right, frame), e.right.span, `The right side of ${e.op}`);
         }
-        const l = this.eval(e.left, frame);
-        const r = this.eval(e.right, frame);
+        const l = this.evaluate(e.left, frame);
+        const r = this.evaluate(e.right, frame);
         if (e.op === '==') return valueEquals(l, r);
         if (e.op === '!=') return !valueEquals(l, r);
         const x = this.number(l, e.left.span, `The left side of ${e.op}`);
@@ -551,7 +551,7 @@ export class Evaluator {
   /** Evaluates and catches: a value, or the error with its span. */
   run(e: Expr, frame: Frame = {}): DefResult {
     try {
-      return { ok: true, value: this.eval(e, frame) };
+      return { ok: true, value: this.evaluate(e, frame) };
     } catch (x) {
       if (x instanceof EvalFail) return { ok: false, error: x.diagnostic };
       throw x;
