@@ -1,4 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
+import { createNumbersAdapter } from '@core/checks/numbers';
+import { resolvedPlaces } from '@core/checks/placement';
 import { createCheckRunner, type CheckAdapters } from '@core/checks/runner';
 import type { Note } from '@core/model/notes';
 import { stableStringify } from '@core/util/json';
@@ -24,8 +26,14 @@ import './platform.css';
  *   restore dismissed notes)
  */
 
-/** The adapters the checks run with. Integration wires W2's placement and W3's numbers here. */
-export const CHECK_ADAPTERS: CheckAdapters = {};
+/**
+ * The adapters the checks run with: placement from `resolvePlacement` and
+ * numbers from one incremental numbers engine (the export shares them).
+ */
+export const CHECK_ADAPTERS: Required<CheckAdapters> = {
+  placement: resolvedPlaces,
+  numbers: createNumbersAdapter(),
+};
 
 function useChecks(): void {
   useEffect(() => {

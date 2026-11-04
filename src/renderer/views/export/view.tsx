@@ -138,7 +138,10 @@ function ExportView(): ReactNode {
         if (out.error.code === 'cancelled') return;
         toast(`AI draft failed (${out.error.code}); used the template`, { tone: 'error' });
       }
-      setDraft({ text: buildSpec(w, ids, { name: title }), byAi: false });
+      setDraft({
+        text: buildSpec(w, ids, { name: title, numbers: CHECK_ADAPTERS.numbers }),
+        byAi: false,
+      });
     } finally {
       if (abort.current === ac) setBusy(null);
     }
@@ -152,7 +155,7 @@ function ExportView(): ReactNode {
       text: buildSpec(
         w,
         chosen.map((e) => e.id),
-        { name: specName || `${chosen.length} entities` },
+        { name: specName || `${chosen.length} entities`, numbers: CHECK_ADAPTERS.numbers },
       ),
       byAi: false,
     });

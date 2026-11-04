@@ -85,7 +85,7 @@ export interface Internals {
 }
 
 export interface EngineOptions {
-  /** Defaults to explicit bands only (W2's resolver can be passed in). */
+  /** Defaults to `resolvedPlacement` (src/core/placement); tests may pass their own. */
   placement?: PlacementResolver;
   stepLimit?: number;
 }
