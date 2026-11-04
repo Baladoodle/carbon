@@ -5,7 +5,21 @@ import reactHooks from 'eslint-plugin-react-hooks';
 import globals from 'globals';
 
 /** Bare Node built-ins (matched exactly; `node:*` is matched as a pattern). */
-const NODE_BUILTINS = ['fs', 'fs/promises', 'path', 'os', 'child_process', 'crypto', 'url', 'util', 'events', 'stream', 'worker_threads', 'module', 'process'];
+const NODE_BUILTINS = [
+  'fs',
+  'fs/promises',
+  'path',
+  'os',
+  'child_process',
+  'crypto',
+  'url',
+  'util',
+  'events',
+  'stream',
+  'worker_threads',
+  'module',
+  'process',
+];
 const NODE_MODULES = ['node:*'];
 
 /**
@@ -69,7 +83,10 @@ export default tseslint.config(
   {
     files: ['**/*.js', '**/*.mjs', '**/*.cjs'],
     ...tseslint.configs.disableTypeChecked,
-    languageOptions: { globals: { ...globals.node } },
+    languageOptions: {
+      ...tseslint.configs.disableTypeChecked.languageOptions,
+      globals: { ...globals.node },
+    },
   },
   {
     files: ['src/core/**/*.ts'],

@@ -26,6 +26,4 @@ export const cmd = <T extends CommandType>(type: T, payload: CommandPayload<T>):
   ({ type, payload }) as Command;
 
 export const commandDef = (type: string): CommandDef | undefined =>
-  Object.prototype.hasOwnProperty.call(COMMANDS, type)
-    ? (COMMANDS[type as CommandType])
-    : undefined;
+  Object.prototype.hasOwnProperty.call(COMMANDS, type) ? COMMANDS[type as CommandType] : undefined;

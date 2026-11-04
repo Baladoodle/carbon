@@ -1,0 +1,12 @@
+{
+  "appId": "dev.baladoodle.carbon",
+  "productName": "carbon",
+  "directories": { "output": "dist", "buildResources": "build" },
+  "files": ["out/**/*", "package.json"],
+  "asarUnpack": [],
+  "linux": {
+    "target": ["AppImage", "dir"],
+    "category": "Development",
+    "executableName": "carbon"
+  }
+}

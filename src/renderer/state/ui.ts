@@ -1,0 +1,73 @@
+import type { EntityId } from '@core/model/ids';
+import { createStore, useStore } from './store';
+
+/**
+ * Shared UI state: which view is showing, the Bench, the entity in focus and
+ * the selection. Views read and write it; it is not part of the world.
+ */
+export interface UiState {
+  view: string;
+  benchOpen: boolean;
+  /** The entity on the Bench. */
+  focus: EntityId | null;
+  /** Selected entities (Codex rows, Column glyphs); a spread can start from them. */
+  selection: EntityId[];
+  /** The open overlay (`palette`, `ai-log`, or a package's own), or null. */
+  overlay: string | null;
+  /** A transient message for the status line. */
+  flash: { text: string; tone: 'info' | 'error' } | null;
+}
+
+const STORAGE_KEY = 'carbon.ui';
+
+function initial(): UiState {
+  const base: UiState = {
+    view: 'column',
+    benchOpen: true,
+    focus: null,
+    selection: [],
+    overlay: null,
+    flash: null,
+  };
+  try {
+    const saved: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null');
+    if (saved && typeof saved === 'object') {
+      const s = saved as Partial<UiState>;
+      return {
+        ...base,
+        ...(typeof s.view === 'string' ? { view: s.view } : {}),
+        ...(typeof s.benchOpen === 'boolean' ? { benchOpen: s.benchOpen } : {}),
+      };
+    }
+  } catch {
+    // fresh start
+  }
+  return base;
+}
+
+export const uiStore = createStore<UiState>(initial());
+
+uiStore.subscribe(() => {
+  const { view, benchOpen } = uiStore.get();
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ view, benchOpen }));
+  } catch {
+    // storage unavailable
+  }
+});
+
+export const useUi = <T>(selector: (s: UiState) => T): T => useStore(uiStore, selector);
+
+export const setUi = (patch: Partial<UiState>): void => uiStore.set((s) => ({ ...s, ...patch }));
+
+let flashTimer: ReturnType<typeof setTimeout> | undefined;
+/** Shows a short message in the status line. */
+export function flash(text: string, tone: 'info' | 'error' = 'info'): void {
+  setUi({ flash: { text, tone } });
+  clearTimeout(flashTimer);
+  flashTimer = setTimeout(() => setUi({ flash: null }), 4000);
+}
+
+/** Puts an entity on the Bench (and opens it). */
+export const focusEntity = (id: EntityId | null): void =>
+  setUi({ focus: id, ...(id ? { benchOpen: true } : {}) });

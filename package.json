@@ -24,7 +24,9 @@
     "eval": "node scripts/eval.mjs",
     "smoke:ai": "node scripts/smoke-ai.mjs",
     "dist": "npm run build && electron-builder --linux --config electron-builder.json",
-    "postinstall": "node scripts/ensure-electron.mjs"
+    "postinstall": "node scripts/ensure-electron.mjs",
+    "fixtures:sample": "UPDATE_FIXTURES=1 vitest run src/main/store/world-dir.test.ts",
+    "dev:sample": "node scripts/dev-sample.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

@@ -122,7 +122,7 @@ function planFieldChanges(
       } else {
         if (!clear && typeof raw !== 'string')
           return err('field.invalid', `${key} must be text`, { key });
-        const value = clear ? "" : raw;
+        const value = clear ? '' : raw;
         if (key === 'name' && value.trim() === '')
           return err('field.invalid', 'an entity needs a name', { key });
         patch.push({ op: 'set', path: [...ent(e.id), key], value });
