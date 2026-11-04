@@ -199,11 +199,11 @@ export function cellIndex(
 
 export const CHIP_H = 20;
 export const CHIP_GAP = 4;
-export const CELL_PAD = 6;
+export const CELL_PAD = 5;
 /** Chip padding left (before the state glyph) and right, and the glyph's width plus gap. */
-const CHIP_PAD_L = 7;
-const CHIP_PAD_R = 8;
-const CHIP_GLYPH = 15;
+const CHIP_PAD_L = 6;
+const CHIP_PAD_R = 7;
+const CHIP_GLYPH = 14;
 /** The "+N" chip's minimum width. */
 const MORE_MIN_W = 28;
 

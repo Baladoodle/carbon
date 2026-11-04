@@ -1,3 +1,4 @@
+import type { Spot } from '@core/ai/moments';
 import type { EntityId } from '@core/model/ids';
 import { toast } from '../ui/Toast';
 import { createStore, useStore } from './store';
@@ -15,6 +16,13 @@ export interface UiState {
   selection: EntityId[];
   /** The open overlay (`palette`, `ai-log`, or a package's own), or null. */
   overlay: string | null;
+  /**
+   * A spread asked for from another surface (`space` on a Column cell, Codex
+   * rows, a Climate region), for the Spread view to pick up. `seq` changes on
+   * every request, so asking twice for the same spot still registers.
+   * Added by W1 (column); see docs/build-notes/column.md.
+   */
+  spreadRequest: { spot: Spot; seq: number } | null;
 }
 
 const STORAGE_KEY = 'carbon.ui';
@@ -26,6 +34,7 @@ function initial(): UiState {
     focus: null,
     selection: [],
     overlay: null,
+    spreadRequest: null,
   };
   try {
     const saved: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null');
@@ -66,3 +75,9 @@ export function flash(text: string, tone: 'info' | 'error' = 'info'): void {
 /** Puts an entity on the Bench (and opens it). */
 export const focusEntity = (id: EntityId | null): void =>
   setUi({ focus: id, ...(id ? { benchOpen: true } : {}) });
+
+let spreadSeq = 0;
+
+/** Asks for a spread at a spot and switches to the Spread view (W5 reads `spreadRequest`). */
+export const startSpread = (spot: Spot): void =>
+  setUi({ spreadRequest: { spot, seq: ++spreadSeq }, view: 'spread' });

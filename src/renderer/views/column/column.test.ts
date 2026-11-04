@@ -31,6 +31,7 @@ import {
   bandSpans,
   cellIndex,
   cellKey,
+  CELL_PAD,
   CHIP_H,
   fitText,
   frameOf,
@@ -361,7 +362,7 @@ describe('layoutCell', () => {
 
   it('aligns to the bottom for endless-sky bands', () => {
     const l = layoutCell({ x: 0, y: 0, w: 200, h: 300 }, [ce('a')], measure, true);
-    expect(l.glyphs[0]!.y + CHIP_H).toBeCloseTo(300 - 6, 5);
+    expect(l.glyphs[0]!.y + CHIP_H).toBeCloseTo(300 - CELL_PAD, 5);
   });
 
   it('truncates names with an ellipsis to fit', () => {
