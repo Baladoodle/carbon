@@ -27,7 +27,8 @@ longer apply.
 - **Status line:** the world directory, the entity count, open notes, AI spend
   this session, save state.
 - **Command palette** (`ctrl+k`): every action and every entity, searchable.
-- No frame; Hyprland tiles the window. Colours follow the Omarchy theme.
+- No frame; Hyprland tiles the window. The look and the text rule are in
+  [`VISUAL.md`](VISUAL.md), which overrides the mockups on everything visual.
 
 ## 2. Views
 

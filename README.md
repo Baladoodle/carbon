@@ -25,5 +25,6 @@ npm run check          # lint, format, types, unit tests, e2e smoke
 | [docs/PRODUCT.md](docs/PRODUCT.md) | What carbon is, why it's a native app, and how it's separate from Claude Code |
 | [docs/EXPERIENCE.md](docs/EXPERIENCE.md) | Views, moves, triage, card lifecycle, keyboard |
 | [docs/SYSTEM.md](docs/SYSTEM.md) | Architecture, domain model, store, commands and undo, numbers engine, AI gateway, evals, testing |
+| [docs/VISUAL.md](docs/VISUAL.md) | The visual design: the text rule, colour, type, components, signature details |
 | [docs/BUILD.md](docs/BUILD.md) | The overnight build: phases, work packages, rules, coordinator protocol |
-| [design/mockups.html](design/mockups.html) | v1 visual direction: the Column, a spread, Curves with the Bench, Taste |
+| [design/mockups.html](design/mockups.html) | v1 layout reference only (visuals superseded by VISUAL.md) |

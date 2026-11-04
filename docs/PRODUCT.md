@@ -76,8 +76,9 @@ other and with your taste.
    game knowledge. Each request stays under 100k tokens.
 7. **Separate from Claude Code.** No chat box, no code, no access to Infinite.
    Carbon shapes things; Claude Code builds them.
-8. **Keyboard first, native to Omarchy.** Every action has a key, and the colours
-   follow your Omarchy theme.
+8. **Keyboard first, native to Omarchy.** Every action has a key. Carbon has its
+   own dark, neutral-gray look (`VISUAL.md`), and every piece of text on screen
+   has to earn its place.
 
 ## 5. How it's separate from Claude Code
 
