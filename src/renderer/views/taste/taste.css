@@ -1,0 +1,228 @@
+/* The Taste view (docs/EXPERIENCE.md §6). Tokens only. */
+
+.taste-view {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.8fr) minmax(0, 1.3fr);
+  gap: 12px;
+  height: 100%;
+  min-height: 0;
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+.taste-col {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--surface-1);
+  box-shadow: var(--highlight);
+  transition: border-color var(--dur-hover) var(--ease);
+}
+.taste-col.is-current {
+  border-color: var(--line-strong);
+}
+.taste-col-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--line);
+  color: var(--text-2);
+  font-weight: 500;
+}
+.taste-col-end {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+.ui-btn.taste-learn,
+.ui-btn.taste-learn:hover:not(:disabled) {
+  color: var(--ai);
+}
+.taste-learn svg {
+  width: 13px;
+  height: 13px;
+}
+
+.taste-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 4px;
+}
+.taste-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 34px;
+  padding: 4px 8px;
+  border-radius: var(--radius-control);
+  transition: background var(--dur-hover) var(--ease);
+}
+.taste-row:hover {
+  background: var(--surface-2);
+}
+.taste-row.is-current {
+  background: var(--surface-2);
+}
+.taste-col.is-current .taste-row.is-current::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--accent);
+}
+.taste-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  line-height: 1.4;
+}
+.taste-row.is-off .taste-text {
+  color: var(--text-3);
+}
+.taste-row-action {
+  opacity: 0;
+  transition: opacity var(--dur-hover) var(--ease);
+}
+.taste-row:hover .taste-row-action,
+.taste-row.is-current .taste-row-action,
+.taste-row-action:focus-visible {
+  opacity: 1;
+}
+.taste-inline {
+  flex: 1 1 auto;
+}
+
+/* A rule's switch: a small pill, accent when on. */
+.taste-switch {
+  flex: none;
+  position: relative;
+  width: 26px;
+  height: 14px;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  background: var(--surface-3);
+  cursor: pointer;
+  transition:
+    background var(--dur-hover) var(--ease),
+    border-color var(--dur-hover) var(--ease);
+}
+.taste-switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-3);
+  transition:
+    transform var(--dur-hover) var(--ease),
+    background var(--dur-hover) var(--ease);
+}
+.taste-switch[aria-checked='true'] {
+  background: color-mix(in srgb, var(--accent) 22%, var(--surface-3));
+  border-color: color-mix(in srgb, var(--accent) 60%, var(--line-strong));
+}
+.taste-switch[aria-checked='true']::after {
+  transform: translateX(12px);
+  background: var(--accent);
+}
+.taste-switch:focus-visible {
+  outline: none;
+  box-shadow: var(--ring);
+}
+
+.taste-reason .taste-text {
+  flex: 0 0 112px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.taste-bar,
+.taste-strength {
+  flex: 1 1 40px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+.taste-bar > span,
+.taste-strength > span {
+  display: block;
+  height: 100%;
+  background: var(--text-3);
+}
+.taste-count {
+  flex: none;
+  min-width: 24px;
+  text-align: right;
+  color: var(--text-2);
+}
+.taste-count[data-zero] {
+  color: var(--text-3);
+}
+
+.taste-pattern {
+  align-items: flex-start;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+.taste-pattern-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.taste-examples {
+  font-size: var(--text-dense);
+}
+.taste-pattern .taste-strength {
+  flex: 0 0 48px;
+  margin-top: 8px;
+}
+.taste-pattern .taste-strength > span {
+  background: var(--ai);
+  opacity: 0.7;
+}
+.taste-pattern.is-promoted .taste-strength > span {
+  background: var(--accent);
+}
+.taste-pattern.is-dismissed .taste-text {
+  color: var(--text-3);
+  text-decoration: line-through;
+  text-decoration-color: var(--line-strong);
+}
+.taste-pattern-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.taste-add {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border-top: 1px solid var(--line);
+}
+.taste-add .ui-input {
+  flex: 1 1 auto;
+}
+.taste-empty {
+  padding: 12px 8px;
+}
+.taste-dismissed {
+  margin: 4px 8px 8px;
+  align-self: flex-start;
+}

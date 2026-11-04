@@ -282,6 +282,29 @@ describe('command labels', () => {
       'numbers.setIntent': { id: 'c', points: null },
       'numbers.removeAttributeDef': { kind: 'item', key: 'w' },
       'numbers.renameVariable': { from: 'k', to: 'kk' },
+      // W5 (spreads): spread and taste commands.
+      'spread.save': {
+        record: {
+          id: 's',
+          created: SAMPLE_TIME,
+          updated: SAMPLE_TIME,
+          spot: { type: 'entity', entity: 'glide' },
+          move: 'vary',
+          axes: { x: { label: 'a', low: 'l', high: 'h' }, y: { label: 'b', low: 'l', high: 'h' } },
+          count: 1,
+          candidates: [],
+        },
+      },
+      'spread.judge': { spread: 's', key: 'c1', verdict: 'keep' },
+      'taste.addRule': { text: 'No filler.' },
+      'taste.updateRule': { id: 'no-pure-numbers', enabled: false },
+      'taste.removeRule': { id: 'no-pure-numbers' },
+      'taste.addReason': { key: '8', label: 'too cute' },
+      'taste.updateReason': { key: '1', label: 'numbers' },
+      'taste.removeReason': { key: '1' },
+      'taste.countReason': { key: '1', by: 1 },
+      'taste.learnPatterns': { patterns: [], judged: 0, at: SAMPLE_TIME },
+      'taste.setPatternStatus': { id: 'p', status: 'promoted' },
     };
     for (const [type, def] of Object.entries(COMMANDS)) {
       const label = def.label(def.payload.parse(payloads[type as CommandType]) as never, w);

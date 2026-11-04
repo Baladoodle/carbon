@@ -17,11 +17,12 @@ export interface UiState {
   /** The open overlay (`palette`, `ai-log`, or a package's own), or null. */
   overlay: string | null;
   /**
-   * Where the next spread is aimed. Views set it when you press `space` (the
-   * Codex: the selected rows; Climate: a biome region), then switch to the
-   * Spread view, which reads it. Null when no spot has been chosen.
+   * A spot handed to the Spread view (W5): a Column cell, a Climate region, a
+   * Codex selection, an entity or a note. Set it together with the view —
+   * `setUi({ view: 'spread', spot })`, or `startSpread(spot)` from
+   * views/spread/start.ts — and the Spread view takes it and clears it.
    */
-  spreadSpot: Spot | null;
+  spot: Spot | null;
 }
 
 const STORAGE_KEY = 'carbon.ui';
@@ -33,7 +34,7 @@ function initial(): UiState {
     focus: null,
     selection: [],
     overlay: null,
-    spreadSpot: null,
+    spot: null,
   };
   try {
     const saved: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null');
@@ -71,8 +72,12 @@ export function flash(text: string, tone: 'info' | 'error' = 'info'): void {
   toast(text, { tone });
 }
 
-/** Aims the next spread at `spot` and opens the Spread view (`space` in the Codex and Climate). */
-export const startSpreadAt = (spot: Spot): void => setUi({ spreadSpot: spot, view: 'spread' });
+/**
+ * The one spread hand-off: aims the next spread at `spot` and opens the Spread
+ * view (`space` on the Column, in the Codex and in Climate). The Spread view
+ * adopts `ui.spot` and clears it.
+ */
+export const startSpreadAt = (spot: Spot): void => setUi({ spot, view: 'spread' });
 
 /** Puts an entity on the Bench (and opens it). */
 export const focusEntity = (id: EntityId | null): void =>

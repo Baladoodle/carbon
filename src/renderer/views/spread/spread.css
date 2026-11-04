@@ -1,0 +1,396 @@
+/* The Spread view (docs/VISUAL.md §6.3). Tokens only. */
+
+.spread-view {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  height: 100%;
+  min-height: 0;
+}
+
+/* ── The bar ─────────────────────────────────────────────────────────────── */
+.spread-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--line);
+  min-width: 0;
+}
+.spread-spot-picker {
+  width: 220px;
+}
+.spread-spot {
+  flex: none;
+  height: 26px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  font-weight: 500;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0 6px;
+}
+.spread-spot:hover {
+  background: var(--surface-2);
+}
+.spread-spot:focus-visible {
+  outline: none;
+  box-shadow: var(--ring);
+}
+.spread-moves {
+  flex: none;
+  display: flex;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--surface-1);
+  padding: 2px;
+  gap: 1px;
+}
+.spread-move {
+  height: 22px;
+  padding: 0 7px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-2);
+  font-size: var(--text-dense);
+  cursor: pointer;
+  transition:
+    background var(--dur-hover) var(--ease),
+    color var(--dur-hover) var(--ease);
+}
+.spread-move:hover:not(:disabled) {
+  color: var(--text);
+  background: var(--surface-2);
+}
+.spread-move.is-on {
+  color: var(--text);
+  background: var(--surface-3);
+  box-shadow:
+    var(--highlight),
+    inset 0 -1px 0 var(--accent);
+}
+.spread-move:disabled {
+  color: var(--text-3);
+  opacity: 0.5;
+  cursor: default;
+}
+.spread-move:focus-visible {
+  outline: none;
+  box-shadow: var(--ring);
+}
+.spread-direction {
+  flex: 1 1 260px;
+  min-width: 160px;
+}
+.spread-axes {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.spread-bar .spread-axis-select {
+  flex: none;
+  width: 124px;
+}
+.spread-bar .spread-count {
+  flex: none;
+  width: 60px;
+}
+.spread-times {
+  margin: 0 -4px;
+}
+.spread-bar-end {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+.spread-rules {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 320px;
+  padding: 4px;
+}
+.spread-rule {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  cursor: pointer;
+}
+.spread-rule input {
+  margin-top: 3px;
+  accent-color: var(--accent);
+}
+.spread-history-item {
+  display: inline-flex;
+  gap: 8px;
+  align-items: baseline;
+}
+
+/* ── The field ───────────────────────────────────────────────────────────── */
+.spread-field {
+  position: relative;
+  overflow: hidden;
+  margin: 12px 16px 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background-color: var(--bg);
+  background-image: radial-gradient(circle, var(--line) 1px, transparent 1.2px);
+  background-size: 24px 24px;
+  background-position: 11px 11px;
+}
+.spread-lines {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.spread-lines line {
+  stroke: var(--line-strong);
+  stroke-width: 1;
+}
+
+.spread-axis {
+  position: absolute;
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--text-meta);
+  color: var(--text-3);
+  pointer-events: none;
+}
+.spread-axis-x {
+  left: 12px;
+  right: 12px;
+  bottom: 4px;
+}
+.spread-axis-y {
+  /* Low at the bottom, high at the top, the name read bottom-to-top. */
+  left: 4px;
+  top: 6px;
+  bottom: 22px;
+  flex-direction: column-reverse;
+  align-items: flex-start;
+}
+.spread-axis-y .spread-axis-name {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+}
+.spread-axis-name {
+  color: var(--text-2);
+}
+
+.spread-card {
+  position: absolute;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--surface-2);
+  box-shadow: var(--highlight);
+  cursor: default;
+  overflow: hidden;
+  animation: spread-rise var(--dur-stream) var(--ease) both;
+  transition:
+    left var(--dur-panel) var(--ease),
+    top var(--dur-panel) var(--ease),
+    border-color var(--dur-hover) var(--ease),
+    box-shadow var(--dur-hover) var(--ease);
+}
+.spread-card:hover {
+  border-color: var(--line-strong);
+}
+.spread-card[data-focused] {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
+  box-shadow: var(--highlight), var(--glow);
+  z-index: 2;
+}
+.spread-card[data-marked] {
+  outline: 1px dashed var(--accent);
+  outline-offset: 2px;
+}
+.spread-card[data-wildcard] {
+  border-color: color-mix(in srgb, var(--ai) 45%, var(--line));
+}
+.spread-card[data-wildcard][data-focused] {
+  border-color: var(--ai);
+}
+.spread-card-name {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.spread-card-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.spread-wild {
+  display: inline-flex;
+  color: var(--ai);
+  flex: none;
+}
+.spread-wild svg {
+  width: 12px;
+  height: 12px;
+}
+.spread-card-identity {
+  margin-top: 2px;
+  font-size: var(--text-dense);
+  line-height: 1.35;
+  color: var(--text-2);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+@keyframes spread-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Judged cards leave: kept and merged ones move toward the spot, killed ones fade. */
+.spread-card-out {
+  pointer-events: none;
+  z-index: 1;
+  animation: none;
+}
+.spread-card-out-keep,
+.spread-card-out-merge {
+  animation: spread-to-spot calc(var(--dur-panel) + 80ms) var(--ease) forwards;
+}
+.spread-card-out-kill {
+  animation: spread-fade var(--dur-panel) var(--ease) forwards;
+}
+@keyframes spread-to-spot {
+  to {
+    opacity: 0;
+    transform: translate(calc(var(--to-x) * 0.35), calc(var(--to-y) * 0.35)) scale(0.9);
+  }
+}
+@keyframes spread-fade {
+  to {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .spread-card,
+  .spread-card-out {
+    animation: none;
+    transition: none;
+  }
+}
+
+.spread-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.spread-prompt-anchor {
+  position: absolute;
+  z-index: 5;
+}
+.spread-prompt:focus,
+.spread-prompt:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+.spread-choices {
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  min-width: 180px;
+  border-radius: var(--radius-overlay);
+}
+.spread-choice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 26px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+.spread-choice:hover {
+  background: var(--surface-2);
+}
+.spread-choice:disabled {
+  color: var(--text-3);
+}
+
+/* ── Below the field ─────────────────────────────────────────────────────── */
+.spread-error {
+  margin: 8px 16px 0;
+  font-size: var(--text-dense);
+}
+.spread-detail {
+  margin: 12px 16px 16px;
+  min-height: 92px;
+  max-height: 180px;
+  overflow: auto;
+}
+.spread-detail-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.spread-detail-name {
+  font-size: var(--text-name);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+.spread-detail-identity {
+  margin-top: 2px;
+}
+.spread-detail-desc {
+  margin-top: 4px;
+  white-space: pre-wrap;
+  font-size: var(--text-dense);
+}
+.spread-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 2px 16px;
+  margin: 8px 0 0;
+  font-size: var(--text-dense);
+}
+.spread-detail-row {
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+}
+.spread-detail-row dt {
+  flex: none;
+  min-width: 72px;
+}
+.spread-detail-row dd {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.spread-detail-why {
+  margin-top: 6px;
+  font-size: var(--text-dense);
+}

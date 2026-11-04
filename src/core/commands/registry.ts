@@ -4,6 +4,8 @@ import { numbersCommands } from '../numbers/commands';
 import { entityCommands } from './entity-commands';
 import { worldCommands } from './world-commands';
 import { placementCommands } from '../placement/commands';
+import { spreadCommands } from '../spreads/commands';
+import { tasteCommands } from '../taste/commands';
 
 /**
  * Every command carbon knows. A package adds its commands by defining them in
@@ -14,6 +16,8 @@ export const COMMANDS = {
   ...worldCommands,
   ...placementCommands,
   ...numbersCommands,
+  ...spreadCommands,
+  ...tasteCommands,
 } as const;
 
 export type CommandMap = typeof COMMANDS;
