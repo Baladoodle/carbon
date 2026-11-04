@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Carbon mockups</title>
+<style>
+  /* Tokyo Night, Omarchy's default theme. The app maps the active Omarchy theme onto these tokens. */
+  :root {
+    --bg: #1a1b26; --bg2: #16161e; --panel: #1f2335; --line: #292e42; --line2: #3b4261;
+    --fg: #c0caf5; --dim: #737aa2; --faint: #565f89;
+    --blue: #7aa2f7; --cyan: #7dcfff; --green: #9ece6a; --orange: #ff9e64;
+    --red: #f7768e; --purple: #bb9af7; --yellow: #e0af68; --teal: #73daca;
+    --mono: "JetBrains Mono", "CaskaydiaMono Nerd Font", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --sans: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    color-scheme: dark;
+  }
+  :root[data-theme="light"] { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #0f0f14; color: var(--fg); font: 14px/1.45 var(--sans); }
+  .sheet { max-width: 1320px; margin: 0 auto; padding: 32px 16px 64px; }
+  .sheet > header h1 { font: 600 22px/1.2 var(--mono); margin: 0 0 6px; letter-spacing: -.01em; }
+  .sheet > header p { margin: 0; color: var(--dim); max-width: 760px; }
+  .shot { margin-top: 40px; }
+  .shot h2 { font: 600 13px var(--mono); color: var(--blue); text-transform: uppercase; letter-spacing: .08em; margin: 0 0 4px; }
+  .shot > p { margin: 0 0 12px; color: var(--dim); max-width: 860px; }
+  .scroll { overflow-x: auto; border-radius: 10px; border: 1px solid var(--line2); box-shadow: 0 20px 60px #0008; }
+  .win { min-width: 1180px; background: var(--bg); display: grid; grid-template-columns: 52px 1fr; grid-template-rows: 1fr 26px; height: 640px; font-size: 12.5px; }
+  .win.bench { grid-template-columns: 52px 1fr 360px; }
+
+  /* rail + status */
+  .rail { grid-row: 1; background: var(--bg2); border-right: 1px solid var(--line); display: flex; flex-direction: column; align-items: center; padding-top: 12px; gap: 6px; }
+  .rail .logo { font: 700 13px var(--mono); color: var(--purple); margin-bottom: 10px; }
+  .rail b { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 7px; font: 600 12px var(--mono); color: var(--faint); }
+  .rail b.on { background: var(--panel); color: var(--blue); box-shadow: inset 2px 0 0 var(--blue); }
+  .status { grid-column: 1 / -1; grid-row: 2; background: var(--bg2); border-top: 1px solid var(--line); display: flex; gap: 18px; align-items: center; padding: 0 12px; font: 11px var(--mono); color: var(--dim); }
+  .status .sp { margin-left: auto; }
+  .status i { font-style: normal; color: var(--fg); }
+  .status .warn { color: var(--orange); }
+  .main { grid-row: 1; overflow: hidden; position: relative; display: flex; flex-direction: column; }
+  .bar { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--line); font-family: var(--mono); font-size: 12px; }
+  .bar .t { color: var(--fg); font-weight: 600; }
+  .chip { padding: 2px 8px; border-radius: 99px; background: var(--panel); border: 1px solid var(--line2); color: var(--dim); white-space: nowrap; }
+  .chip.k { color: var(--blue); border-color: #7aa2f755; }
+  kbd { font: 600 10.5px var(--mono); padding: 1px 5px; border-radius: 4px; border: 1px solid var(--line2); border-bottom-width: 2px; color: var(--fg); background: var(--bg2); }
+
+  /* ---------- Column ---------- */
+  .colgrid { flex: 1; display: grid; grid-template-columns: 112px repeat(6, 1fr) 210px; position: relative; overflow: hidden; }
+  .lanehead { position: sticky; top: 0; font: 600 10.5px var(--mono); text-transform: uppercase; letter-spacing: .07em; color: var(--dim); padding: 8px 8px; border-bottom: 1px solid var(--line); border-left: 1px solid var(--line); background: var(--bg); z-index: 2; }
+  .lanehead.first { border-left: 0; }
+  .band { display: contents; }
+  .ax { font: 10.5px var(--mono); color: var(--faint); padding: 4px 8px; text-align: left; white-space: nowrap; border-top: 1px solid var(--line); position: relative; z-index: 1; }
+  .ax b { display: block; color: var(--fg); font-weight: 600; font-size: 10.5px; text-align: left; }
+  .cell { border-top: 1px solid var(--line); border-left: 1px solid var(--line); padding: 5px; display: flex; flex-wrap: wrap; gap: 4px; align-content: flex-start; position: relative; z-index: 1; }
+  .cell.sel { outline: 2px solid var(--blue); outline-offset: -2px; background: #7aa2f710; }
+  .unwritten .cell, .unwritten .ax { background: repeating-linear-gradient(-45deg, transparent 0 6px, #ffffff06 6px 12px); }
+  .unwritten .ax b { color: var(--faint); font-weight: 400; font-style: italic; }
+  .surface .ax b { color: var(--green); }
+  .margin { border-top: 1px solid var(--line); border-left: 1px solid var(--line); padding: 4px 8px; position: relative; z-index: 1; }
+  .note { font-size: 11px; line-height: 1.35; color: var(--orange); border-left: 2px solid var(--orange); padding: 2px 0 2px 7px; margin-bottom: 4px; }
+  .note.calm { color: var(--yellow); border-color: var(--yellow); }
+  .g { font: 11px/1.2 var(--mono); padding: 3px 6px; border-radius: 4px; border: 1px solid var(--line2); color: var(--dim); white-space: nowrap; }
+  .g.ingame { border-color: var(--teal); color: var(--teal); background: #73daca12; }
+  .g.decided { background: var(--blue); border-color: var(--blue); color: var(--bg); font-weight: 600; }
+  .g.shaped { border-color: var(--blue); color: var(--blue); }
+  .g.idea { border-style: dashed; color: var(--fg); }
+  .g.slot { border-style: dotted; color: var(--faint); }
+  .g.threat { border-color: #f7768e66; color: var(--red); }
+  .g.ghost { opacity: .35; text-decoration: line-through; border-style: dashed; }
+  #envelope { position: absolute; left: 112px; right: 210px; top: 30px; bottom: 0; pointer-events: none; z-index: 0; }
+  .legend { display: flex; gap: 8px; margin-left: auto; }
+
+  /* ---------- Spread ---------- */
+  .spread { flex: 1; display: grid; grid-template-columns: 1fr 240px; min-height: 0; }
+  .field { position: relative; margin: 14px; border: 1px solid var(--line); border-radius: 8px; background:
+      linear-gradient(var(--line) 1px, transparent 1px) 0 50% / 100% 50% no-repeat,
+      linear-gradient(90deg, var(--line) 1px, transparent 1px) 50% 0 / 50% 100% no-repeat; }
+  .axis { position: absolute; font: 10.5px var(--mono); color: var(--faint); text-transform: uppercase; letter-spacing: .06em; }
+  .card { position: absolute; width: 196px; padding: 8px 10px; border-radius: 7px; background: var(--panel); border: 1px solid var(--line2); font-size: 11.5px; line-height: 1.35; }
+  .card h4 { margin: 0 0 3px; font: 600 12px var(--mono); color: var(--fg); }
+  .card p { margin: 0; color: var(--dim); }
+  .card .to { margin-top: 5px; font-size: 10.5px; color: var(--yellow); }
+  .card.kept { border-color: var(--green); box-shadow: inset 3px 0 0 var(--green); }
+  .card.killed { opacity: .45; }
+  .card.killed h4 { text-decoration: line-through; }
+  .card .why { position: absolute; top: -9px; right: 8px; font: 600 10px var(--mono); padding: 1px 6px; border-radius: 99px; background: var(--red); color: var(--bg); }
+  .card.focus { border-color: var(--blue); box-shadow: 0 0 0 2px #7aa2f766, 0 10px 30px #0008; z-index: 3; }
+  .card.wild { border-style: dashed; border-color: var(--purple); }
+  .card.wild::before { content: "wildcard · ignores taste"; position: absolute; top: -9px; left: 8px; font: 600 10px var(--mono); padding: 1px 6px; border-radius: 99px; background: var(--purple); color: var(--bg); }
+  .side { border-left: 1px solid var(--line); padding: 14px; overflow: hidden; font-size: 12px; }
+  .side h5 { margin: 0 0 8px; font: 600 10.5px var(--mono); text-transform: uppercase; letter-spacing: .07em; color: var(--dim); }
+  .keys { display: grid; grid-template-columns: auto 1fr; gap: 5px 8px; align-items: center; margin-bottom: 18px; color: var(--dim); }
+  .tally { display: flex; gap: 10px; font: 12px var(--mono); margin-bottom: 18px; }
+  .tally span b { display: block; font-size: 20px; }
+
+  /* ---------- Curves + Bench ---------- */
+  .curves { flex: 1; display: grid; grid-template-rows: 1fr 1fr; gap: 12px; padding: 12px 14px; min-height: 0; }
+  .plot { border: 1px solid var(--line); border-radius: 8px; position: relative; padding: 8px 10px; min-height: 0; }
+  .plot h5 { margin: 0; font: 600 10.5px var(--mono); text-transform: uppercase; letter-spacing: .07em; color: var(--dim); }
+  .plot h5 span { text-transform: none; letter-spacing: 0; color: var(--faint); font-weight: 400; margin-left: 8px; }
+  .plot svg { width: 100%; height: calc(100% - 18px); display: block; }
+  .benchp { grid-row: 1; border-left: 1px solid var(--line); background: var(--bg2); overflow: hidden; padding: 14px 16px; font-size: 12px; }
+  .benchp .crumb { font: 11px var(--mono); color: var(--faint); }
+  .benchp h3 { margin: 4px 0 2px; font: 600 17px var(--mono); }
+  .benchp .fant { color: var(--purple); font-style: italic; margin-bottom: 10px; }
+  .sec { border-top: 1px solid var(--line); padding: 8px 0; }
+  .sec .h { display: flex; align-items: center; gap: 6px; font: 600 10.5px var(--mono); text-transform: uppercase; letter-spacing: .07em; color: var(--dim); margin-bottom: 3px; }
+  .sec .h .mv { margin-left: auto; text-transform: none; letter-spacing: 0; font-weight: 400; color: var(--faint); }
+  .you { font: 600 9.5px var(--mono); color: var(--green); border: 1px solid #9ece6a55; border-radius: 99px; padding: 0 5px; text-transform: none; letter-spacing: 0; }
+  .cl { font: 600 9.5px var(--mono); color: var(--purple); border: 1px solid #bb9af755; border-radius: 99px; padding: 0 5px; text-transform: none; letter-spacing: 0; }
+  .num { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; font-family: var(--mono); font-size: 11.5px; }
+  .num span:nth-child(odd) { color: var(--dim); }
+  .req { color: var(--orange); font-style: italic; }
+  .state { display: inline-block; font: 600 10.5px var(--mono); padding: 1px 7px; border-radius: 99px; border: 1px solid var(--blue); color: var(--blue); }
+
+  /* ---------- Taste ---------- */
+  .taste { flex: 1; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0; min-height: 0; }
+  .tcol { padding: 14px; border-right: 1px solid var(--line); overflow: hidden; }
+  .tcol:last-child { border-right: 0; }
+  .tcol h5 { margin: 0 0 10px; font: 600 10.5px var(--mono); text-transform: uppercase; letter-spacing: .07em; color: var(--dim); }
+  .rule { display: flex; gap: 9px; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 12.5px; }
+  .rule .sw { flex: none; width: 26px; height: 15px; border-radius: 99px; background: var(--blue); position: relative; margin-top: 2px; }
+  .rule .sw::after { content: ""; position: absolute; right: 2px; top: 2px; width: 11px; height: 11px; border-radius: 50%; background: var(--bg); }
+  .rule .sw.off { background: var(--line2); }
+  .rule .sw.off::after { right: auto; left: 2px; }
+  .rule small { display: block; color: var(--faint); font: 10.5px var(--mono); margin-top: 2px; }
+  .pat { border: 1px solid var(--line2); border-radius: 7px; padding: 9px 10px; margin-bottom: 10px; }
+  .pat p { margin: 0 0 6px; }
+  .pat .ex { font: 10.5px var(--mono); color: var(--faint); margin-bottom: 7px; }
+  .pat .acts { display: flex; gap: 6px; }
+  .btn { font: 600 10.5px var(--mono); padding: 3px 8px; border-radius: 5px; border: 1px solid var(--line2); color: var(--fg); background: var(--panel); }
+  .btn.p { border-color: var(--green); color: var(--green); }
+  .bars { display: grid; grid-template-columns: 110px 1fr 28px; gap: 6px 8px; align-items: center; font-size: 11.5px; margin-top: 16px; }
+  .bars i { display: block; height: 8px; border-radius: 4px; background: var(--red); opacity: .8; }
+  .bars span:nth-child(3n) { font-family: var(--mono); color: var(--dim); text-align: right; }
+  .foot { margin-top: 48px; color: var(--faint); font-size: 12.5px; border-top: 1px solid var(--line); padding-top: 14px; }
+</style>
+</head>
+<body>
+<div class="sheet">
+  <header>
+    <h1>carbon / mockups</h1>
+    <p>A design studio for Infinite's progression, as an Electron app on Omarchy. Band names, Y ranges and combat numbers are read from Infinite's <code>assets/</code>. The item, accessory and feat ideas are <b>placeholder content</b> that shows the form, not design decisions. Each window scrolls sideways on narrow screens.</p>
+  </header>
+
+  <!-- ================= 1. COLUMN ================= -->
+  <section class="shot">
+    <h2>1 · The Column</h2>
+    <p>Infinite's Y axis is the canvas. Bands come from <code>strata_layers.ron</code>, the scale is a symmetric log around Y 0, and heights nobody has authored yet are hatched as <i>unwritten</i>. The faint shape behind the lanes is the danger envelope (±0.22 at the surface, widening with |Y|). Pressure notes sit in the right margin at the height they're about. The selected cell (Low Sky × Accessories) is where <kbd>space</kbd> opens a spread.</p>
+    <div class="scroll"><div class="win">
+      <nav class="rail"><span class="logo">C</span><b class="on">1</b><b>2</b><b>3</b><b>4</b><b>5</b></nav>
+      <main class="main">
+        <div class="bar"><span class="t">Column</span><span class="chip">symlog Y</span><span class="chip">graveyard: shown</span>
+          <div class="legend"><span class="g ingame">in game</span><span class="g decided">decided</span><span class="g shaped">shaped</span><span class="g idea">idea</span><span class="g ghost">killed</span></div>
+        </div>
+        <div class="colgrid">
+          <svg id="envelope" preserveAspectRatio="none" viewBox="0 0 100 100"><path d="M0,0 L100,0 L100,100 L0,100 Z" fill="none"/>
+            <path d="M42,0 C47,30 48.2,50 48.5,52 C48.2,54 47,74 42,100 L58,100 C53,74 51.8,54 51.5,52 C51.8,50 53,30 58,0 Z" fill="#f7768e" opacity=".07"/></svg>
+          <div class="lanehead first">Y</div><div class="lanehead">Capabilities</div><div class="lanehead">Armor</div><div class="lanehead">Accessories</div><div class="lanehead">Tools · weapons</div><div class="lanehead">Feats</div><div class="lanehead">Threats</div><div class="lanehead">Pressure</div>
+
+          <div class="band unwritten" style="--h:1">
+            <div class="ax" style="height:44px"><b>unwritten</b>4 km → ∞</div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="margin"></div>
+          </div>
+          <div class="band">
+            <div class="ax" style="height:40px"><b>The Thin</b>780 · 1000</div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="margin"></div>
+          </div>
+          <div class="band">
+            <div class="ax" style="height:46px"><b>Island Belt</b>440 · 780</div><div class="cell"><span class="g idea">breathe thin air</span></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="margin"><div class="note">No capability between Y 240 and Y 780 except one idea.</div></div>
+          </div>
+          <div class="band">
+            <div class="ax" style="height:36px"><b>Cloud Floor</b>360 · 440</div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"><span class="g idea">fall through it → slot 4</span></div><div class="cell"></div><div class="margin"></div>
+          </div>
+          <div class="band">
+            <div class="ax" style="height:40px"><b>Low Sky</b>240 · 360</div><div class="cell"></div><div class="cell"></div><div class="cell sel"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="margin"><div class="note">Accessories: sky 0, depths 3. Canon says equal importance.</div></div>
+          </div>
+          <div class="band surface">
+            <div class="ax" style="height:96px"><b>Surface</b>−24 · 240</div>
+            <div class="cell"><span class="g ingame">fell trees</span><span class="g ingame">grapple</span></div>
+            <div class="cell"><span class="g ingame">copper set · 12</span><span class="g ingame">bronze set · 16</span></div>
+            <div class="cell"><span class="g slot">slot 1</span><span class="g slot">slot 2</span><span class="g slot">slot 3</span></div>
+            <div class="cell"><span class="g ingame">crude T1</span><span class="g ingame">stone T2</span><span class="g ingame">copper T3</span><span class="g ingame">bow</span></div>
+            <div class="cell"></div>
+            <div class="cell"><span class="g threat">Bellwether −0.3</span></div>
+            <div class="margin"><div class="note calm">Copper → iron saves 1.8 HP on a 20-point hit. Intended?</div></div>
+          </div>
+          <div class="band">
+            <div class="ax" style="height:46px"><b>The Shallows</b>−260 · −24</div><div class="cell"></div><div class="cell"><span class="g ingame">iron set · 24</span></div><div class="cell"></div><div class="cell"><span class="g ingame">iron T4</span></div><div class="cell"></div><div class="cell"></div><div class="margin"></div>
+          </div>
+          <div class="band">
+            <div class="ax" style="height:62px"><b>The Hollows</b>−620 · −260</div><div class="cell"><span class="g idea">hear caves</span></div><div class="cell"></div>
+            <div class="cell"><span class="g shaped">Lantern Moth Jar</span><span class="g idea">Echo Stone</span><span class="g idea">Mycelium Thread</span><span class="g ghost">Glow-moss band</span></div>
+            <div class="cell"></div><div class="cell"></div><div class="cell"></div>
+            <div class="margin"><div class="note calm">2 of 3 Hollows accessories are about light.</div></div>
+          </div>
+          <div class="band">
+            <div class="ax" style="height:40px"><b>The Crush</b>−1000 · −620</div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="margin"></div>
+          </div>
+          <div class="band unwritten">
+            <div class="ax" style="height:60px"><b>unwritten</b>underworld · ∞</div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="margin"></div>
+          </div>
+        </div>
+      </main>
+      <div class="status"><span>Infinite <i>52e6547</i></span><span><i>14</i> cards</span><span class="warn">3 pressure</span><span><kbd>space</kbd> spread here · <kbd>enter</kbd> bench · <kbd>j</kbd><kbd>k</kbd> height · <kbd>h</kbd><kbd>l</kbd> lane</span><span class="sp">spend <i>$4.10</i> / $100</span></div>
+    </div></div>
+  </section>
+
+  <!-- ================= 2. SPREAD ================= -->
+  <section class="shot">
+    <h2>2 · A spread</h2>
+    <p>Spot: Hollows × Accessories. Move: <b>Fill</b>. Direction: one line, not a chat. The candidates are placed on a field whose axes you choose, so near-duplicates sit together. You triage with single keys, and every kill carries a reason that feeds Taste. One slot is always a wildcard that ignores your taste rules.</p>
+    <div class="scroll"><div class="win">
+      <nav class="rail"><span class="logo">C</span><b>1</b><b class="on">2</b><b>3</b><b>4</b><b>5</b></nav>
+      <main class="main">
+        <div class="bar"><span class="t">Spread</span><span class="chip k">The Hollows × Accessories</span><span class="chip k">f · Fill</span><span class="chip">“something you only notice in the dark”</span><span class="chip">16 candidates · 9 shown</span><span class="chip">$0.14</span></div>
+        <div class="spread">
+          <div class="field">
+            <span class="axis" style="left:10px;top:50%;transform:translateY(-50%)">← power</span>
+            <span class="axis" style="right:10px;top:50%;transform:translateY(-50%)">utility →</span>
+            <span class="axis" style="left:50%;top:8px;transform:translateX(-50%)">exotic ↑</span>
+            <span class="axis" style="left:50%;bottom:8px;transform:translateX(-50%)">↓ common</span>
+
+            <div class="card kept" style="left:58%;top:9%"><h4>Echo Stone</h4><p>Strike stone and hear open caves within 48 blocks as pitched tones.</p><div class="to">trade: the strike wakes nearby sleepers</div></div>
+            <div class="card kept focus" style="left:66%;top:44%"><h4>Lantern Moth Jar</h4><p>Light follows you; your trail glows for 30 s after you pass.</p><div class="to">trade: hostile creatures track the trail</div></div>
+            <div class="card" style="left:31%;top:30%"><h4>Hush Cloak</h4><p>Your steps make no sound, and you can't hear creatures either.</p><div class="to">trade: half your senses</div></div>
+            <div class="card kept" style="left:73%;top:73%"><h4>Mycelium Thread</h4><p>Leaves a faint glowing thread you can follow back, up to 300 blocks.</p><div class="to">trade: uses one slot for a single job</div></div>
+            <div class="card killed" style="left:6%;top:70%"><span class="why">1 · just a number</span><h4>Bone Charm</h4><p>+8% defense.</p></div>
+            <div class="card killed" style="left:40%;top:76%"><span class="why">6 · redundant</span><h4>Glow-moss Band</h4><p>Light radius +3.</p></div>
+            <div class="card killed" style="left:22%;top:56%"><span class="why">2 · seen it</span><h4>Deep Compass</h4><p>Points to the nearest Bone hall.</p></div>
+            <div class="card" style="left:4%;top:12%"><h4>Spore Lung</h4><p>Breathe inside Fungal forest spore clouds and heal slowly there.</p><div class="to">trade: −30% max health elsewhere</div></div>
+            <div class="card wild" style="left:31%;top:5%"><h4>Borrowed Heartbeat</h4><p>Your health bar disappears; you hear your heartbeat instead.</p><div class="to">trade: no numbers at all</div></div>
+          </div>
+          <aside class="side">
+            <h5>Triage</h5>
+            <div class="tally"><span style="color:var(--green)"><b>3</b>kept</span><span style="color:var(--red)"><b>3</b>killed</span><span style="color:var(--dim)"><b>10</b>left</span></div>
+            <div class="keys">
+              <kbd>k</kbd><span>keep → idea at spot</span>
+              <kbd>x</kbd><span>kill, then reason</span>
+              <kbd>m</kbd><span>merge marked</span>
+              <kbd>→</kbd><span>follow with a move</span>
+              <kbd>space</kbd><span>peek full card</span>
+              <kbd>u</kbd><span>undo</span>
+            </div>
+            <h5>Kill reasons</h5>
+            <div class="keys">
+              <kbd>1</kbd><span>just a number</span><kbd>2</kbd><span>seen it</span><kbd>3</kbd><span>off-tone</span><kbd>4</kbd><span>wrong band</span><kbd>5</kbd><span>fiddly</span><kbd>6</kbd><span>redundant</span><kbd>7</kbd><span>breaks canon</span><kbd>0</kbd><span>other…</span>
+            </div>
+            <h5>Field axes</h5>
+            <div class="keys"><kbd>X</kbd><span>power ↔ utility</span><kbd>Y</kbd><span>common ↔ exotic</span></div>
+          </aside>
+        </div>
+      </main>
+      <div class="status"><span>Taste: <i>9 rules on</i> · 1 off for this spread</span><span>cached context <i>92%</i></span><span class="sp">spend <i>$4.24</i> / $100</span></div>
+    </div></div>
+  </section>
+
+  <!-- ================= 3. CURVES + BENCH ================= -->
+  <section class="shot">
+    <h2>3 · Curves, with the Bench open</h2>
+    <p>The numbers lab. Mitigation uses Infinite's own formula, <code>taken = raw·k/(k+def)</code> with <code>k = 100</code> read from <code>combat.ron</code>; the dots are the armor sets that are in the game. Below it, the intended defense budget for each band is a curve you drag, and cards far off it become pressure notes. On the right, the Bench shows one card. Each field is marked as written by you or by Claude, and the card can't be marked decided until <b>Why</b> is filled in.</p>
+    <div class="scroll"><div class="win bench">
+      <nav class="rail"><span class="logo">C</span><b>1</b><b>2</b><b class="on">3</b><b>4</b><b>5</b></nav>
+      <main class="main">
+        <div class="bar"><span class="t">Curves</span><span class="chip">k = 100 · from combat.ron</span><span class="chip">reference hit: 20</span><span class="chip">mirror: Combat::mitigate ✓</span></div>
+        <div class="curves">
+          <div class="plot"><h5>Mitigation <span>share of a hit that lands · defense on log scale</span></h5><svg id="mitig" viewBox="0 0 760 210" preserveAspectRatio="none"></svg></div>
+          <div class="plot"><h5>Defense budget by band <span>drag the dashed curve · dots are cards</span></h5><svg id="budget" viewBox="0 0 760 210" preserveAspectRatio="none"></svg></div>
+        </div>
+      </main>
+      <aside class="benchp">
+        <div class="crumb">Accessories · The Hollows · <span class="state">shaped</span></div>
+        <h3>Lantern Moth Jar</h3>
+        <div class="fant">“You turn around and see the path you came down still glowing.”</div>
+        <div class="sec"><div class="h">Change <span class="cl">claude</span><span class="mv"><kbd>v</kbd> vary</span></div>Light follows you at walking pace; your trail keeps glowing for 30 s.</div>
+        <div class="sec"><div class="h">Numbers <span class="mv"><kbd>p</kbd> push</span></div><div class="num"><span>light</span><span>9 (torch 14)</span><span>linger</span><span>30 s</span><span>slot</span><span>1 of 3</span></div></div>
+        <div class="sec"><div class="h">Trade-off <span class="you">you</span><span class="mv"><kbd>o</kbd> oppose</span></div>Hostile creatures (positive menace) follow the glowing trail, so the safe route home is also the route they take.</div>
+        <div class="sec"><div class="h">Route <span class="you">you</span><span class="mv"><kbd>c</kbd> cost</span></div>Lantern moth (Fungal forest, dark period) → clay jar + binding at the kiln. Effort: <b>medium</b>, mostly finding moths.</div>
+        <div class="sec"><div class="h">Relations</div>conflicts: <span class="g ghost">Glow-moss band</span> · pairs: <span class="g idea">Mycelium Thread</span></div>
+        <div class="sec"><div class="h">Why</div><span class="req">Required to mark decided (d)</span></div>
+        <div class="sec"><div class="h">Sync</div><span style="color:var(--faint)">Not in Infinite.</span></div>
+      </aside>
+      <div class="status"><span>Infinite <i>52e6547</i></span><span>bench: <i>lantern-moth-jar.md</i> · saved</span><span class="sp">spend <i>$4.24</i> / $100</span></div>
+    </div></div>
+  </section>
+
+  <!-- ================= 4. TASTE ================= -->
+  <section class="shot">
+    <h2>4 · Taste</h2>
+    <p>Taste, written down. On the left, canon imported from Infinite's docs with links to the source lines. In the middle, your own rules, each switchable per spread. On the right, patterns carbon noticed in your keeps and kills, which you promote to a rule or dismiss. This is what makes week 5 spreads better than week 1.</p>
+    <div class="scroll"><div class="win">
+      <nav class="rail"><span class="logo">C</span><b>1</b><b>2</b><b>3</b><b class="on">4</b><b>5</b></nav>
+      <main class="main">
+        <div class="bar"><span class="t">Taste</span><span class="chip">world/taste.md</span><span class="chip">6 canon · 4 rules · 2 patterns</span></div>
+        <div class="taste">
+          <div class="tcol"><h5>Canon · from Infinite</h5>
+            <div class="rule"><span class="sw"></span><div>Mining is never hard-blocked.<small>CRAFTING-SYSTEMS.md · Tiers</small></div></div>
+            <div class="rule"><span class="sw"></span><div>Sky and depth have equal progression importance.<small>CRAFTING-SYSTEMS.md §1</small></div></div>
+            <div class="rule"><span class="sw"></span><div>New regions don't invalidate everything you own.<small>CRAFTING-SYSTEMS.md §1</small></div></div>
+            <div class="rule"><span class="sw"></span><div>Height multiplies a place's character; it isn't a ladder.<small>CREATURES.md · Danger</small></div></div>
+            <div class="rule"><span class="sw"></span><div>The inventory never shows how many accessory slots there can be.<small>ARMOR.md · Accessories</small></div></div>
+            <div class="rule"><span class="sw"></span><div>Capabilities first; a recipe is just one way to get one.<small>CRAFTING-SYSTEMS.md §2</small></div></div>
+          </div>
+          <div class="tcol"><h5>Your rules</h5>
+            <div class="rule"><span class="sw"></span><div>No pure +stat accessories.<small>promoted from pattern · 11 kills</small></div></div>
+            <div class="rule"><span class="sw"></span><div>Every accessory changes what you <i>do</i> or what you <i>notice</i>.<small>written by you</small></div></div>
+            <div class="rule"><span class="sw off"></span><div>Every sky piece has a depth counterpart.<small>written by you · off for this week</small></div></div>
+            <div class="rule"><span class="sw"></span><div>Trade-offs are about attention, not stat penalties.<small>promoted from pattern · 7 keeps</small></div></div>
+            <div class="bars">
+              <span>just a number</span><span><i style="width:92%"></i></span><span>11</span>
+              <span>seen it</span><span><i style="width:58%"></i></span><span>7</span>
+              <span>redundant</span><span><i style="width:33%"></i></span><span>4</span>
+              <span>off-tone</span><span><i style="width:25%"></i></span><span>3</span>
+              <span>wrong band</span><span><i style="width:8%"></i></span><span>1</span>
+            </div>
+          </div>
+          <div class="tcol"><h5>Patterns noticed</h5>
+            <div class="pat"><p>You kill accessories whose only effect is reducing fall damage.</p><div class="ex">4 kills · Feather Sash, Cloud Pad, Soft Boots, Drift Ring</div><div class="acts"><span class="btn p">promote to rule</span><span class="btn">dismiss</span></div></div>
+            <div class="pat"><p>You keep pieces that give information as sound.</p><div class="ex">3 keeps · Echo Stone, Bell Tongue, Hollow Choir</div><div class="acts"><span class="btn p">promote to rule</span><span class="btn">dismiss</span></div></div>
+          </div>
+        </div>
+      </main>
+      <div class="status"><span>last pattern pass <i>12 min ago</i></span><span class="sp">spend <i>$4.24</i> / $100</span></div>
+    </div></div>
+  </section>
+
+  <p class="foot">Carbon is for design and Claude Code is for implementation. Carbon reads Infinite and never writes to it. See <code>docs/PRODUCT.md</code>, <code>docs/EXPERIENCE.md</code> and <code>docs/SYSTEM.md</code>.</p>
+</div>
+
+<script>
+(function () {
+  const NS = "http://www.w3.org/2000/svg";
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  function el(svg, tag, attrs, text) {
+    const e = document.createElementNS(NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    if (text != null) e.textContent = text;
+    svg.appendChild(e); return e;
+  }
+  // Mitigation: taken share = k/(k+def), def on log axis 1 .. 100000
+  const m = document.getElementById("mitig");
+  const W = 760, H = 210, L = 40, R = 12, T = 10, B = 24, K = 100;
+  const x = d => L + (Math.log10(d) / 5) * (W - L - R);
+  const y = s => T + (1 - s) * (H - T - B);
+  for (let p = 0; p <= 5; p++) {
+    el(m, "line", { x1: x(10 ** p), x2: x(10 ** p), y1: T, y2: H - B, stroke: css("--line") });
+    el(m, "text", { x: x(10 ** p), y: H - 8, fill: css("--faint"), "font-size": 10, "text-anchor": "middle", "font-family": "monospace" }, p === 0 ? "1" : "1e" + p);
+  }
+  [0, .5, 1].forEach(s => {
+    el(m, "line", { x1: L, x2: W - R, y1: y(s), y2: y(s), stroke: css("--line") });
+    el(m, "text", { x: L - 6, y: y(s) + 3, fill: css("--faint"), "font-size": 10, "text-anchor": "end", "font-family": "monospace" }, Math.round(s * 100) + "%");
+  });
+  let d = "";
+  for (let i = 0; i <= 200; i++) { const def = 10 ** (i / 40); d += (i ? "L" : "M") + x(def).toFixed(1) + "," + y(K / (K + def)).toFixed(1); }
+  el(m, "path", { d, fill: "none", stroke: css("--blue"), "stroke-width": 2 });
+  [["copper", 12], ["bronze", 16], ["iron", 24]].forEach(([n, v], i) => {
+    const s = K / (K + v);
+    el(m, "circle", { cx: x(v), cy: y(s), r: 4.5, fill: css("--teal") });
+    el(m, "text", { x: x(1.25), y: y(.42) + i * 14, fill: css("--teal"), "font-size": 10.5, "font-family": "monospace" }, `${n} ${v} → a 20-point hit lands for ${(20 * s).toFixed(1)}`);
+  });
+  el(m, "text", { x: x(100) + 6, y: y(.5) - 6, fill: css("--dim"), "font-size": 10.5, "font-family": "monospace" }, "def 100 → half");
+
+  // Budget by band: intended (dashed, draggable look) vs cards
+  const b = document.getElementById("budget");
+  const bands = ["Crush", "Hollows", "Shallows", "Surface", "Low Sky", "Cloud Fl.", "Islands", "The Thin"];
+  const bx = i => L + 20 + i * ((W - L - R - 40) / (bands.length - 1));
+  const by = v => T + (1 - Math.log10(v) / 4) * (H - T - B); // 1..10000
+  [1, 10, 100, 1000, 10000].forEach(v => {
+    el(b, "line", { x1: L, x2: W - R, y1: by(v), y2: by(v), stroke: css("--line") });
+    el(b, "text", { x: L - 6, y: by(v) + 3, fill: css("--faint"), "font-size": 10, "text-anchor": "end", "font-family": "monospace" }, v >= 1000 ? v / 1000 + "k" : v);
+  });
+  bands.forEach((n, i) => el(b, "text", { x: bx(i), y: H - 8, fill: i === 3 ? css("--green") : css("--faint"), "font-size": 10, "text-anchor": "middle", "font-family": "monospace" }, n));
+  // symmetric intent: lowest at Surface, rising both ways (depth and sky equal)
+  const intent = [900, 260, 60, 14, 70, 180, 420, 1100];
+  let p = "";
+  intent.forEach((v, i) => { p += (i ? "L" : "M") + bx(i) + "," + by(v); });
+  el(b, "path", { d: p, fill: "none", stroke: css("--purple"), "stroke-width": 2, "stroke-dasharray": "6 5" });
+  intent.forEach((v, i) => el(b, "rect", { x: bx(i) - 4, y: by(v) - 4, width: 8, height: 8, fill: css("--bg"), stroke: css("--purple"), "stroke-width": 1.5 }));
+  [[3, 12, -12], [3, 16, 12], [2, 24, 0]].forEach(([i, v, o]) => el(b, "circle", { cx: bx(i) + o, cy: by(v), r: 4.5, fill: css("--teal") }));
+  el(b, "text", { x: bx(2) - 10, y: by(24) + 4, "text-anchor": "end", fill: css("--orange"), "font-size": 10.5, "font-family": "monospace" }, "iron 24 · below intent (60)");
+})();
+</script>
+</body>
+</html>
