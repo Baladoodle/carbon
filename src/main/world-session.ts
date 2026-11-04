@@ -1,4 +1,5 @@
 import { applyCommands, labelOf } from '@core/commands/apply';
+import { diffWorlds } from '@core/commands/diff';
 import { emptyHistory, record, redo, undo, type History } from '@core/commands/history';
 import type { Patch } from '@core/commands/patch';
 import { filesForPatch, type LoadIssue } from '@core/files/world-files';
@@ -110,6 +111,29 @@ export class WorldSession {
     this.history = r.value.history;
     this.commit(r.value.world, r.value.patch, cause, r.value.label);
     return { ok: true, rev: this.rev, label: r.value.label };
+  }
+
+  /**
+   * Replaces the world after a change made outside carbon (a hand edit, Claude
+   * Code, a git checkout). Nothing is written back to disk; the renderer gets a
+   * patch with cause `external`. Undo history is cleared, because its inverses
+   * were computed against the old files. (For package W6's file watcher.)
+   */
+  applyExternal(next: World, issues: LoadIssue[] = this.issues): void {
+    this.issues = issues;
+    const patch = diffWorlds(this.current, next);
+    if (patch.length === 0) return;
+    this.history = emptyHistory(this.history.limit);
+    this.current = next;
+    this.rev++;
+    const event: PatchEvent = {
+      rev: this.rev,
+      patch,
+      cause: 'external',
+      label: 'Changed outside carbon',
+      history: this.historyInfo(),
+    };
+    for (const l of this.patchListeners) l(event);
   }
 
   private historyInfo(): HistoryInfo {

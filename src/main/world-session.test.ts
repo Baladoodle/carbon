@@ -73,6 +73,28 @@ describe('WorldSession', () => {
     expect(reopened.world).toEqual(s.world);
   });
 
+  it('applies external changes as a patch without writing, and clears undo', async () => {
+    const s = await WorldSession.open(dir, clock);
+    s.dispatch([cmd('numbers.setVariable', { name: 'k', value: 5 })]);
+    await s.flush();
+    const events: PatchEvent[] = [];
+    s.onPatch((e) => events.push(e));
+    const next = { ...s.world, entities: { ...s.world.entities } };
+    delete next.entities.glide;
+    s.applyExternal(next);
+    expect(events).toMatchObject([
+      {
+        rev: 2,
+        cause: 'external',
+        patch: [{ op: 'remove', path: ['entities', 'glide'] }],
+        history: { canUndo: false },
+      },
+    ]);
+    expect(await exists(path.join(dir, 'entities/capability/glide.md'))).toBe(true);
+    s.applyExternal(next);
+    expect(events).toHaveLength(1);
+  });
+
   it('refuses invalid commands without changing anything', async () => {
     const s = await WorldSession.open(dir, clock);
     const r = s.dispatch([cmd('entity.delete', { id: 'ghost' })]);

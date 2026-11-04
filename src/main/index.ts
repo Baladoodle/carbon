@@ -3,7 +3,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createAiGateway } from './ai';
 import { resolveWorldDir } from './config';
-import { registerIpc, send } from './ipc';
+import { handle, registerIpc, send } from './ipc';
+import { startModules } from './modules';
 import { readTheme, watchTheme } from './theme';
 import { WorldSession } from './world-session';
 
@@ -33,13 +34,9 @@ async function start(): Promise<void> {
   const ai = createAiGateway(() => session.world);
   let theme = await readTheme();
 
-  registerIpc({
-    window: () => win,
-    session,
-    ai,
-    theme: () => Promise.resolve(theme),
-    info: { version: app.getVersion(), worldDir, platform: process.platform, e2e: isE2E },
-  });
+  const info = { version: app.getVersion(), worldDir, platform: process.platform, e2e: isE2E };
+  registerIpc({ window: () => win, session, ai, theme: () => Promise.resolve(theme), info });
+  const stopModules = await startModules({ session, ai, info, window: () => win, handle, send });
   const stopTheme = watchTheme((t) => {
     theme = t;
     if (win) send(win, 'theme:changed', t);
@@ -83,7 +80,9 @@ async function start(): Promise<void> {
     e.preventDefault();
     quitting = true;
     stopTheme();
-    void session.flush().finally(() => app.quit());
+    void stopModules()
+      .then(() => session.flush())
+      .finally(() => app.quit());
   });
 }
 

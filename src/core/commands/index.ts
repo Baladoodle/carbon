@@ -5,3 +5,4 @@ export * from './world-commands';
 export * from './registry';
 export * from './apply';
 export * from './history';
+export * from './diff';
