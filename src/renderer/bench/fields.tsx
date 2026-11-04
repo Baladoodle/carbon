@@ -1,4 +1,11 @@
-import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+  type RefObject,
+} from 'react';
 import type { Entity } from '@core/model/entity';
 import type { FieldDef, Step } from '@core/model/fields';
 import { fieldValue } from '@core/model/lifecycle';
@@ -20,7 +27,7 @@ import {
 } from '../ui';
 import { benchAi, commitField } from './controller';
 import { refTargets } from './relations';
-import { fieldId, setBench, useBench } from './store';
+import { benchStore, fieldId, setBench, useBench } from './store';
 import { checkValue, formatValue, isTextual, parseNumber, parseText } from './value';
 
 const FOCUSABLE = 'input, textarea, button[role="combobox"], [role="combobox"], button';
@@ -197,6 +204,18 @@ function TextControl({ entity, def, suggestion, onError, variant }: ControlProps
   const stored = formatValue(def, fieldValue(entity, def.key));
   const [draft, setDraft, dirty] = useDraft(stored);
   const focus = useFieldFocus(entity.id, def.key);
+  // The kit's Input wraps itself when a suggestion shows, which remounts the
+  // <input>: keep focus (and the caret at the end) on this field across that.
+  const el = useRef<HTMLInputElement & HTMLTextAreaElement>(null);
+  const showing = suggestion !== null && suggestion !== '';
+  useLayoutEffect(() => {
+    const f = benchStore.get().field;
+    const node = el.current;
+    if (!node || f?.entity !== entity.id || f.key !== def.key || document.activeElement === node)
+      return;
+    node.focus();
+    node.setSelectionRange(node.value.length, node.value.length);
+  }, [showing, entity.id, def.key]);
   const commit = async (): Promise<void> => {
     if (!dirty()) return onError(null);
     const p = parseText(def, draft);
@@ -204,6 +223,7 @@ function TextControl({ entity, def, suggestion, onError, variant }: ControlProps
     onError(await commitField(entity.id, def.key, p.value));
   };
   const common = {
+    ref: el,
     id: `bench-${fieldId(entity.id, def.key)}`,
     value: draft,
     suggestion,

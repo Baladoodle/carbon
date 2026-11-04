@@ -105,6 +105,37 @@ export interface GeometryOptions {
   measure: Measure;
   /** Bands with a live edge drag applied (the frame stays that of `model.bands`). */
   bands?: BandSpan[];
+  /** Cell layouts are cached by content; bump this when `measure` changes (fonts loaded). */
+  version?: number;
+}
+
+/**
+ * Cell layouts by cell, reused while the cell's rect and entities are the
+ * same: an edit re-lays only the cells it touched, which keeps a command's
+ * round trip short with 2,000 entities.
+ */
+const cellCache = new Map<string, { sig: string; box: CellBox }>();
+const CACHE_MAX = 20000;
+
+function cachedCell(
+  key: string,
+  row: string,
+  lane: Lane,
+  rect: Rect,
+  es: Parameters<typeof layoutCell>[1],
+  measure: Measure,
+  alignBottom: boolean,
+  version: number,
+): CellBox {
+  let sig = `${version}|${rect.x},${rect.y},${rect.w},${rect.h}|${alignBottom ? 1 : 0}`;
+  for (const e of es)
+    sig += `|${e.id}\u0001${e.name}\u0001${e.state}\u0001${e.inferred ? 1 : 0}\u0001${e.group}`;
+  const hit = cellCache.get(key);
+  if (hit && hit.sig === sig) return hit.box;
+  const box: CellBox = { ...layoutCell(rect, es, measure, alignBottom), key, row, lane, rect };
+  if (cellCache.size > CACHE_MAX) cellCache.clear();
+  cellCache.set(key, { sig, box });
+  return box;
 }
 
 export function geometry(model: ColumnModel, opts: GeometryOptions): Geometry {
@@ -140,9 +171,18 @@ export function geometry(model: ColumnModel, opts: GeometryOptions): Geometry {
       const es = model.index.cells.get(key);
       if (!es || es.length === 0) return;
       const rect = { x: laneX[i] ?? 0, y: box.top, w: laneW, h: box.bottom - box.top };
-      const l = layoutCell(rect, es, opts.measure, alignBottom);
-      cells.set(key, { ...l, key, row: band.id, lane, rect });
-      addGlyphs(l.glyphs);
+      const cell = cachedCell(
+        key,
+        band.id,
+        lane,
+        rect,
+        es,
+        opts.measure,
+        alignBottom,
+        opts.version ?? 0,
+      );
+      cells.set(key, cell);
+      addGlyphs(cell.glyphs);
     });
   }
 

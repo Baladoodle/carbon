@@ -225,10 +225,9 @@ function Column({ world, model }: { world: World; model: ColumnModel }): ReactNo
         pxPerU,
         width: Math.max(width, 600),
         measure: measureChip,
+        version: fontVer,
         ...(dragBands ? { bands: dragBands } : {}),
       }),
-    // fontVer: re-measure once fonts load.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [model, pxPerU, width, dragBands, fontVer],
   );
   const showInbox = geo.inbox !== null || rawCursor?.row === INBOX_ROW;

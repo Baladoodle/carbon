@@ -48,7 +48,8 @@ test('@smoke switches views with 1–7 and screenshots each', async () => {
     await carbon.screenshot(`foundation-${id}`);
   }
   await carbon.gotoView('column', '1');
-  await expect(page().getByTestId('column-bands').locator('li').first()).toContainText(
+  // The Column (W1) draws the bands top to bottom.
+  await expect(page().locator('[data-testid="column-svg"] [data-band]').first()).toContainText(
     'High Drift',
   );
 });
@@ -60,7 +61,8 @@ test('@smoke toggles the Bench with b and focuses an entity from the Codex', asy
   await page().locator('body').press('b');
   await expect(page().getByTestId('bench')).toHaveCount(0);
   await page().locator('body').press('b');
-  await expect(page().getByTestId('bench-entity')).toContainText('Glide');
+  // The Bench (W1) shows the name in its editable title.
+  await expect(page().getByTestId('bench-entity').getByLabel('Name')).toHaveValue('Glide');
 });
 
 test('@smoke commands round-trip through IPC, persist to disk and undo with ctrl+z', async () => {

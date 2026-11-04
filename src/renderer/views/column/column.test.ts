@@ -557,6 +557,7 @@ describe('edges', () => {
       top: 1000,
     });
     expect(drawnBandSpan({ top: 1000, bottom: 100 }, 300, 301)).toEqual({ bottom: 100, top: 1000 });
+    expect(drawnBandSpan({ top: 1000, bottom: 100 }, 102, 500)).toEqual({ bottom: 100, top: 500 });
     fc.assert(
       fc.property(
         fc.integer({ min: -9000, max: 9000 }),

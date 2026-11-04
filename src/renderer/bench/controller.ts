@@ -1,4 +1,5 @@
 import { cmd } from '@core/commands/registry';
+import { fieldValue } from '@core/model/lifecycle';
 import { getEntity } from '@core/model/world';
 import { hashValue } from '@core/util/hash';
 import { ai } from '../ai/client';
@@ -38,8 +39,7 @@ export async function commitField(
   const w = currentWorld();
   const e = w ? getEntity(w, entityId) : undefined;
   if (!e) return 'That entity no longer exists';
-  const current =
-    key in e && key !== 'fields' ? (e as unknown as Record<string, unknown>)[key] : e.fields[key];
+  const current = fieldValue(e, key);
   const same =
     hashValue(current ?? null) === hashValue(value ?? null) ||
     (value === null && (current === '' || (Array.isArray(current) && current.length === 0)));

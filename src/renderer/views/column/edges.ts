@@ -110,8 +110,15 @@ export function drawnBandSpan(
   const lo = Math.min(a, b);
   const hi = Math.max(a, b);
   if (Math.abs(toU(hi) - toU(lo)) < 0.05) return newBandSpan(gap);
+  // Within a hair of the gap's edge (on the scale) means "to the edge": bands meet cleanly.
+  const near = (y: number, edge: number): boolean =>
+    Number.isFinite(edge) && Math.abs(toU(y) - toU(edge)) < 0.04;
   const inside = (y: number): number =>
-    y <= limits.lo ? limits.lo : y >= limits.hi ? limits.hi : snapY(y);
+    y <= limits.lo || near(y, limits.lo)
+      ? limits.lo
+      : y >= limits.hi || near(y, limits.hi)
+        ? limits.hi
+        : snapY(y);
   const bottom = inside(lo);
   const top = inside(hi);
   if (!(top > bottom) || !Number.isFinite(top) || !Number.isFinite(bottom)) return newBandSpan(gap);
