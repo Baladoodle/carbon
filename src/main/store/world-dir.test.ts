@@ -92,7 +92,7 @@ describe('world directory', () => {
  * Regenerate with `npm run fixtures:sample`.
  */
 describe('fixtures/worlds/sample', () => {
-  const fixture = path.resolve(__dirname, '../../../fixtures/worlds/sample');
+  const fixture = path.resolve(import.meta.dirname, '../../../fixtures/worlds/sample');
   it('matches sampleWorld()', async () => {
     if (process.env.UPDATE_FIXTURES === '1') {
       await rm(fixture, { recursive: true, force: true });

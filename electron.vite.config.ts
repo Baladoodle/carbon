@@ -3,10 +3,10 @@ import { defineConfig } from 'electron-vite';
 import react from '@vitejs/plugin-react';
 
 const alias = {
-  '@core': resolve(__dirname, 'src/core'),
-  '@shared': resolve(__dirname, 'src/shared'),
-  '@main': resolve(__dirname, 'src/main'),
-  '@renderer': resolve(__dirname, 'src/renderer'),
+  '@core': resolve(import.meta.dirname, 'src/core'),
+  '@shared': resolve(import.meta.dirname, 'src/shared'),
+  '@main': resolve(import.meta.dirname, 'src/main'),
+  '@renderer': resolve(import.meta.dirname, 'src/renderer'),
 };
 
 export default defineConfig({
@@ -14,7 +14,7 @@ export default defineConfig({
     resolve: { alias },
     build: {
       outDir: 'out/main',
-      rollupOptions: { input: { index: resolve(__dirname, 'src/main/index.ts') } },
+      rollupOptions: { input: { index: resolve(import.meta.dirname, 'src/main/index.ts') } },
     },
   },
   preload: {
@@ -24,18 +24,18 @@ export default defineConfig({
       // The preload runs sandboxed, so it must be one self-contained CommonJS file.
       externalizeDeps: false,
       rollupOptions: {
-        input: { index: resolve(__dirname, 'src/preload/index.ts') },
+        input: { index: resolve(import.meta.dirname, 'src/preload/index.ts') },
         output: { format: 'cjs', entryFileNames: '[name].cjs' },
       },
     },
   },
   renderer: {
-    root: resolve(__dirname, 'src/renderer'),
+    root: resolve(import.meta.dirname, 'src/renderer'),
     resolve: { alias },
     plugins: [react()],
     build: {
       outDir: 'out/renderer',
-      rollupOptions: { input: { index: resolve(__dirname, 'src/renderer/index.html') } },
+      rollupOptions: { input: { index: resolve(import.meta.dirname, 'src/renderer/index.html') } },
     },
   },
 });
