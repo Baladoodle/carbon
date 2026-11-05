@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "infinite-genforge"
+version = "0.1.0"
+description = "Standalone image generation, pixel filters and voxel tileset tooling for Infinite"
+requires-python = ">=3.11"
+dependencies = ["Pillow>=11,<13", "numpy>=2,<3", "opencv-python-headless>=4.10,<5"]
+
+[project.optional-dependencies]
+test = ["pytest>=8,<10"]
+
+[project.scripts]
+genforge = "genforge.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["genforge*"]
+
+[tool.setuptools.package-data]
+"genforge.walls" = ["layouts/*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
