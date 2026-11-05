@@ -6,7 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
-import { launchCarbon, type CarbonApp } from './harness';
+import { launchCarbon, SCREEN_SCALE, type CarbonApp } from './harness';
 
 /**
  * The agent socket end to end (docs/MCP.md): a real MCP client from the
@@ -61,7 +61,7 @@ test.describe('an agent over carbon mcp', () => {
   let client: Client;
 
   test.beforeAll(async () => {
-    carbon = await launchCarbon();
+    carbon = await launchCarbon({ scale: SCREEN_SCALE });
     await carbon.gotoView('column', '1');
     client = await connect(carbon.socket);
   });

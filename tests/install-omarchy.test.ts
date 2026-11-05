@@ -124,6 +124,22 @@ describe('install-omarchy.sh', () => {
     expect(readFileSync(p('started'), 'utf8').trim()).toBe('started --world /x');
   });
 
+  it('`carbon mcp` runs the relay in the app’s Electron, in node mode, never focusing', () => {
+    writeFileSync(fakeApp, `#!/bin/sh\necho "node=$ELECTRON_RUN_AS_NODE $*" > "${p('started')}"\n`);
+    run('--appimage', fakeApp);
+    // A running carbon must not swallow `carbon mcp` into a focus.
+    writeFileSync(
+      p('fakebin/hyprctl'),
+      `#!/bin/sh\nif [ "$1" = clients ]; then echo '[{"class": "carbon"}]'; else echo focused > "${p('hyprctl-called')}"; fi\n`,
+    );
+    chmodSync(p('fakebin/hyprctl'), 0o755);
+    execFileSync(launcher(), ['mcp'], { env });
+    const started = readFileSync(p('started'), 'utf8').trim();
+    expect(started).toMatch(/^node=1 -e import\(/);
+    expect(started).toContain("'app.asar','out','main','mcp.js'");
+    expect(existsSync(p('hyprctl-called'))).toBe(false);
+  });
+
   it('the launcher focuses a running carbon through hyprctl', () => {
     run('--appimage', fakeApp);
     writeFileSync(

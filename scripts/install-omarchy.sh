@@ -12,7 +12,8 @@
 #
 #   ~/.local/share/carbon/              the app (carbon.AppImage, or app/ for an unpacked build)
 #   ~/.local/bin/carbon                 the launcher: focuses the running carbon through
-#                                       hyprctl if there is one, starts it otherwise
+#                                       hyprctl if there is one, starts it otherwise;
+#                                       `carbon mcp` is the MCP server for agents (docs/MCP.md)
 #   ~/.local/share/applications/carbon.desktop
 #   ~/.local/share/icons/hicolor/scalable/apps/carbon.svg
 #   ~/.config/hypr/carbon.conf          the suggested Hyprland window rule (a file of its own;
@@ -38,6 +39,8 @@ HYPR_SNIPPET="$HYPR_DIR/carbon.conf"
 HYPR_MAIN="$HYPR_DIR/hyprland.conf"
 ICON="$DATA/icons/hicolor/scalable/apps/carbon.svg"
 SOURCE_LINE="source = $HYPR_SNIPPET $MARK"
+# What `carbon mcp` runs: the relay inside the app's resources (an AppImage's too, wherever it mounts).
+MCP_LOADER="import(require('node:url').pathToFileURL(require('node:path').join(process.resourcesPath,'app.asar','out','main','mcp.js')).href)"
 
 mode=install
 appimage=''
@@ -196,6 +199,12 @@ install() {
   write_file "$LAUNCHER" 755 "#!/bin/sh
 $MARK
 # Focuses the running carbon (Hyprland), or starts it. Arguments go to carbon (e.g. --world DIR).
+# \`carbon mcp\`: the stdio MCP server agents connect to (docs/MCP.md), run by carbon's own
+# Electron in node mode, so it needs no Node of its own. It relays to the running carbon.
+if [ \"\${1:-}\" = mcp ]; then
+  shift
+  ELECTRON_RUN_AS_NODE=1 exec \"$exe\" -e \"$MCP_LOADER\" \"\$@\"
+fi
 if [ \$# -eq 0 ] && command -v hyprctl >/dev/null 2>&1 &&
    hyprctl clients -j 2>/dev/null | grep -Eq '\"class\": *\"carbon\"'; then
   exec hyprctl dispatch focuswindow 'class:^(carbon)\$' >/dev/null
