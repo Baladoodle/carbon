@@ -4,9 +4,10 @@ Branch `claude/blissful-einstein-8u27ty-images-core`. The non-UI half of
 `docs/IMAGES.md`: the model, the store, the OpenAI provider, the gateway, the
 budget and pricing, the `image_prompt` moment, art direction and export.
 
-`npm run check` and the full `npm run test:e2e` (124 tests) pass on the
-merged base (with critique). **Real OpenAI calls: 8 of the 12 allowed, all low quality,
-$0.2815 in total** (§5).
+`npm run check` passes; the full `npm run test:e2e` passes 123 of 124, the
+one failure being a Bench screenshot test that fails on the base too (§8), on the
+merged base (with critique). **Real OpenAI calls: 9 of the 12 allowed, all low quality,
+$0.3246 in total** (§5).
 
 - **The contract for images-ui:** §1
 - **What was built:** §2
@@ -122,7 +123,7 @@ review. `calls.json` holds each call's prompt, usage, cost and latency.
 | **Gateway**: prompt, estimate, generate, icon from concept (free), batch plan and run (concurrency 2, cancellable, progress), sheets (run, crop, accept), files as data URLs (thumbnails cached), "Delete image files", the log, the budget and status | `src/main/images/gateway.ts`, `module.ts` (IPC), `index.ts` (mode) |
 | **Icon sheets** (§2a): deterministic item lines, splitting into sheets of ≤ 100, the sheet prompt; one call per sheet with the guide as the reference; crop, flags, filter, review; accept as one undo step | `src/core/images/sheet.ts`, gateway, `src/main/images/pixel.ts` (adapter) |
 | **Pixel adapter**: `filterImage`, `sheetLayout`, `drawGuide`, `cropSheet` with pixel's exact names and shapes | `src/main/images/pixel.ts` |
-| **`image_prompt`** (Haiku, through the existing gateway and registry): builder, schema, parse, fake answer | `src/core/images/prompt.ts`, one line each in `core/ai/moments.ts`, `core/prompts/registry.ts`, `core/ai/fake.ts` |
+| **`image_prompt`** (Haiku, through the existing gateway and registry): builder, schema, parse, fake answer. It carries critique's shared quality bar (`qualityConstraints`) with an exception line: only `rule_clash` and `contradicts_relation` apply to an image | `src/core/images/prompt.ts`, one line each in `core/ai/moments.ts`, `core/prompts/registry.ts`, `core/ai/fake.ts` |
 | **Export** (§6): the spec gets an "Images" section listing each entity's icon and concept paths; the files are copied to `exports/<spec>/images/<entity>.<kind>.png`; undo removes them, redo copies them again | `src/core/images/export.ts`, `main/store/exports.ts` |
 | **Budget**: an OpenAI meter separate from Claude's (session and month, month read back from the log), exact in nano-dollars, pauses at the limit, resumes when `settings.images.budget` is raised | gateway |
 | **The log**: `ai-log/images-<date>.jsonl`, one line per attempt: provider, model, size, quality, usage, cost (and whether from usage or estimated), latency, outcome, request id, image id, batch id | `src/main/images/log.ts` |
@@ -165,16 +166,22 @@ review. `calls.json` holds each call's prompt, usage, cost and latency.
    must be an entity id), and it's never selected. Its grid is stored with
    it, so `sheetCrop` re-crops it for free at any time.
 10. **The sheet size is 2880×2880**: the guide says custom sizes are multiples
-    of 16 up to 8,294,400 pixels, so 2880² is the largest square, and the
-    real call (§5) accepted it as an edit with the guide.
-11. **The crop keeps what's centred in the cell.** On the real sheet the
-    model keeps its own even grid (288 px pitch), which drifts up to about
-    28 px from the layout's (gutter 58, cell 224). Cutting at half a gutter
-    flagged 54 of 100 perfect sprites. The adapter now searches a full gutter
-    around the cell, labels connected parts, and keeps those whose centre lies
-    in the cell: 0 flags on the real sheet, in 0.7 s. **For pixel:** the same
-    rule would help `cropSheet`; the regression test is in `sheet.test.ts`
-    ("the recorded real sheet").
+    of 16 up to 8,294,400 pixels, so 2880² is the largest square. The docs
+    don't say it per model, so it was verified with one real sheet on each:
+    2.6-flare and 2.5-flare (the default) both accepted it as an edit with the
+    guide and returned 2880×2880 (§5).
+11. **The crop registers the model's grid.** The models keep their own even
+    grid, which drifts from the layout's: up to about 28 px on the 2.6 sheet
+    and **64 px** on the 2.5 sheet, more than a gutter (58). Cutting fixed
+    cells flagged 54 of 100 perfect sprites on 2.6, and on 2.5 it also
+    **clipped** sprites in rows 5–8. The adapter's `cropSheet` now labels the
+    connected parts of the whole sheet, gives each part to the cell whose
+    centre is nearest its centroid, measures each row's and column's median
+    offset, and flags `touches_edge` only past the offset cell plus half a
+    gutter. Both real sheets: 100 whole sprites, 0 flags at full size, about
+    0.4 s for 2880². **For pixel:** the same rule would help its `cropSheet`;
+    the regression tests are in `sheet.test.ts` ("the recorded real sheet",
+    for both models, including a no-clipping check).
 12. **Files cross IPC as data URLs.** The CSP already allows `data:` images,
     and a custom protocol would mean editing foundation's bootstrap.
     Thumbnails (≤ 256 px) are cached in main.
@@ -219,7 +226,7 @@ Image models, which errs high.
 
 | Output tokens | 1024² | 1536×1024 / 1024×1536 | 2880² |
 |---|---|---|---|
-| low | **196 M** | 158 D | 658 D |
+| low | **196 M** | 158 D | **659 M** (the sheet) |
 | medium | **439 M** | 354 D | 1,475 D |
 | high | 1,729 D | 1,393 D | 5,810 D |
 
@@ -265,7 +272,8 @@ through the real gateway and `OpenAiImageProvider`.
 | 6 | Glowmoss Caverns concept | sunburst | 1536×1024 | generate | 69 / 664 | $0.020265 | 28.0 s |
 | 7 | Cinder Sting icon | sunburst | 1024² | generate | 120 / 824 | $0.025320 | 19.9 s |
 | 8 | 100-icon sheet (10×10) | flare | 2880² | edit (guide) | 2,237 text + 1,521 image / 2,768 | $0.106393 | 30.0 s |
-| | **Total: 8 calls, all low quality, all succeeded** | | | | | **$0.281475** | |
+| 9 | 100-icon sheet (10×10), the default model | **2.5-flare** | 2880² | edit (guide) | 2,237 text + 1,521 image / 659 | $0.043123 | 29.2 s |
+| | **Total: 9 calls, all low quality, all succeeded** | | | | | **$0.324598** | |
 
 What they showed:
 
@@ -276,9 +284,14 @@ What they showed:
 - The 10×10 sheet came back with **all 100 items recognisable, each in its
   own cell** (the user's "about 99%" held here), at about $0.001 per icon.
 - sunburst took 2–4× longer than flare at the same price.
+- **2.5-flare accepts 2880²** for the sheet and also drew all 100 items, one
+  per cell, with real transparency (`background: 'transparent'` sent), for
+  $0.043. That's 659 output tokens; the input (the prompt and the guide) is
+  now more than half the cost.
 
-The ledger is `fixtures/images/ledger.json` (8 of 12; the script refuses to go
-past 12).
+The ledger is `fixtures/images/ledger.json` (9 of 12; the script refuses to go
+past 12). A plain `npm run smoke:images` now runs the default model's plans
+(a 2.5-flare concept, icon and sheet); the 2.6 ones run with `-- --only=<name>`.
 
 ## 6. Tests
 
@@ -311,8 +324,9 @@ past 12).
 - **Sheets** (`sheet.test.ts`, 9): splitting, lines, the prompt, plan → run
   (one edit call with a 2880² guide) → review → accept as one undo step →
   reload → undo → free re-crop; two sheets and cancel; refusals; the budget;
-  and the **real 100-icon sheet** crops to 100 sprites, centred, with ≤ 5
-  flags (it failed with 53 before the crop fix).
+  and **both real 100-icon sheets** (2.6 and 2.5) crop to 100 whole,
+  centred sprites with ≤ 5 flags. The first fix failed the 2.6 sheet's test
+  with 53 flags before it; the second failed the 2.5 sheet's with 26 before it.
 - **Export** (`export.test.ts`, 2): copied images, the spec's section, undo
   and redo.
 - **e2e** (`e2e/images-core.spec.ts`, 2, one `@smoke`): status, prompt,
@@ -332,6 +346,7 @@ above the threshold: `src/core/images` is 98.8% of lines.
 | `src/core/commands/apply.ts` | `checkPatched` runs `imagesProblems` on patches to `images` |
 | `src/core/files/world-files.ts` | Image files in `worldFromFiles`, `worldToFiles`, `filesForPatch` |
 | `src/core/ai/moments.ts`, `src/core/ai/fake.ts`, `src/core/prompts/registry.ts` | The `image_prompt` moment, its fake answer and builder |
+| `src/core/prompts/quality.test.ts` | `image_prompt` in `generatingPrompts()`, so the shared-bar test covers it |
 | `src/core/prompts/prompts.test.ts`, `limits.test.ts` | The new moment in the per-moment tests (including the 100k limit with a maximal art direction) |
 | `src/core/testing/arbitraries.ts` | Image and art commands in `everyCommandArb`; `imageMetaArb`, `IMAGE_ID_POOL` |
 | `src/main/store/world-dir.ts`, `apply-files.ts` | Reading `images/*/` JSON; external edits of image files |
@@ -345,12 +360,12 @@ above the threshold: `src/core/images` is 98.8% of lines.
 
 ## 8. Gaps
 
-- **A flaky test outside this package:** `e2e/screens.spec.ts` › "screens of
-  every view, the Bench and the palette" failed once in four runs (alone and
-  in the full suite) at `bench-add-field`. The test counts the button and then
-  clicks it, and it can disappear in between. It's the Bench's test, so I left
-  it alone. The full suite then passed 124 of 124.
-
+- **A failing test outside this package:** `e2e/screens.spec.ts` › "screens of
+  every view, the Bench and the palette" times out at `bench-add-field` (the
+  button keeps detaching from the DOM). **The base branch fails the same way**
+  (`f1d9c4c`, full run: 1 failed, 121 passed); alone it passes on both. The
+  coordinator has it with images-ui. Apart from it, the full suite passes
+  (123 of 124).
 - **The pixel filters are an adapter** (`src/main/images/pixel.ts`) until the
   pixel branch merges. The 16×16 icons from it are recognisable but mushy:
   box averaging with no outline or palette work. Swapping in `@core/pixel` is

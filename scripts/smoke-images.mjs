@@ -1,7 +1,8 @@
-// `npm run smoke:images`: a few real, LOW-quality OpenAI image calls through
-// carbon's real image gateway (src/main/images/smoke.eval.ts): a concept, a
-// generated icon, an icon edited from the concept, and the same on
-// gpt-image-2.6-sunburst. Prints outcome, usage, cost and latency per call;
+// `npm run smoke:images`: a few real, LOW-quality OpenAI image calls (by default on
+// gpt-image-2.5-flare, the default model: a concept, an icon and a 10×10 sheet) through
+// carbon's real image gateway (src/main/images/smoke.eval.ts). The calls recorded
+// on 2.6 (flare and sunburst, including an edit) run with `-- --only=<name>`.
+// Prints outcome, usage, cost and latency per call;
 // never the key. Records the PNGs and usage as fixtures under fixtures/images/.
 //
 // The key: the keyring (service carbon, account openai-api-key), then

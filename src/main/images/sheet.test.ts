@@ -236,14 +236,14 @@ describe('icon sheets through the gateway', () => {
   });
 });
 
-describe('the recorded real sheet (fixtures/images, 100 items, 2880² stored at 1440²)', () => {
-  const fixture = path.resolve(
-    import.meta.dirname,
-    '../../../fixtures/images/items-sheet-100-flare.png',
-  );
+describe.each([
+  ['items-sheet-100-flare.png', 'gpt-image-2.6-flare'],
+  ['items-sheet-100-flare25.png', 'gpt-image-2.5-flare'],
+])('the recorded real sheet %s (%s; 100 items, 2880² stored at 1440²)', (file) => {
+  const fixture = path.resolve(import.meta.dirname, '../../../fixtures/images', file);
 
-  // The sheet is stored at half size (1440²) to keep the repository small; the grid scales to it.
-  it('crops all 100 sprites, each in its own cell, with few flags', async () => {
+  // The sheets are stored at half size (1440²) to keep the repository small; the grid scales to it.
+  it('crops all 100 sprites whole, each in its own cell, with few flags', async () => {
     const sheet = decodePng(await readFile(fixture));
     const layout = sheetLayout(100, { w: 2880, h: 2880 });
     const cells = cropSheet(sheet, layout);
@@ -251,15 +251,31 @@ describe('the recorded real sheet (fixtures/images, 100 items, 2880² stored at 
     const flagged = cells.filter((c) => c.flags.length > 0).map((c) => [c.index, c.flags]);
     // By eye every one of the 100 sprites sits in its own cell; flags must be rare.
     expect(flagged.length).toBeLessThanOrEqual(5);
-    // Each sprite is centred near its cell's centre (the model keeps an even grid).
+    const alpha = (x: number, y: number): number =>
+      x < 0 || y < 0 || x >= sheet.width || y >= sheet.height
+        ? 0
+        : (sheet.data[(y * sheet.width + x) * 4 + 3] as number);
     const k = 2880 / sheet.width;
     for (const c of cells) {
       const cell = layout.cells[c.index];
-      if (!c.bbox || !cell) continue;
-      const cx = (c.bbox.x + c.bbox.w / 2) * k;
-      const cy = (c.bbox.y + c.bbox.h / 2) * k;
+      const b = c.bbox;
+      if (!b || !cell) continue;
+      // Each sprite is centred in its cell, give or take the model's grid drift.
+      const cx = (b.x + b.w / 2) * k;
+      const cy = (b.y + b.h / 2) * k;
       expect(Math.abs(cx - (cell.x + cell.w / 2))).toBeLessThan(cell.w / 2);
       expect(Math.abs(cy - (cell.y + cell.h / 2))).toBeLessThan(cell.h / 2);
+      // Never clipped: no opaque pixel on the bbox's edge continues just outside it.
+      let clipped = 0;
+      for (let x = b.x; x < b.x + b.w; x++) {
+        if (alpha(x, b.y) >= 16 && alpha(x, b.y - 1) >= 16) clipped++;
+        if (alpha(x, b.y + b.h - 1) >= 16 && alpha(x, b.y + b.h) >= 16) clipped++;
+      }
+      for (let y = b.y; y < b.y + b.h; y++) {
+        if (alpha(b.x, y) >= 16 && alpha(b.x - 1, y) >= 16) clipped++;
+        if (alpha(b.x + b.w - 1, y) >= 16 && alpha(b.x + b.w, y) >= 16) clipped++;
+      }
+      expect(clipped, `cell ${c.index} is clipped`).toBe(0);
     }
   });
 });

@@ -2,6 +2,7 @@ import { getEntity, type World } from '../model/world';
 import type { Entity } from '../model/entity';
 import { err, ok } from '../util/result';
 import { assemble } from '../prompts/common';
+import { qualityConstraints } from '../prompts/quality';
 import { obj, str } from '../prompts/schema';
 import type { PromptBuilder } from '../prompts/types';
 import { ArtDirectionSchema, EMPTY_ART, type ArtDirection, type ImageKind } from './model';
@@ -52,7 +53,12 @@ Write the prompt an image model will paint from, for the entity in focus. The de
 
 Use what the world says about the entity: its identity and description, its kind's fields, its place (band, biome, height), and the entities it relates to. Show what makes it this entity and no other. Never invent lore that contradicts the context; when something isn't said, choose what fits the world's art direction.
 
-Write one paragraph of plain visual description, at most 120 words: the subject, its setting or presentation, composition, palette and light. No names in quotes, no text to render, no camera jargon lists, no negative-prompt syntax. Follow the conventions given for the image kind exactly.`;
+Write one paragraph of plain visual description, at most 120 words: the subject, its setting or presentation, composition, palette and light. No names in quotes, no text to render, no camera jargon lists, no negative-prompt syntax. Follow the conventions given for the image kind exactly.
+
+${qualityConstraints(
+  'The image the prompt describes',
+  "For an image prompt only rule_clash and contradicts_relation really apply: never depict what a taste rule forbids, and never show the entity in a way its relations contradict (its place, what it's made of, what it lives in). The others concern the entity's written fields, which this prompt doesn't change.",
+)}`;
 
 function focusLine(e: Entity): string {
   return `The entity: ${e.name} (${e.kind}).`;

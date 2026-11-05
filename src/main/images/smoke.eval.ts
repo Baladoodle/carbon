@@ -5,7 +5,12 @@ import OpenAI from 'openai';
 import { describe, expect, it } from 'vitest';
 import { FakeAiGateway } from '@core/ai/fake';
 import { cmd } from '@core/commands/registry';
-import type { ImageKind, ImageModel, ImageSize } from '@core/images/model';
+import {
+  DEFAULT_IMAGE_MODEL,
+  type ImageKind,
+  type ImageModel,
+  type ImageSize,
+} from '@core/images/model';
 import { imagePaths } from '@core/images/model';
 import { fakeImagePrompt } from '@core/images/prompt';
 import { sheetItemLine } from '@core/images/sheet';
@@ -38,6 +43,21 @@ interface Plan {
 }
 
 const PLANS: Plan[] = [
+  // The default model (2.5-flare): what a plain `npm run smoke:images` runs.
+  {
+    name: 'cloud-reef-concept-flare25',
+    entity: 'cloud-reef',
+    kind: 'concept',
+    model: 'gpt-image-2.5-flare',
+    size: '1536x1024',
+  },
+  {
+    name: 'spore-lantern-icon-flare25',
+    entity: 'spore-lantern',
+    kind: 'icon',
+    model: 'gpt-image-2.5-flare',
+  },
+  // Recorded on 2.6 (run them with --only=<name>).
   {
     name: 'cloud-reef-concept-flare',
     entity: 'cloud-reef',
@@ -111,7 +131,12 @@ const OBJECTS = [
   'Boots',
   'Key',
 ];
-const SHEET_PLAN = 'items-sheet-100-flare';
+/** The recorded sheets and their models; the default run makes the 2.5-flare one (the default model). */
+const SHEETS: Record<string, ImageModel> = {
+  'items-sheet-100-flare': 'gpt-image-2.6-flare',
+  'items-sheet-100-flare25': 'gpt-image-2.5-flare',
+};
+const DEFAULT_SHEET = 'items-sheet-100-flare25';
 
 interface Ledger {
   calls: { at: string; name: string; outcome: string; costUsd: number; requestId?: string }[];
@@ -137,13 +162,16 @@ describe.skipIf(!enabled)('real OpenAI image calls (low quality)', () => {
       await readFile(LEDGER, 'utf8').catch(() => '{"calls":[]}'),
     ) as Ledger;
     const only = process.env.CARBON_IMAGES_SMOKE_ONLY;
-    const plans = PLANS.filter((p) => !only || only.split(',').includes(p.name));
+    const plans = PLANS.filter((p) =>
+      only ? only.split(',').includes(p.name) : p.model === DEFAULT_IMAGE_MODEL,
+    );
     if (ledger.calls.length + plans.length > MAX)
       throw new Error(
         `refusing: ${ledger.calls.length} real calls recorded, ${plans.length} more would pass the cap of ${MAX}`,
       );
 
-    const runSheet = !only || only.split(',').includes(SHEET_PLAN);
+    const sheetName = only ? only.split(',').find((n) => n in SHEETS) : DEFAULT_SHEET;
+    const runSheet = sheetName !== undefined;
     if (ledger.calls.length + plans.length + (runSheet ? 1 : 0) > MAX)
       throw new Error(`refusing: the sheet would pass the cap of ${MAX} real calls`);
     const dir = await mkdtemp(path.join(os.tmpdir(), 'carbon-image-smoke-'));
@@ -250,15 +278,15 @@ describe.skipIf(!enabled)('real OpenAI image calls (low quality)', () => {
         );
         console.log(`  provider image ${src.width}×${src.height}`);
       }
-      if (runSheet) {
+      if (sheetName !== undefined) {
         const t0 = Date.now();
         const r = await g.sheetRun({
-          batchId: SHEET_PLAN,
+          batchId: sheetName,
           items: sheetIds.map((entityId) => ({
             entityId,
             line: sheetItemLine(session.world, entityId),
           })),
-          model: 'gpt-image-2.6-flare',
+          model: SHEETS[sheetName] ?? DEFAULT_IMAGE_MODEL,
           quality: 'low',
         });
         const out = r.sheets[0];
@@ -266,7 +294,7 @@ describe.skipIf(!enabled)('real OpenAI image calls (low quality)', () => {
         for (const a of receipt?.attempts ?? [])
           ledger.calls.push({
             at: a.at,
-            name: SHEET_PLAN,
+            name: sheetName,
             outcome: a.status,
             costUsd: a.costUsd,
             ...(a.requestId ? { requestId: a.requestId } : {}),
@@ -274,10 +302,10 @@ describe.skipIf(!enabled)('real OpenAI image calls (low quality)', () => {
         await writeFile(LEDGER, `${JSON.stringify(ledger, null, 2)}\n`);
         const a = receipt?.attempts.at(-1);
         console.log(
-          `${SHEET_PLAN}: ${out?.ok ? 'ok' : `${out?.error.code}: ${out?.error.message}`} · ${a?.model} ${a?.quality} ${a?.size} ${a?.endpoint} · usage ${JSON.stringify(a?.usage ?? null)} · $${(receipt?.costUsd ?? 0).toFixed(5)} (${a?.costFrom}) · ${Date.now() - t0} ms`,
+          `${sheetName}: ${out?.ok ? 'ok' : `${out?.error.code}: ${out?.error.message}`} · ${a?.model} ${a?.quality} ${a?.size} ${a?.endpoint} · usage ${JSON.stringify(a?.usage ?? null)} · $${(receipt?.costUsd ?? 0).toFixed(5)} (${a?.costFrom}) · ${Date.now() - t0} ms`,
         );
         records.push({
-          name: SHEET_PLAN,
+          name: sheetName,
           kind: 'sheet',
           prompt: receipt?.prompt ?? '',
           ok: out?.ok ?? false,
@@ -289,7 +317,7 @@ describe.skipIf(!enabled)('real OpenAI image calls (low quality)', () => {
           const sheet = out.review.sheet;
           await copyFile(
             path.join(dir, imagePaths(sheet.entity, sheet.id).png),
-            path.join(OUT, `${SHEET_PLAN}.png`),
+            path.join(OUT, `${sheetName}.png`),
           );
           const flags = out.review.cells.map((c) => ({
             index: c.index,
@@ -301,7 +329,7 @@ describe.skipIf(!enabled)('real OpenAI image calls (low quality)', () => {
             `  sheet ${sheet.width}×${sheet.height}; ${flags.length - flagged.length} of ${flags.length} cells clean; flagged: ${JSON.stringify(flagged)}`,
           );
           await writeFile(
-            path.join(OUT, `${SHEET_PLAN}.review.json`),
+            path.join(OUT, `${sheetName}.review.json`),
             `${JSON.stringify({ sheet, cells: flags }, null, 2)}\n`,
           );
         }
