@@ -22,6 +22,7 @@ import {
   clampEdge,
   createBandCommand,
   drawnBandSpan,
+  edgeKey,
   edgeLimits,
   edgesOf,
   moveEdgeCommands,
@@ -50,7 +51,9 @@ import {
   INBOX_ROW,
   laneWidths,
   layoutCell,
+  pxOfU,
   pxOfY,
+  uOfPx,
   rowsOf,
   stackMargin,
   type BandSpan,
@@ -1013,5 +1016,77 @@ describe('bands agree with the resolver', () => {
         expect(m.index.unplacedBands.some((b) => b.id === 'groundline')).toBe(!placed);
       }),
     );
+  });
+});
+
+describe('the remaining paths', () => {
+  it('steps from an entity no longer in its cell, from the cell itself', () => {
+    const ctx2: NavContext = {
+      rows: ['a', 'b'],
+      laneCount: 1,
+      entitiesAt: (row) => (row === 'a' ? ['x', 'y'] : []),
+    };
+    expect(step(ctx2, { row: 'a', lane: 0, entity: 'gone' }, 1)).toEqual({
+      row: 'a',
+      lane: 0,
+      entity: 'y',
+    });
+    expect(step(ctx2, { row: 'nowhere', lane: 0, entity: null }, 1).row).toBe('a');
+  });
+
+  it('keys edges by their bands, and stops a lone bottom edge at the band below', () => {
+    const bands: BandSpan[] = [
+      { id: 'top', name: 'Top', state: 'idea', bottom: 100, top: 200 },
+      { id: 'low', name: 'Low', state: 'idea', bottom: -50, top: 10 },
+    ];
+    const edges = edgesOf(bands);
+    expect(edges.map(edgeKey)).toEqual(['^top', 'top^', '^low', 'low^']);
+    const bottomOfTop = edges.find((e) => e.above === 'top')!;
+    expect(edgeLimits(bands, bottomOfTop)).toEqual({ lo: 10, hi: 200 });
+    const topOfLow = edges.find((e) => e.below === 'low')!;
+    expect(edgeLimits(bands, topOfLow)).toEqual({ lo: -50, hi: 100 });
+  });
+
+  it('replaces a layout of the same name and keeps layouts in name order', () => {
+    let s = columnSettings({ settings: { format: 1 } as never });
+    const apply = (c: Command): void => {
+      s = columnSettings({
+        settings: { column: (c.payload as { value: unknown }).value } as never,
+      });
+    };
+    apply(saveLayout(s, 'Zeta'));
+    apply(saveLayout(s, ' Alpha '));
+    apply(toggleLane(s, 'feats'));
+    apply(saveLayout(s, 'Zeta'));
+    expect(s.layouts.map((l) => l.name)).toEqual(['Alpha', 'Zeta']);
+    expect(s.layouts.find((l) => l.name === 'Zeta')?.lanes).not.toContain('feats');
+  });
+
+  it('converts between content px and scale units both ways', () => {
+    const f = frameOf(bandSpans(sampleWorld()), 200);
+    for (const u of [-2, 0, 0.5, 1.3]) expect(uOfPx(f, pxOfU(f, u))).toBeCloseTo(u, 9);
+  });
+
+  it('reuses a cell layout for equal entities in a rebuilt list', () => {
+    const w = sampleWorld();
+    const a = geometry(columnModel(w), { pxPerU: 200, width: 1100, measure });
+    // A fresh model: new lists, the same entities.
+    const fresh = columnModel({ ...w, entities: { ...w.entities } });
+    const b = geometry(fresh, { pxPerU: 200, width: 1100, measure });
+    const [key, cell] = [...b.cells.entries()][0]!;
+    expect(cell).toBe(a.cells.get(key));
+  });
+
+  it('navigates and locates bands that wait in the Inbox', () => {
+    const w = sampleWorld();
+    const band = w.entities['high-drift']!;
+    const world = {
+      ...w,
+      entities: { ...w.entities, 'high-drift': { ...band, fields: { ...band.fields, y_top: 1 } } },
+    };
+    const m = columnModel(world);
+    expect(navContext(m, true).entitiesAt(INBOX_ROW, -1)).toEqual(['high-drift']);
+    expect(locate(m, 'high-drift')).toEqual({ row: INBOX_ROW, lane: -1 });
+    expect(inboxHasEntities({ ...m, lanes: [] })).toBe(true);
   });
 });
