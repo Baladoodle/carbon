@@ -278,3 +278,53 @@ elements, and the next test failed in turn. The assertion now targets
 - spreads + acceptance: 5 of 5, under parallel unit-test load
 - `npm run check`: passes
 - the full `npm run test:e2e`: 123 passed, twice
+
+## 7. Follow-up: `ai:partial` events after the `ai:run` reply
+
+**Cause:** as the coordinator found. Main sends partials with
+`webContents.send` and answers `ai:run` through `ipcMain.handle`. The two
+channels share no ordering guarantee, so under load the reply can reach the
+renderer before the partials sent ahead of it.
+
+**Protocol** (`src/shared/ipc.ts`, `src/main/ipc.ts`; both additions are
+optional on the reply):
+
+- Each `ai:partial` carries `seq` (0, 1, 2… per request).
+- The `ai:run` reply carries `partials`: how many were sent.
+
+**Client** (`src/renderer/ai/client.ts`, now
+`createIpcAiGateway(bridge, { waitMs })`):
+
+- Partials go to `onPartial` in `seq` order. Early ones are buffered and
+  duplicates are dropped.
+- `run()` resolves only once every numbered partial has been delivered, for
+  failed runs too, since the Spread view keeps what streamed.
+- The wait is bounded at 5 s by default. After that, `run()` fails loudly with
+  a retryable `server` error, "lost N of M streamed results in transit".
+- A partial for a finished, cancelled or unknown request is dropped. After an
+  abort, nothing more reaches the caller.
+- The Spread view and the Bench both go through this client, so neither can
+  apply a late partial. The Spread view also keeps its own run-token guard.
+
+**Tests:**
+
+- `client.test.ts` (6 tests) reproduces the orders load produced, with a fake
+  bridge:
+  - the reply first with 2 of 6 partials, then the rest late and out of order
+  - a partial after the request finished
+  - duplicates
+  - partials that never arrive (the run fails)
+  - a failed run that still waits for what it streamed
+  - partials after a cancel
+- `e2e/ai.spec.ts › a spread streams candidates` stays strict. It waits for
+  as many partials as the reply says were sent, then asserts the count, the
+  `seq` order and the names equal to the result.
+
+**Stability:**
+
+- ai + spreads + acceptance: 5 of 5, under parallel unit-test load
+- `npm run check`: passes
+- full `npm run test:e2e`: 133 passed, twice in a row
+  - One earlier full run failed only `column.spec › a command round-trips in
+    under 16 ms` (median 16.9 ms). That path doesn't use the AI IPC, and it
+    passed 3 of 3 alone.

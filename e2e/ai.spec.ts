@@ -123,17 +123,24 @@ test('finishing an edit and changing state trigger a critique', async () => {
 
 test('a spread streams candidates over IPC through the real gateway', async () => {
   const out = await page().evaluate(async () => {
-    const parts: string[] = [];
+    const parts: { seq: number; name: string }[] = [];
     const off = window.carbon.on('ai:partial', (e) => {
-      if (e.requestId === 's-1') parts.push((e.partial as { name: string }).name);
+      const p = e as { requestId: string; seq: number; partial: { name: string } };
+      if (p.requestId === 's-1') parts.push({ seq: p.seq, name: p.partial.name });
     });
     const res = await window.carbon.invoke('ai:run', {
       requestId: 's-1',
       moment: 'spread',
       request: { spot: { type: 'cell', band: 'low-sky', lane: 'items' }, move: 'fill', count: 6 },
     });
+    // The reply and the partials travel on different channels with no shared
+    // order: the reply says how many partials were sent; wait for all of them.
+    const sent = (res as { partials?: number }).partials ?? -1;
+    const until = Date.now() + 5000;
+    while (parts.length < sent && Date.now() < until) await new Promise((r) => setTimeout(r, 10));
     off();
     return {
+      sent,
       parts,
       names: res.ok
         ? (res.result as { candidates: { name: string }[] }).candidates.map((c) => c.name)
@@ -141,7 +148,12 @@ test('a spread streams candidates over IPC through the real gateway', async () =
     };
   });
   expect(out.parts.length).toBeGreaterThan(0);
-  expect(out.parts).toEqual(out.names);
+  expect(out.sent).toBe(out.parts.length);
+  // Numbered in the order main sent them, and the same items as the result.
+  expect([...out.parts].sort((a, b) => a.seq - b.seq).map((p) => p.seq)).toEqual(
+    out.parts.map((_, i) => i),
+  );
+  expect([...out.parts].sort((a, b) => a.seq - b.seq).map((p) => p.name)).toEqual(out.names);
 });
 
 test('the AI log shows every moment with costs and cache reads', async () => {
