@@ -18,11 +18,7 @@ const ENTITIES = ['glide', 'cinder-sting'];
 function worldWithImages(adds: unknown[]) {
   let w = sampleWorld();
   for (const image of adds) {
-    const r = applyCommand(
-      w,
-      { type: 'image.add', payload: { image, select: true } } as Command,
-      ctx,
-    );
+    const r = applyCommand(w, { type: 'image.add', payload: { image, select: true } }, ctx);
     if (r.ok) w = r.value.world;
   }
   return w;

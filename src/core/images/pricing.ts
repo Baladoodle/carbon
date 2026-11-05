@@ -44,18 +44,21 @@ export const DEFAULT_IMAGE_PRICING: Record<ImageModel, TokenPrice> = {
 };
 
 /**
- * Image output tokens per image, for the estimate only. Starting values are
- * OpenAI's published table for the earlier GPT Image models (low 272/408/400,
- * medium 1056/1584/1568, high 4160/6240/6208 for 1024², 1024×1536,
- * 1536×1024); see the build notes for what the 2.6 models actually reported.
+ * Image output tokens per image, for the estimate only (a finished call is
+ * costed from its reported usage). Low is MEASURED on the 2.6 models
+ * (2026-11-05, both flare and sunburst, see docs/build-notes/images-core.md):
+ * 824 tokens at 1024×1024 and 664 at 1536×1024; 1024×1536 is assumed equal to
+ * 1536×1024. Medium and high are extrapolated from OpenAI's published ratios
+ * for the earlier GPT Image models (medium ≈ 3.9× low, high ≈ 15.4× low),
+ * and are unmeasured.
  */
 export const OUTPUT_TOKENS: Record<ImageQuality, Record<ImageSize, number>> = {
-  low: { '1024x1024': 272, '1024x1536': 408, '1536x1024': 400 },
-  medium: { '1024x1024': 1056, '1024x1536': 1584, '1536x1024': 1568 },
-  high: { '1024x1024': 4160, '1024x1536': 6240, '1536x1024': 6208 },
+  low: { '1024x1024': 824, '1024x1536': 664, '1536x1024': 664 },
+  medium: { '1024x1024': 3199, '1024x1536': 2603, '1536x1024': 2603 },
+  high: { '1024x1024': 12602, '1024x1536': 10305, '1536x1024': 10305 },
 };
-/** Input tokens a reference image adds to an edit (estimate). */
-export const REFERENCE_IMAGE_TOKENS = 1_100;
+/** Input image tokens a 1024×1024 reference adds to an edit (measured: 1,024). */
+export const REFERENCE_IMAGE_TOKENS = 1_024;
 
 export const ImageSettingsSchema = z.looseObject({
   model: ImageModelSchema.default(DEFAULT_IMAGE_MODEL),

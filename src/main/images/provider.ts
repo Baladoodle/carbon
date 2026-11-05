@@ -12,6 +12,8 @@ import {
   toFile,
 } from 'openai';
 import type { ImageError, ImageErrorCode } from '@core/images/gateway';
+import type { ImageQuality } from '@core/images/model';
+import { OUTPUT_TOKENS, REFERENCE_IMAGE_TOKENS } from '@core/images/pricing';
 import { createHash } from 'node:crypto';
 import { encodePng, type Rgba } from './png';
 
@@ -317,10 +319,10 @@ export class FakeImageProvider implements ImageProvider {
         req.background === 'transparent',
       ),
     );
-    const tokens: Record<string, number> = { low: 272, medium: 1056, high: 4160 };
-    const out = tokens[req.quality] ?? 272;
+    const table = OUTPUT_TOKENS[req.quality as ImageQuality] as Record<string, number> | undefined;
+    const out = table?.[req.size] ?? OUTPUT_TOKENS.low['1024x1024'];
     const text = Math.max(1, Math.ceil(req.prompt.length / 4));
-    const image = req.reference ? 1_100 : 0;
+    const image = req.reference ? REFERENCE_IMAGE_TOKENS : 0;
     return {
       png,
       usage: {

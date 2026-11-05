@@ -105,8 +105,8 @@ describe('the image gateway over the fake provider', () => {
     const png = await readFile(path.join(dir, p.png));
     expect(decodePng(png).width).toBeGreaterThan(0);
     await expect(stat(path.join(dir, p.src))).rejects.toThrow();
-    // Cost from the reported usage: 272 output × $30/M + ceil(20/4)=5 text × $5/M.
-    expect(r.receipt.costUsd).toBeCloseTo(272 * 30e-6 + 5 * 5e-6, 12);
+    // Cost from the reported usage: 664 output (low, 1536×1024) × $30/M + ceil(20/4)=5 text × $5/M.
+    expect(r.receipt.costUsd).toBe(0.019945);
     expect(g.status().spend.sessionUsd).toBeCloseTo(r.receipt.costUsd, 12);
     const log = await g.log();
     expect(log).toHaveLength(1);
@@ -350,12 +350,12 @@ describe('errors, receipts and the no-retry rule', () => {
 describe('the budget', () => {
   it('pauses exactly at the session budget and resumes when it is raised', async () => {
     const g = gateway();
-    // One fake low concept with a 20-char prompt costs exactly 0.008185.
+    // One fake low concept with a 20-char prompt costs exactly 0.019945.
     expect(
       session.dispatch([
         cmd('settings.set', {
           key: 'images',
-          value: { budget: { sessionUsd: 0.01637, monthUsd: 10 } },
+          value: { budget: { sessionUsd: 0.03989, monthUsd: 10 } },
         }),
       ]).ok,
     ).toBe(true);
