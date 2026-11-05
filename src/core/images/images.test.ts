@@ -251,7 +251,7 @@ describe('pricing', () => {
   it('estimates by quality and size, and settings override the defaults', () => {
     const s = imageSettings({});
     expect(s).toMatchObject({
-      model: 'gpt-image-2.6-flare',
+      model: 'gpt-image-2.5-flare',
       quality: 'low',
       budget: { sessionUsd: 1, monthUsd: 10 },
     });
@@ -371,18 +371,18 @@ describe('models and output tokens (coordinator follow-up)', () => {
     // 2.5-flare: measured low and medium at 1024², and much cheaper.
     expect(outputTokens('gpt-image-2.5-flare', 'low', '1024x1024')).toBe(196);
     expect(outputTokens('gpt-image-2.5-flare', 'medium', '1024x1024')).toBe(439);
-    // An unknown model estimates like the default.
-    expect(outputTokens('gpt-image-9', 'low', '1024x1024')).toBe(824);
+    // An unknown model estimates like the default (2.5-flare).
+    expect(outputTokens('gpt-image-9', 'low', '1024x1024')).toBe(196);
   });
 
-  it('2.5-flare is selectable, the defaults stay 2.6-flare at low, and its estimate is cheaper', async () => {
+  it("the default is 2.5-flare at low (IMAGES.md, the user's choice); 2.6 stays selectable", async () => {
     const { IMAGE_MODELS, ImageModelSchema } = await import('./model');
     expect(IMAGE_MODELS).toContain('gpt-image-2.5-flare');
     expect(ImageModelSchema.safeParse('gpt-image-2.5-flare').success).toBe(true);
     const s = imageSettings({});
-    expect([s.model, s.quality]).toEqual(['gpt-image-2.6-flare', 'low']);
-    expect(imageSettings({ images: { model: 'gpt-image-2.5-flare' } }).model).toBe(
-      'gpt-image-2.5-flare',
+    expect([s.model, s.quality]).toEqual(['gpt-image-2.5-flare', 'low']);
+    expect(imageSettings({ images: { model: 'gpt-image-2.6-flare' } }).model).toBe(
+      'gpt-image-2.6-flare',
     );
     const est = (model: 'gpt-image-2.5-flare' | 'gpt-image-2.6-flare', quality: 'low' | 'medium') =>
       estimateNanos(s, { model, quality, size: '1024x1024', promptChars: 200 });

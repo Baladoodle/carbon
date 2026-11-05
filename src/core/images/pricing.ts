@@ -81,14 +81,14 @@ export const OUTPUT_TOKENS_BY_MODEL: Record<ImageModel, TokenTable> = {
     high: { '1024x1024': 1729, '1024x1536': 1393, '1536x1024': 1393, '2880x2880': 5810 },
   },
 };
-/** The default model's table (gpt-image-2.6-flare). */
-export const OUTPUT_TOKENS: TokenTable = OUTPUT_TOKENS_BY_MODEL[DEFAULT_IMAGE_MODEL];
+/** gpt-image-2.6-flare's table (kept under its old name). */
+export const OUTPUT_TOKENS: TokenTable = OUTPUT_TOKENS_BY_MODEL['gpt-image-2.6-flare'];
 
 /** Estimated output tokens for one image; an unknown model uses the default's table. */
 export function outputTokens(model: string, quality: ImageQuality, size: ImageSize): number {
   const table = (IMAGE_MODELS as readonly string[]).includes(model)
     ? OUTPUT_TOKENS_BY_MODEL[model as ImageModel]
-    : OUTPUT_TOKENS;
+    : OUTPUT_TOKENS_BY_MODEL[DEFAULT_IMAGE_MODEL];
   return table[quality][size];
 }
 /** Input image tokens a reference adds to an edit (measured: 1,024 for 1024², 1,521 for the 2880² guide). */
