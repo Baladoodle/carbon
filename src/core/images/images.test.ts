@@ -42,14 +42,14 @@ const imageCommandArb: fc.Arbitrary<Command> = fc.oneof(
     .map((payload) => ({ type: 'image.add', payload }) as Command),
   fc
     .record({ entity: fc.constantFrom(...ENTITIES), image: imageIdArb })
-    .map((payload) => ({ type: 'image.select', payload }) as Command),
+    .map((payload): Command => ({ type: 'image.select', payload })),
   fc
     .record({ entity: fc.constantFrom(...ENTITIES), kind: fc.constantFrom('concept', 'icon') })
-    .map((payload) => ({ type: 'image.unselect', payload }) as Command),
+    .map((payload): Command => ({ type: 'image.unselect', payload })),
   fc
     .record({ entity: fc.constantFrom(...ENTITIES), image: imageIdArb })
-    .map((payload) => ({ type: 'image.remove', payload }) as Command),
-  fc.constant({ type: 'entity.delete', payload: { id: 'glide' } } as Command),
+    .map((payload): Command => ({ type: 'image.remove', payload })),
+  fc.constant<Command>({ type: 'entity.delete', payload: { id: 'glide' } }),
 );
 
 function run(world: World, cmds: Command[]): { world: World; applied: number; steps: World[] } {
@@ -90,7 +90,7 @@ describe('image commands (properties)', () => {
       fc.property(fc.array(imageCommandArb, { maxLength: 20 }), (cmds) => {
         const start = sampleWorld();
         let w = start;
-        let files = worldToFiles(w);
+        const files = worldToFiles(w);
         for (const c of cmds) {
           const r = applyCommand(w, c, ctx);
           if (!r.ok) continue;
@@ -104,7 +104,6 @@ describe('image commands (properties)', () => {
         const back = worldFromFiles(files);
         expect(back.issues).toEqual([]);
         expect(back.world).toEqual(w);
-        files = new Map();
       }),
       { numRuns: 200 },
     );
@@ -115,7 +114,7 @@ describe('image commands (examples)', () => {
   const w0 = sampleWorld();
   const [A, B] = IMAGE_ID_POOL;
   const add = (w: World, m: ImageMeta, select = true): World => {
-    const r = applyCommand(w, { type: 'image.add', payload: { image: m, select } } as Command, ctx);
+    const r = applyCommand(w, { type: 'image.add', payload: { image: m, select } }, ctx);
     if (!r.ok) throw new Error(r.error.message);
     return r.value.world;
   };
@@ -152,21 +151,9 @@ describe('image commands (examples)', () => {
   it('refuses what would break it', () => {
     const w = add(w0, meta(A, 'glide', 'concept'));
     const codes = [
-      applyCommand(
-        w,
-        { type: 'image.add', payload: { image: meta(A, 'glide', 'icon') } } as Command,
-        ctx,
-      ),
-      applyCommand(
-        w0,
-        { type: 'image.add', payload: { image: meta(A, 'nope', 'icon') } } as Command,
-        ctx,
-      ),
-      applyCommand(
-        w0,
-        { type: 'image.add', payload: { image: meta(B, 'glide', 'icon', A) } } as Command,
-        ctx,
-      ),
+      applyCommand(w, { type: 'image.add', payload: { image: meta(A, 'glide', 'icon') } }, ctx),
+      applyCommand(w0, { type: 'image.add', payload: { image: meta(A, 'nope', 'icon') } }, ctx),
+      applyCommand(w0, { type: 'image.add', payload: { image: meta(B, 'glide', 'icon', A) } }, ctx),
       applyCommand(w, { type: 'image.select', payload: { entity: 'glide', image: B } }, ctx),
       applyCommand(w, { type: 'image.remove', payload: { entity: 'cinder-sting', image: A } }, ctx),
     ].map((r) => (r.ok ? 'ok' : r.error.code));

@@ -5,7 +5,8 @@ import { describe, expect, it } from 'vitest';
 import { costNanos, DEFAULT_IMAGE_PRICING } from '@core/images/pricing';
 import { filterImage } from './pixel';
 import { decodePng } from './png';
-import { classifyOpenAiError, OpenAiImageProvider, ProviderError, usageFrom } from './provider';
+import type { ProviderError } from './provider';
+import { classifyOpenAiError, OpenAiImageProvider, usageFrom } from './provider';
 
 /**
  * The OpenAI provider through the real SDK over a stubbed `fetch`, answering
@@ -48,9 +49,10 @@ interface Seen {
 
 function client(answer: (seen: Seen) => Response | Promise<Response>, timeout = 5_000) {
   const seen: Seen[] = [];
-  const fetch = async (url: string | URL | Request, init?: RequestInit): Promise<Response> => {
+  const fetch = async (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
+    const url = input instanceof Request ? input.url : input.toString();
     // The SDK probes multipart support with a data: URL; let the platform answer that.
-    if (String(url).startsWith('data:')) return globalThis.fetch(url, init);
+    if (url.startsWith('data:')) return globalThis.fetch(url, init);
     const headers = new Headers(init?.headers);
     const ct = headers.get('content-type') ?? '';
     let body: unknown = init?.body;
@@ -59,7 +61,7 @@ function client(answer: (seen: Seen) => Response | Promise<Response>, timeout = 
       const form = init.body;
       body = Object.fromEntries([...new Set(form.keys())].map((k) => [k, form.getAll(k)]));
     }
-    const s = { url: String(url), method: init?.method ?? 'GET', body, contentType: ct };
+    const s = { url, method: init?.method ?? 'GET', body, contentType: ct };
     seen.push(s);
     const signal = init?.signal;
     if (signal?.aborted) throw new DOMException('aborted', 'AbortError');

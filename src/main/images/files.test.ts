@@ -1,7 +1,6 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { applyCommand } from '@core/commands/apply';
-import type { Command } from '@core/commands/registry';
 import { worldFromFiles, worldToFiles } from '@core/files/world-files';
 import { imagesProblems } from '@core/images/commands';
 import { IMAGE_ID_POOL, imageMetaArb } from '@core/testing/arbitraries';
