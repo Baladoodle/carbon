@@ -137,7 +137,8 @@ export interface CellIndex {
   unplacedBands: CellEntity[];
 }
 
-function groupOf(e: Entity): string {
+/** An entity's group within its cell: an item's subkind, else ''. */
+export function groupOf(e: Entity): string {
   if (e.kind !== 'item') return '';
   return typeof e.fields.subkind === 'string' ? e.fields.subkind : '';
 }

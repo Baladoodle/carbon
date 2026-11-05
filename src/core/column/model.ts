@@ -5,6 +5,8 @@ import type { NavContext } from './cursor';
 import { columnSettings, type ColumnSettings } from './lanes';
 import {
   bandSpans,
+  compareCellEntities,
+  groupOf,
   CELL_PAD,
   CHIP_GAP,
   CHIP_H,
@@ -16,6 +18,7 @@ import {
   pxOfY,
   rowsOf,
   type BandSpan,
+  type CellEntity,
   type CellIndex,
   type CellLayout,
   type Frame,
@@ -94,8 +97,20 @@ export function sameColumnInputs(prev: World, next: World): boolean {
 /**
  * The Column model of a world. Placements come from the resolver, which
  * reuses its result when no placing input changed (a rename, a state change).
+ *
+ * With the model of the previous world, an edit that moves nothing (a rename,
+ * a state change, a subkind) re-indexes only the cells of the entities it
+ * changed: every other cell keeps its list, so its layout is reused too.
+ * A property test holds the result equal to a fresh build.
  */
-export function columnModel(world: World): ColumnModel {
+export function columnModel(
+  world: World,
+  prev?: { world: World; model: ColumnModel },
+): ColumnModel {
+  if (prev) {
+    const next = reindex(prev.world, prev.model, world);
+    if (next) return next;
+  }
   const settings = columnSettings(world);
   const schema = schemaOf(world);
   const laneLabels = {} as Record<Lane, string>;
@@ -116,6 +131,73 @@ export function columnModel(world: World): ColumnModel {
     placements,
     index: cellIndex(world, placements, { graveyard: settings.graveyard }),
   };
+}
+
+/** The cells (or the Inbox cell) an entity shows in, for its lane. */
+function cellsOf(
+  e: Entity,
+  placements: ReadonlyMap<string, Placement>,
+  graveyard: boolean,
+): string[] {
+  const lane = LANE_OF_KIND[e.kind];
+  if (lane === null || (!graveyard && e.state === 'graveyard')) return [];
+  const p = placements.get(e.id);
+  if (!p || p.places.length === 0) return [cellKey(INBOX_ROW, lane)];
+  return [...new Set(p.places.map((x) => cellKey(x.band, lane)))];
+}
+
+/**
+ * The model of `next`, patched from `prev`'s, when the edit between them
+ * moves nothing: same settings and schema, the same placements (the resolver
+ * reused them) and no band changed. Otherwise null (rebuild).
+ */
+function reindex(prevWorld: World, prev: ColumnModel, next: World): ColumnModel | null {
+  if (prevWorld.settings !== next.settings || prevWorld.schema !== next.schema) return null;
+  const placements = placementsOf(next);
+  if (placements !== prev.placements) return null;
+  const a = prevWorld.entities;
+  const b = next.entities;
+  const changed: [Entity, Entity][] = [];
+  for (const id in b) {
+    const x = a[id];
+    const y = b[id];
+    if (x === y) continue;
+    if (!x || !y || x.kind === 'band' || y.kind === 'band') return null;
+    changed.push([x, y]);
+  }
+  if (changed.length === 0) return prev;
+  const graveyard = prev.settings.graveyard;
+  const cells = new Map(prev.index.cells);
+  const touched = new Set<string>();
+  const list = (key: string): CellEntity[] => {
+    if (!touched.has(key)) {
+      touched.add(key);
+      cells.set(key, [...(cells.get(key) ?? [])]);
+    }
+    return cells.get(key) as CellEntity[];
+  };
+  for (const [x, y] of changed) {
+    for (const key of cellsOf(x, placements, graveyard)) {
+      const l = list(key);
+      const i = l.findIndex((c) => c.id === x.id);
+      if (i >= 0) l.splice(i, 1);
+    }
+    const p = placements.get(y.id);
+    for (const key of cellsOf(y, placements, graveyard))
+      list(key).push({
+        id: y.id,
+        name: y.name,
+        state: y.state,
+        group: groupOf(y),
+        inferred: !!p && p.places.length > 0 && p.inferred,
+      });
+  }
+  for (const key of touched) {
+    const l = cells.get(key) as CellEntity[];
+    if (l.length === 0) cells.delete(key);
+    else l.sort(compareCellEntities);
+  }
+  return { ...prev, index: { cells, unplacedBands: prev.index.unplacedBands } };
 }
 
 // ── Geometry ────────────────────────────────────────────────────────────────
@@ -172,27 +254,59 @@ export interface GeometryOptions {
  * same: an edit re-lays only the cells it touched, which keeps a command's
  * round trip short with 2,000 entities.
  */
-const cellCache = new Map<string, { sig: string; box: CellBox }>();
+interface CachedCell {
+  es: readonly CellEntity[];
+  rect: Rect;
+  alignBottom: boolean;
+  version: number;
+  measure: Measure;
+  box: CellBox;
+}
+const cellCache = new Map<string, CachedCell>();
 const CACHE_MAX = 20000;
+
+const sameRect = (a: Rect, b: Rect): boolean =>
+  a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h;
+/** Same entities as drawn: the same list (an untouched cell), or equal element by element. */
+const sameCellEntities = (a: readonly CellEntity[], b: readonly CellEntity[]): boolean =>
+  a === b ||
+  (a.length === b.length &&
+    a.every((x, i) => {
+      const y = b[i] as CellEntity;
+      return (
+        x.id === y.id &&
+        x.name === y.name &&
+        x.state === y.state &&
+        x.inferred === y.inferred &&
+        x.group === y.group
+      );
+    }));
 
 function cachedCell(
   key: string,
   row: string,
   lane: Lane,
   rect: Rect,
-  es: Parameters<typeof layoutCell>[1],
+  es: readonly CellEntity[],
   measure: Measure,
   alignBottom: boolean,
   version: number,
 ): CellBox {
-  let sig = `${version}|${rect.x},${rect.y},${rect.w},${rect.h}|${alignBottom ? 1 : 0}`;
-  for (const e of es)
-    sig += `|${e.id}\u0001${e.name}\u0001${e.state}\u0001${e.inferred ? 1 : 0}\u0001${e.group}`;
   const hit = cellCache.get(key);
-  if (hit && hit.sig === sig) return hit.box;
+  if (
+    hit &&
+    hit.version === version &&
+    hit.measure === measure &&
+    hit.alignBottom === alignBottom &&
+    sameRect(hit.rect, rect) &&
+    sameCellEntities(hit.es, es)
+  ) {
+    hit.es = es;
+    return hit.box;
+  }
   const box: CellBox = { ...layoutCell(rect, es, measure, alignBottom), key, row, lane, rect };
   if (cellCache.size > CACHE_MAX) cellCache.clear();
-  cellCache.set(key, { sig, box });
+  cellCache.set(key, { es, rect, alignBottom, version, measure, box });
   return box;
 }
 
@@ -253,27 +367,38 @@ export function geometry(model: ColumnModel, opts: GeometryOptions): Geometry {
     lane: Lane | null,
     x: number,
     w: number,
-    es: Parameters<typeof layoutCell>[1],
+    es: readonly CellEntity[],
   ): CellBox => {
     const rect = { x, y: 0, w, h: tall };
-    const l = layoutCell(rect, es, opts.measure);
+    const l = cachedCell(
+      key,
+      INBOX_ROW,
+      lane ?? 'biomes',
+      rect,
+      es,
+      opts.measure,
+      false,
+      opts.version ?? 0,
+    );
     for (const g of [...l.glyphs, ...(l.more ? [l.more] : [])]) used = Math.max(used, g.y + g.h);
-    return { ...l, key, row: INBOX_ROW, lane: lane ?? 'biomes', rect };
+    return l;
   };
   model.lanes.forEach((lane, i) => {
     const key = cellKey(INBOX_ROW, lane);
     const es = model.index.cells.get(key);
     if (es && es.length > 0) inboxCells.set(key, lay(key, lane, laneX[i] ?? 0, laneW, es));
   });
-  const bandsBox =
+  let bandsBox =
     model.index.unplacedBands.length > 0
       ? lay('inbox|bands', null, RULER_W, LABEL_W, model.index.unplacedBands)
       : null;
   let inbox: Geometry['inbox'] = null;
   if (inboxCells.size > 0 || bandsBox) {
     const height = Math.max(CHIP_H + 2 * CELL_PAD, used + CELL_PAD);
-    for (const c of [...inboxCells.values(), ...(bandsBox ? [bandsBox] : [])])
-      c.rect = { ...c.rect, h: height };
+    // The strip is as tall as its fullest cell (copies: the cached boxes stay as laid out).
+    const fit = (c: CellBox): CellBox => ({ ...c, rect: { ...c.rect, h: height } });
+    for (const [k, c] of inboxCells) inboxCells.set(k, fit(c));
+    if (bandsBox) bandsBox = fit(bandsBox);
     inbox = { height, cells: inboxCells, bands: bandsBox };
   }
   return { frame, width, laneX, laneW, marginX, rows: boxes, cells, glyphsOf, inbox };

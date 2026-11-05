@@ -1,10 +1,12 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { applyCommands } from '../commands/apply';
-import { cmd } from '../commands/registry';
+import { cmd, type Command } from '../commands/registry';
 import { LANES } from '../model/kinds';
 import { validateWorld } from '../model/validate';
+import type { World } from '../model/world';
 import { sampleWorld } from '../testing/sample';
+import { columnModel, type ColumnModel } from './model';
 import { at, normalize, side, step, stopsOf, type NavContext } from './cursor';
 import {
   clampEdge,
@@ -753,5 +755,119 @@ describe('columnModel reuse', () => {
     expect(columnModel(moved.value.world).placements.get('sky-coral')?.places).toEqual([
       { band: 'low-sky', biome: 'cloud-reef' },
     ]);
+  });
+});
+
+describe('incremental cell indexing', () => {
+  const plain = (m: ColumnModel) => ({
+    lanes: m.lanes,
+    bands: m.bands,
+    rows: m.rows,
+    unplaced: m.index.unplacedBands,
+    cells: [...m.index.cells.entries()].sort(([a], [b]) => (a < b ? -1 : 1)),
+  });
+  const ids = Object.keys(sampleWorld().entities).sort();
+  const edit = fc.oneof(
+    fc.record({
+      t: fc.constant('name' as const),
+      id: fc.constantFrom(...ids),
+      name: fc.constantFrom('Aa', 'Zz', 'Moss', '🜂 Ember', 'Mm'),
+    }),
+    fc.record({
+      t: fc.constant('state' as const),
+      id: fc.constantFrom(...ids),
+      state: fc.constantFrom('shaped', 'graveyard', 'idea', 'decided'),
+    }),
+    fc.record({
+      t: fc.constant('subkind' as const),
+      id: fc.constantFrom(...ids),
+      sub: fc.constantFrom('armor', 'tool', 'weapon'),
+    }),
+    fc.record({ t: fc.constant('identity' as const), id: fc.constantFrom(...ids) }),
+    fc.record({ t: fc.constant('relation' as const), id: fc.constantFrom(...ids) }),
+    fc.record({ t: fc.constant('graveyard' as const), show: fc.boolean() }),
+  );
+  type Edit = typeof edit extends fc.Arbitrary<infer T> ? T : never;
+  const commandFor = (w: World, e: Edit): Command | null => {
+    if (e.t === 'graveyard') return setGraveyard(columnSettings(w), e.show);
+    const ent = w.entities[e.id];
+    if (!ent) return null;
+    switch (e.t) {
+      case 'name':
+        return cmd('entity.update', { id: e.id, set: { name: e.name } });
+      case 'state':
+        return cmd('entity.setState', {
+          id: e.id,
+          state: e.state,
+          ...(e.state === 'graveyard' ? { killed: { reason: 'seen it' } } : {}),
+          ...(e.state === 'decided' ? { why: 'Because.' } : {}),
+        });
+      case 'subkind':
+        return ent.kind === 'item'
+          ? cmd('entity.setField', { id: e.id, field: 'subkind', value: e.sub })
+          : null;
+      case 'identity':
+        return cmd('entity.update', { id: e.id, set: { identity: `${ent.identity}!` } });
+      case 'relation':
+        return ent.kind === 'material'
+          ? cmd('relation.add', { from: e.id, type: 'found_in', to: 'cloud-reef' })
+          : null;
+    }
+    return null;
+  };
+
+  it('patches only touched cells and always equals a fresh build (property)', () => {
+    fc.assert(
+      fc.property(fc.array(edit, { maxLength: 12 }), (edits) => {
+        let w = sampleWorld();
+        let m = columnModel(w);
+        for (const e of edits) {
+          const c = commandFor(w, e);
+          if (!c) continue;
+          const r = applyCommands(w, [c], ctx);
+          if (!r.ok) continue; // a refused transition changes nothing
+          const next = r.value.world;
+          const patched = columnModel(next, { world: w, model: m });
+          expect(plain(patched)).toEqual(plain(columnModel(next)));
+          w = next;
+          m = patched;
+        }
+      }),
+      { numRuns: 150 },
+    );
+  });
+
+  it('keeps the list of every cell a rename did not touch', () => {
+    const w = stressWorld();
+    const m = columnModel(w);
+    const r = applyCommands(
+      w,
+      [cmd('entity.update', { id: 'e-500', set: { name: 'Renamed' } })],
+      ctx,
+    );
+    if (!r.ok) throw new Error(r.error.message);
+    const next = columnModel(r.value.world, { world: w, model: m });
+    let kept = 0;
+    let changed = 0;
+    for (const [k, list] of next.index.cells)
+      if (m.index.cells.get(k) === list) kept++;
+      else changed++;
+    expect(changed).toBeGreaterThan(0);
+    expect(changed).toBeLessThanOrEqual(2);
+    expect(kept).toBeGreaterThan(100);
+    // An edit that moves something rebuilds.
+    const moved = applyCommands(
+      w,
+      [
+        cmd('entity.setField', {
+          id: w.entities['e-500']!.kind === 'band' ? 'e-501' : 'e-500',
+          field: 'y_top',
+          value: 1,
+        }),
+      ],
+      ctx,
+    );
+    if (moved.ok)
+      expect(columnModel(moved.value.world, { world: w, model: m }).index).not.toBe(m.index);
   });
 });
