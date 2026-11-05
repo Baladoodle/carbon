@@ -12,7 +12,7 @@ import {
 import { cmd } from '@core/commands/registry';
 import type { Entity } from '@core/model/entity';
 import { uniqueId } from '@core/model/ids';
-import { ENTITY_KINDS, type EntityKind } from '@core/model/kinds';
+import { ENTITY_KINDS } from '@core/model/kinds';
 import { schemaOf, type World } from '@core/model/world';
 import { resolvePlacement, type Placements } from '@core/placement';
 import { useActions } from '../../actions';
@@ -24,35 +24,32 @@ import { defineView } from '../define';
 import { columnsFor, commandForEdit, draftOf, sortEntities, type Column } from './columns';
 import { compileQuery, type QueryError } from './query';
 import { StateDialog } from './StateDialog';
+import {
+  clampWidth,
+  cycleSort,
+  EMPTY_PREFS,
+  parsePrefs,
+  TABS,
+  withWidth,
+  type Prefs,
+  type Tab,
+} from './prefs';
 import './codex.css';
 
 /** Row height in px; fixed, so the table can be virtualised by arithmetic. */
 export const ROW_H = 32;
 const OVERSCAN = 8;
 
-type Tab = EntityKind | 'all';
-const TABS: Tab[] = ['all', ...ENTITY_KINDS];
-
 const PREFS_KEY = 'carbon.codex';
-interface Prefs {
-  tab: Tab;
-  query: string;
-}
 function loadPrefs(): Prefs {
   try {
-    const raw: unknown = JSON.parse(localStorage.getItem(PREFS_KEY) ?? 'null');
-    if (raw && typeof raw === 'object') {
-      const p = raw as Partial<Prefs>;
-      return {
-        tab: TABS.includes(p.tab as Tab) ? (p.tab as Tab) : 'all',
-        query: typeof p.query === 'string' ? p.query : '',
-      };
-    }
+    return parsePrefs(localStorage.getItem(PREFS_KEY));
   } catch {
-    // fresh start
+    return EMPTY_PREFS;
   }
-  return { tab: 'all', query: '' };
 }
+/** How far `<` and `>` narrow and widen a column. */
+const WIDTH_STEP = 24;
 
 interface Editing {
   id: string;
@@ -230,10 +227,20 @@ function CellEditor({
 
 function CodexView(): ReactNode {
   const world = useWorld((w) => w, Object.is);
-  const [prefs] = useState(loadPrefs);
-  const [tab, setTab] = useState<Tab>(prefs.tab);
-  const [query, setQueryRaw] = useState(prefs.query);
-  const [sort, setSort] = useState<{ col: string; dir: 'asc' | 'desc' } | null>(null);
+  // The tab, the filter, and each tab's sort and column widths, remembered (prefs.ts).
+  const [prefs, setPrefs] = useState(loadPrefs);
+  const { tab, query } = prefs;
+  const setTab = (t: Tab): void => setPrefs((p) => ({ ...p, tab: t }));
+  const setQueryRaw = (q: string): void => setPrefs((p) => ({ ...p, query: q }));
+  const sort = prefs.sort[tab] ?? null;
+  const toggleSort = (col: string): void => setPrefs((p) => cycleSort(p, tab, col));
+  // A column being resized by its header edge: its live width.
+  const [resizing, setResizing] = useState<{
+    col: string;
+    x0: number;
+    w0: number;
+    w: number;
+  } | null>(null);
   const [cursor, setCursor] = useState<{ id: string | null; col: number }>({ id: null, col: 0 });
   const [anchor, setAnchor] = useState<string | null>(null);
   const [editing, setEditing] = useState<Editing | null>(null);
@@ -248,11 +255,11 @@ function CodexView(): ReactNode {
 
   useEffect(() => {
     try {
-      localStorage.setItem(PREFS_KEY, JSON.stringify({ tab, query }));
+      localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
     } catch {
       // storage unavailable
     }
-  }, [tab, query]);
+  }, [prefs]);
 
   const placements: Placements = useMemo(() => (world ? resolvePlacement(world) : {}), [world]);
   const compiled = useMemo(() => (world ? compileQuery(query, world) : null), [query, world]);
@@ -266,6 +273,8 @@ function CodexView(): ReactNode {
     if (kinds?.length === 1 && kinds[0]) setTab(kinds[0]);
   };
   const columns = useMemo(() => (schema ? columnsFor(tab, schema) : []), [tab, schema]);
+  const widthOf = (c: Column): number =>
+    resizing?.col === c.id ? resizing.w : (prefs.widths[tab]?.[c.id] ?? c.width);
   const ctx = useMemo(() => (world ? { world, placements } : null), [world, placements]);
 
   const matching = useMemo(() => {
@@ -541,15 +550,32 @@ function CodexView(): ReactNode {
       group: 'Codex',
       keys: ['o'],
       enabled: () => idle() && !!curCol,
+      run: () => curCol && toggleSort(curCol.id),
+    },
+    {
+      id: 'codex.widen',
+      label: 'Widen column',
+      group: 'Codex',
+      keys: ['>'],
+      enabled: () => idle() && !!curCol,
       run: () =>
-        curCol &&
-        setSort((s) =>
-          s?.col === curCol.id
-            ? s.dir === 'asc'
-              ? { col: curCol.id, dir: 'desc' }
-              : null
-            : { col: curCol.id, dir: 'asc' },
-        ),
+        curCol && setPrefs((p) => withWidth(p, tab, curCol.id, widthOf(curCol) + WIDTH_STEP)),
+    },
+    {
+      id: 'codex.narrow',
+      label: 'Narrow column',
+      group: 'Codex',
+      keys: ['<'],
+      enabled: () => idle() && !!curCol,
+      run: () =>
+        curCol && setPrefs((p) => withWidth(p, tab, curCol.id, widthOf(curCol) - WIDTH_STEP)),
+    },
+    {
+      id: 'codex.width-reset',
+      label: 'Reset column width',
+      group: 'Codex',
+      enabled: () => idle() && !!curCol && prefs.widths[tab]?.[curCol.id] !== undefined,
+      run: () => curCol && setPrefs((p) => withWidth(p, tab, curCol.id, null)),
     },
     {
       id: 'codex.state',
@@ -631,7 +657,7 @@ function CodexView(): ReactNode {
     rows.length,
     Math.ceil((viewport.top + viewport.height) / ROW_H) + OVERSCAN,
   );
-  const width = 28 + 28 + columns.reduce((s, c) => s + c.width, 0);
+  const width = 28 + 28 + columns.reduce((s, c) => s + widthOf(c), 0);
   const selected = new Set(selection);
 
   return (
@@ -711,7 +737,7 @@ function CodexView(): ReactNode {
               <col style={{ width: 28 }} />
               <col style={{ width: 28 }} />
               {columns.map((c) => (
-                <col key={c.id} style={{ width: c.width }} />
+                <col key={c.id} style={{ width: widthOf(c) }} />
               ))}
             </colgroup>
             <thead>
@@ -733,20 +759,44 @@ function CodexView(): ReactNode {
                           : 'descending'
                         : undefined
                     }
-                    onClick={() =>
-                      setSort((s) =>
-                        s?.col === c.id
-                          ? s.dir === 'asc'
-                            ? { col: c.id, dir: 'desc' }
-                            : null
-                          : { col: c.id, dir: 'asc' },
-                      )
-                    }
+                    onClick={() => toggleSort(c.id)}
+                    data-col={c.id}
                   >
                     {c.label}
                     {sort?.col === c.id && (
                       <span className="codex-sort">{sort.dir === 'asc' ? '↑' : '↓'}</span>
                     )}
+                    {/* Drag to resize; double-click for the default width. */}
+                    <span
+                      className="codex-resize"
+                      data-resizing={resizing?.col === c.id ? '' : undefined}
+                      aria-hidden="true"
+                      onClick={(e) => e.stopPropagation()}
+                      onDoubleClick={(e) => {
+                        e.stopPropagation();
+                        setPrefs((p) => withWidth(p, tab, c.id, null));
+                      }}
+                      onPointerDown={(e) => {
+                        if (e.button !== 0) return;
+                        e.stopPropagation();
+                        e.preventDefault();
+                        e.currentTarget.setPointerCapture(e.pointerId);
+                        const w0 = widthOf(c);
+                        setResizing({ col: c.id, x0: e.clientX, w0, w: w0 });
+                      }}
+                      onPointerMove={(e) => {
+                        if (resizing?.col !== c.id) return;
+                        const w = clampWidth(resizing.w0 + e.clientX - resizing.x0);
+                        if (w !== resizing.w) setResizing({ ...resizing, w });
+                      }}
+                      onPointerUp={() => {
+                        if (resizing?.col !== c.id) return;
+                        const w = resizing.w;
+                        setResizing(null);
+                        if (w !== resizing.w0) setPrefs((p) => withWidth(p, tab, c.id, w));
+                      }}
+                      onPointerCancel={() => setResizing(null)}
+                    />
                   </th>
                 ))}
               </tr>

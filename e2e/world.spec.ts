@@ -150,6 +150,57 @@ test('codex edits long text inline without losing its line breaks', async () => 
   await filter('');
 });
 
+test("codex remembers each tab's sort and column widths", async () => {
+  await carbon.gotoView('codex', '3');
+  await filter('kind:band');
+  const th = (col: string) => page().locator(`th[data-col="${col}"]`);
+  // Sort by name, descending (o twice on the first column).
+  for (let i = 0; i < 8; i++) await body().press('h');
+  await expect(th('name')).toHaveClass(/codex-th-current/);
+  await body().press('o');
+  await body().press('o');
+  await expect(th('name')).toHaveAttribute('aria-sort', 'descending');
+  const sorted = await rowIds();
+  // Widen the name column by keys, and the identity column by dragging its edge.
+  const before = (await th('name').boundingBox())!.width;
+  await body().press('>');
+  await body().press('>');
+  await expect.poll(async () => (await th('name').boundingBox())!.width).toBe(before + 48);
+  const edge = (await th('identity').locator('.codex-resize').boundingBox())!;
+  const idBefore = (await th('identity').boundingBox())!.width;
+  await page().mouse.move(edge.x + edge.width / 2, edge.y + edge.height / 2);
+  await page().mouse.down();
+  await page().mouse.move(edge.x + edge.width / 2 - 100, edge.y + edge.height / 2, { steps: 4 });
+  await page().mouse.up();
+  await expect.poll(async () => (await th('identity').boundingBox())!.width).toBe(idBefore - 100);
+  // Another tab has its own; leaving the view and coming back keeps both.
+  await filter('');
+  await body().press(']');
+  await expect(th('name')).not.toHaveAttribute('aria-sort', /.+/);
+  await body().press('[');
+  await carbon.gotoView('column', '1');
+  await carbon.gotoView('codex', '3');
+  await expect(th('name')).toHaveAttribute('aria-sort', 'descending');
+  expect(await rowIds()).toEqual(sorted);
+  expect((await th('name').boundingBox())!.width).toBe(before + 48);
+  expect((await th('identity').boundingBox())!.width).toBe(idBefore - 100);
+  const stored = await page().evaluate(() => localStorage.getItem('carbon.codex'));
+  expect(JSON.parse(stored ?? '{}')).toMatchObject({
+    tab: 'band',
+    sort: { band: { col: 'name', dir: 'desc' } },
+  });
+  // Sorting and widths are the viewer's: nothing to undo in the world.
+  await expect(page().getByTestId('status-notes')).toBeVisible();
+  // Double-clicking an edge brings the default width back; o again turns the sort off.
+  await th('identity').locator('.codex-resize').dblclick();
+  await expect.poll(async () => (await th('identity').boundingBox())!.width).toBe(idBefore);
+  await body().press('o');
+  await expect(th('name')).not.toHaveAttribute('aria-sort', /.+/);
+  await body().press('<');
+  await body().press('<');
+  await filter('');
+});
+
 test('codex stays virtualised with 2,000 entities', async () => {
   const many = Array.from({ length: 2000 }, (_, i) =>
     cmd('entity.create', {

@@ -210,3 +210,29 @@
   outline: none;
   box-shadow: none;
 }
+
+/* A header's right edge resizes its column (drag; double-click resets). The
+   sticky th is the handle's containing block. */
+.codex-resize {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: col-resize;
+  z-index: 2;
+}
+.codex-resize::after {
+  content: '';
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  right: 0;
+  width: 1px;
+  background: transparent;
+  transition: background var(--dur-hover) var(--ease);
+}
+.codex-resize:hover::after,
+.codex-resize[data-resizing]::after {
+  background: var(--accent);
+}
