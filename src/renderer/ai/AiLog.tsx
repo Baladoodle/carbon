@@ -148,7 +148,7 @@ export function AiLog(): ReactNode {
         onMouseDown={(e) => e.stopPropagation()}
       >
         {entries.length === 0 ? (
-          <p className="ai-log-empty t-2">No AI calls this session.</p>
+          <p className="ai-log-empty ui-empty">No AI calls this session.</p>
         ) : (
           <>
             <div className="ai-log-head">
