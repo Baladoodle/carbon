@@ -1,4 +1,5 @@
 import type { Entity } from '../model/entity';
+import { EntityIdSchema } from '../model/ids';
 import { LANE_OF_KIND, type Lane, LANES } from '../model/kinds';
 import { missingFor } from '../model/lifecycle';
 import type { Note } from '../model/notes';
@@ -57,6 +58,51 @@ export function note(
     ...(y !== undefined && Number.isFinite(y) ? { y } : {}),
     inputsHash: hashValue(inputs),
   };
+}
+
+/**
+ * The entities a check note is about, read back from its id (the key formats
+ * are the ones the functions below build). Only ids the note can't exist
+ * without: a dismissal naming one that is gone can never match again. Unknown
+ * kinds and keys give none. A property test (dismissals.test.ts) holds this
+ * to every note the checks make.
+ */
+export function checkNoteSubjects(noteId: string): string[] {
+  const ids = subjectsOfKey(noteId);
+  return ids.every((id) => EntityIdSchema.safeParse(id).success) ? ids : [];
+}
+
+function subjectsOfKey(noteId: string): string[] {
+  const m = /^check:([a-z-]+):(.*)$/.exec(noteId);
+  if (!m) return [];
+  const kind = m[1] as CheckKind;
+  const key = m[2] ?? '';
+  const parts = key.split(':');
+  switch (kind) {
+    case 'material-nowhere':
+    case 'creature-nowhere':
+    case 'item-unreachable':
+    case 'required-missing':
+    case 'band-inverted':
+      return [key];
+    case 'relation':
+    case 'off-curve':
+      return [parts[0] ?? ''];
+    case 'duplicate-name':
+    case 'near-duplicate-name':
+    case 'band-overlap':
+      return parts.slice(0, 2);
+    case 'lane-empty': {
+      const run = (parts[1] ?? '').split('..');
+      return run.length === 2 ? run : [];
+    }
+    case 'cycle':
+      return (parts.at(-1) ?? '').split(',');
+    case 'lane-imbalance':
+    case 'formula-error':
+      return [];
+  }
+  return [];
 }
 
 const LANE_LABEL: Record<Lane, [string, string]> = {

@@ -169,4 +169,42 @@ describe('Dismissals', () => {
     await writeFile(path.join(dir, META.dismissals), '{');
     expect(await new Dismissals(dir).all()).toEqual({});
   });
+
+  it('prunes, on open, dismissals dead for the grace period, and the renderer waits for it', async () => {
+    const day = (d: number): string => new Date(Date.UTC(2026, 10, 1 + d)).toISOString();
+    const world = sampleWorld();
+    const d0 = new Dismissals(dir);
+    await d0.set('check:required-missing:gone-entity', 'h1'); // its entity is gone
+    await d0.set('check:required-missing:glide', 'h2'); // alive
+    await d0.set('mystery', 'h3'); // can't judge: kept
+    // First open: marked dead, kept.
+    const d1 = new Dismissals(dir);
+    const pruned1 = d1.prune(world, day(0));
+    expect(Object.keys(await d1.all())).toHaveLength(3);
+    expect(await pruned1).toEqual([]);
+    const raw = JSON.parse(await readFile(path.join(dir, META.dismissals), 'utf8')) as {
+      dead?: Record<string, string>;
+    };
+    expect(raw.dead).toEqual({ 'check:required-missing:gone-entity': day(0) });
+    // An open within the grace period changes nothing; one after it prunes.
+    expect(await new Dismissals(dir).prune(world, day(10))).toEqual([]);
+    const d2 = new Dismissals(dir);
+    void d2.prune(world, day(31));
+    // all() waits for the pruning: the renderer never sees the pruned entry.
+    expect(await d2.all()).toEqual({ 'check:required-missing:glide': 'h2', mystery: 'h3' });
+    const after = JSON.parse(await readFile(path.join(dir, META.dismissals), 'utf8')) as unknown;
+    expect(after).toEqual({
+      version: 1,
+      notes: { 'check:required-missing:glide': 'h2', mystery: 'h3' },
+    });
+  });
+
+  it('a dismissal set again forgets that it was dead', async () => {
+    const d = new Dismissals(dir);
+    await d.set('check:required-missing:gone-entity', 'h1');
+    await d.prune(sampleWorld(), '2026-11-01T00:00:00.000Z');
+    await d.set('check:required-missing:gone-entity', 'h9');
+    const raw = JSON.parse(await readFile(path.join(dir, META.dismissals), 'utf8')) as unknown;
+    expect(raw).toEqual({ version: 1, notes: { 'check:required-missing:gone-entity': 'h9' } });
+  });
 });

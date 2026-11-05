@@ -121,6 +121,10 @@ const storeModule: MainModule = {
 
     // ── Note dismissals ─────────────────────────────────────────────────────
     const dismissals = new Dismissals(dir);
+    // Once per open, before the renderer reads them (it waits for this).
+    void dismissals
+      .prune(session.world, new Date().toISOString())
+      .catch((e: unknown) => console.warn('carbon: pruning dismissals', e));
 
     // ── IPC ─────────────────────────────────────────────────────────────────
     handle('store:notices', () => [...notices]);
