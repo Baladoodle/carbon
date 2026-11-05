@@ -322,18 +322,18 @@ function sprite(id: string): Rgba | null {
   const s = SPRITES[id];
   if (!s) return null;
   const data = new Uint8ClampedArray(16 * 16 * 4);
-  s.rows.forEach((row, y) =>
-    [...row].forEach((ch, x) => {
-      const c = s.palette[ch];
-      if (!c) return;
+  s.rows.forEach((row, y) => {
+    for (let x = 0; x < row.length; x++) {
+      const c = s.palette[row.charAt(x)];
+      if (!c) continue;
       const [r, g, b] = hex(c);
       const i = (y * 16 + x) * 4;
       data[i] = r;
       data[i + 1] = g;
       data[i + 2] = b;
       data[i + 3] = 255;
-    }),
-  );
+    }
+  });
   return { width: 16, height: 16, data };
 }
 
