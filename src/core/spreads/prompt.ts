@@ -5,6 +5,7 @@ import { ENTITY_KINDS, type EntityKind } from '../model/kinds';
 import { kindAllowed } from '../model/validate';
 import { entitiesOfKind, getEntity, schemaOf, type World } from '../model/world';
 import { renderTaste, tasteContext } from '../taste/context';
+import { qualityConstraints } from '../prompts/quality';
 import { MOVE_DEFS } from './moves';
 import { bandOf, spotBand, spotEntities, spotKind } from './spot';
 
@@ -62,6 +63,10 @@ export const SPREAD_SYSTEM = [
   'Ground every candidate in THIS world: use its bands, biomes, materials and creatures by name and id, and its own voice. Never generic fantasy, never a renamed copy of an existing entity, never an idea whose only point is a bigger number.',
   'Respect the taste block: its rules are hard constraints, its patterns and kill examples show what the designer likes and rejects. The one exception is the wildcard, described in the task.',
   'Use only entity ids that appear in the prompt. Write names in title case and identities as one sentence of at most 20 words.',
+  qualityConstraints(
+    'Every candidate, whatever the move,',
+    'The wildcard alone may ignore the rule_clash line (it ignores taste); it meets every other line. A finding (the Break move) names a problem instead: it is held to duplicate and contradicts_relation only.',
+  ),
 ].join('\n\n');
 
 /** The built-in world digest: bands with their biomes, then names per kind. */
