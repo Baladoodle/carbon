@@ -4,6 +4,7 @@ import { getEntity, schemaOf, type World } from '../model/world';
 import { deepEqual } from '../util/json';
 import { err, ok } from '../util/result';
 import { assemble, quote } from './common';
+import { qualityConstraints, selfCheck } from './quality';
 import {
   arr,
   duplicatesName,
@@ -27,7 +28,10 @@ The designer pressed tab on one field of the entity in focus and wants a single 
 - If the field already has a value, propose a better one in the same spirit, not a paraphrase.
 - Never repeat a value listed under "Already shown".
 - For a name: unlike every existing name, short, in the world's voice.
-- note: at most 12 words on why it fits. It's shown dimmed next to the suggestion.`;
+- If the ask quotes a critique note, the value must fix exactly that problem.
+- note: at most 12 words on why it fits. It's shown dimmed next to the suggestion.
+
+${qualityConstraints('The value you suggest, and the entity with it in place,')}`;
 
 const INSTRUCTIONS_THREE = `# Moment: suggest three
 
@@ -36,7 +40,10 @@ The designer pressed shift+tab on one field of the entity in focus and wants thr
 - The three must be genuinely different directions, not variations of one idea. Make them span a range the designer would want to choose across.
 - Never repeat a value listed under "Already shown" or the field's current value.
 - For a name: unlike every existing name, short, in the world's voice.
-- note: at most 12 words each, saying what distinguishes that option.`;
+- If the ask quotes a critique note, every option must fix exactly that problem.
+- note: at most 12 words each, saying what distinguishes that option.
+
+${qualityConstraints('Every option, and the entity with it in place,')}`;
 
 function fieldAsk(
   world: World,
@@ -55,6 +62,11 @@ function fieldAsk(
   if (current !== undefined && current !== '' && !(Array.isArray(current) && current.length === 0))
     lines.push(`Current value: ${quote(current)}`);
   if (req.avoid.length > 0) lines.push(`Already shown: ${req.avoid.map(quote).join(' | ')}`);
+  if (req.guidance?.trim())
+    lines.push(
+      `The critic's note on this field, to fix: "${req.guidance.trim()}"`,
+      'Rewrite the value so the note no longer applies.',
+    );
   lines.push(
     '',
     n === 1
@@ -94,7 +106,9 @@ function validSuggestions(world: World, req: ParsedRequest<'suggest_one'>, raw: 
           deepEqual(x, value) ||
           (typeof x === 'string' && typeof value === 'string' && normName(x) === normName(value)),
       ) ||
-      (f.key === 'name' && typeof value === 'string' && duplicatesName(world, value, e.id));
+      (f.key === 'name' && typeof value === 'string' && duplicatesName(world, value, e.id)) ||
+      // The quality bar's deterministic half: what the critic would flag at once.
+      selfCheck(world, f.key, value, e.id) !== null;
     if (dup) {
       dropped++;
       continue;

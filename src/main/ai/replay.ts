@@ -132,7 +132,18 @@ export function synthesize(
               : key === 'needs' || key === 'attributes'
                 ? 0
                 : 1 + Math.floor(rand() * 2);
-      return Array.from({ length: n }, () => synthesize(schema.items as Schema, rand, key, counts));
+      // Alternatives are distinct, as a real answer's are (re-drawn a few times).
+      const items: unknown[] = [];
+      for (let i = 0, tries = 0; i < n; tries++) {
+        const item = synthesize(schema.items as Schema, rand, key, counts);
+        const valueOf = (x: unknown): string =>
+          JSON.stringify((x as { value?: unknown } | null)?.value ?? x);
+        const dup = key === 'suggestions' && items.some((x) => valueOf(x) === valueOf(item));
+        if (dup && tries < 20) continue;
+        items.push(item);
+        i++;
+      }
+      return items;
     }
     case 'string':
       if (key === 'name' || key === 'title' || key === 'label')

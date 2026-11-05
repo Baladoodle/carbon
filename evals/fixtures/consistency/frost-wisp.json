@@ -1,0 +1,30 @@
+{
+  "entityId": "frost-wisp",
+  "fill": {
+    "proposals": {
+      "description": {
+        "value": "A wisp of cold light that drifts toward warmth and leaves frost where it settles.",
+        "note": null
+      },
+      "menace": { "value": 0.3, "note": null },
+      "behaviour": {
+        "value": "Follows the warmest thing nearby and freezes it still for a breath.",
+        "note": null
+      },
+      "drops": { "value": "rime dust", "note": null }
+    }
+  },
+  "critique": {
+    "behaviour,description,drops,menace": {
+      "notes": [
+        {
+          "kind": "contradicts_relation",
+          "text": "It lives in frozen-reach, which isn't in the world.",
+          "entities": [],
+          "field": null,
+          "ruleId": null
+        }
+      ]
+    }
+  }
+}
