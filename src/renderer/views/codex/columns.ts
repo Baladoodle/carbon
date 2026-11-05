@@ -418,13 +418,18 @@ export function planBulkState(
       skipped.push({ id, reason: `already ${state}` });
       continue;
     }
-    if (!canTransition(e.state, state)) {
+    // An idea is decided by way of shaped, in the same step (as on the Bench).
+    const via = viaOf(e.state, state);
+    if (!canTransition(e.state, state) && via === null) {
       skipped.push({ id, reason: `can't go from ${e.state} to ${state}` });
       continue;
     }
     const why = e.why.trim() === '' && opts.why?.trim() ? opts.why.trim() : undefined;
     const next: Entity = { ...e, state, why: why ?? e.why };
-    const missing = missingFor(schema, next, state);
+    const missing = [
+      ...(via ? missingFor(schema, { ...e, state: via }, via) : []),
+      ...missingFor(schema, next, state),
+    ].filter((k, i, all) => all.indexOf(k) === i);
     if (missing.length > 0) {
       skipped.push({ id, reason: `needs ${missing.join(', ')}` });
       continue;
@@ -433,6 +438,7 @@ export function planBulkState(
       skipped.push({ id, reason: 'needs a kill reason' });
       continue;
     }
+    if (via) commands.push(cmd('entity.setState', { id, state: via }));
     commands.push(
       cmd('entity.setState', {
         id,
@@ -448,9 +454,17 @@ export function planBulkState(
   return { commands, skipped };
 }
 
+/** The state a move passes through when there's no direct transition (idea → decided). */
+export const viaOf = (from: EntityState, to: EntityState): EntityState | null =>
+  from === 'idea' && to === 'decided' ? 'shaped' : null;
+
+/** Whether an entity in `from` can be moved to `to` by a bulk change. */
+export const canMove = (from: EntityState, to: EntityState): boolean =>
+  canTransition(from, to) || viaOf(from, to) !== null;
+
 /** Whether any of these entities would need a Why to become decided. */
 export const needsWhy = (world: World, ids: readonly string[]): boolean =>
   ids.some((id) => {
     const e = world.entities[id];
-    return !!e && e.why.trim() === '' && canTransition(e.state, 'decided');
+    return !!e && e.why.trim() === '' && canMove(e.state, 'decided');
   });

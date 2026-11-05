@@ -3,9 +3,13 @@ import { StateGlyph } from '../../ui';
 import { depthTint } from '../../ui/tokens';
 import type { Edge } from '@core/column/edges';
 import { edgeKey } from '@core/column/edges';
-import { CHIP_H, pxOfY, type Frame, type Glyph, type Rect } from '@core/column/layout';
+import { CHIP_H, fitText, pxOfY, type Frame, type Glyph, type Rect } from '@core/column/layout';
 import { LABEL_W, RULER_W, type CellBox, type RowBox } from '@core/column/model';
 import { formatY, fromU, ticks } from '@core/column/scale';
+import { measureBand } from './measure';
+
+/** Room for a band's name in the label column, after its state mark. */
+const BAND_NAME_W = LABEL_W - 22 - 6;
 
 /** SVG layers of the Column. Everything is in content pixels. */
 
@@ -166,7 +170,7 @@ export const BandLabels = memo(function BandLabels({ rows }: { rows: RowBox[] })
           <g key={r.row.key} data-band={band.id}>
             <StateMark x={RULER_W + 8} y={y - 8} state={band.state} />
             <text x={RULER_W + 22} y={y} className="column-band-name">
-              {band.name.length > 13 ? `${band.name.slice(0, 12)}…` : band.name}
+              {fitText(band.name, BAND_NAME_W, measureBand)}
             </text>
             {h >= 34 && (
               <text x={RULER_W + 22} y={y + 14} className="column-band-span">

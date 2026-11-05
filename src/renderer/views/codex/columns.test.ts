@@ -261,7 +261,8 @@ describe('planBulkState', () => {
 
   it('fills a missing Why when deciding, and needs a kill reason for the graveyard', () => {
     expect(needsWhy(world, ['lumen-spore'])).toBe(true);
-    expect(needsWhy(world, ['glide', 'vent-glass'])).toBe(false);
+    // glide is decided already.
+    expect(needsWhy(world, ['glide'])).toBe(false);
     const decided = planBulkState(world, schema, ['lumen-spore', 'moss-grazer'], 'decided', {
       why: ' Core. ',
     });
@@ -285,5 +286,21 @@ describe('planBulkState', () => {
     expect(applyCommands(world, killed.commands, { now: '2026-11-04T10:00:00.000Z' }).ok).toBe(
       true,
     );
+  });
+
+  it('decides ideas through shaped, in the same transaction, as the Bench does', () => {
+    // vent-glass is an idea with everything shaped needs; sky-coral lacks properties.
+    expect(needsWhy(world, ['vent-glass'])).toBe(true);
+    const plan = planBulkState(world, schema, ['vent-glass', 'sky-coral'], 'decided', {
+      why: 'Core.',
+    });
+    expect(plan.commands.map((c) => c.payload)).toEqual([
+      { id: 'vent-glass', state: 'shaped' },
+      { id: 'vent-glass', state: 'decided', why: 'Core.' },
+    ]);
+    expect(plan.skipped).toEqual([{ id: 'sky-coral', reason: 'needs properties' }]);
+    const r = applyCommands(world, plan.commands, { now: '2026-11-04T10:00:00.000Z' });
+    if (!r.ok) throw new Error(r.error.message);
+    expect(r.value.world.entities['vent-glass']?.state).toBe('decided');
   });
 });

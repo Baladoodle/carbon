@@ -1,12 +1,11 @@
 import { useState, type ReactNode } from 'react';
 import { ENTITY_STATES, type EntityState } from '@core/model/kinds';
-import { canTransition } from '@core/model/lifecycle';
 import { schemaOf } from '@core/model/world';
 import { useActions } from '../../actions';
 import { flash } from '../../state/ui';
 import { currentWorld, transact, useWorld } from '../../state/world';
 import { Button, Dialog, Field, Input, Kbd, StateGlyph, Textarea, cx } from '../../ui';
-import { needsWhy, planBulkState } from './columns';
+import { canMove, needsWhy, planBulkState } from './columns';
 
 const STATE_KEY: Record<EntityState, string> = {
   idea: 'i',
@@ -85,7 +84,7 @@ export function StateDialog({
   };
 
   const reachable = (s: EntityState): boolean =>
-    states.some((x) => x !== undefined && x !== s && canTransition(x, s));
+    states.some((x) => x !== undefined && x !== s && canMove(x, s));
 
   const pickReason = (key: string): void => {
     const r = reasons.find((x) => x.key === key);

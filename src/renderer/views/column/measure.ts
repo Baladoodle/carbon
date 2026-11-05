@@ -6,6 +6,7 @@ import type { Measure } from '@core/column/layout';
  */
 export const CHIP_FONT = '400 12px "Inter Variable", Inter, sans-serif';
 export const NOTE_FONT = '400 12px "Inter Variable", Inter, sans-serif';
+export const BAND_FONT = '500 12px "Inter Variable", Inter, sans-serif';
 
 const caches: Map<string, number>[] = [];
 
@@ -33,3 +34,4 @@ function measurer(font: string): Measure {
 
 export const measureChip: Measure = measurer(CHIP_FONT);
 export const measureNote: Measure = measurer(NOTE_FONT);
+export const measureBand: Measure = measurer(BAND_FONT);

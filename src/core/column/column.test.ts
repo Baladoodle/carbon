@@ -49,6 +49,7 @@ import { stressWorld } from '../testing/stress';
 
 const ctx = { now: '2026-11-02T00:00:00.000Z' };
 const measure = (s: string): number => s.length * 6.5;
+const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
 
 describe('scale', () => {
   it('is symmetric, monotonic and invertible', () => {
@@ -379,6 +380,35 @@ describe('layoutCell', () => {
     expect(t.endsWith('…')).toBe(true);
     expect(measure(t)).toBeLessThanOrEqual(60);
     expect(fitText('Anything', 2, measure)).toBe('');
+  });
+
+  it('never cuts a character or a grapheme in half (property)', () => {
+    // Astral characters (two UTF-16 units), combining marks and ZWJ sequences.
+    const pieces = ['a', 'é', 'e\u0301', '🜂', '𝔄', '👩‍🚀', '🇯🇵', '漢', ' '];
+    const graphemes = (s: string): string[] =>
+      [...new Intl.Segmenter('en', { granularity: 'grapheme' }).segment(s)].map((x) => x.segment);
+    fc.assert(
+      fc.property(
+        fc.array(fc.constantFrom(...pieces), { minLength: 1, maxLength: 30 }),
+        fc.integer({ min: 0, max: 200 }),
+        (parts, max) => {
+          const name = parts.join('');
+          const t = fitText(name, max, measure);
+          expect(t).not.toMatch(LONE_SURROGATE);
+          const kept = t.endsWith('…') ? t.slice(0, -1) : t;
+          // What's kept is a run of whole graphemes from the start of the name.
+          const g = graphemes(name);
+          const prefixes = g.map((_, k) =>
+            g
+              .slice(0, k + 1)
+              .join('')
+              .trimEnd(),
+          );
+          expect(t === name || kept === '' || prefixes.includes(kept)).toBe(true);
+        },
+      ),
+    );
+    expect(fitText('👩‍🚀👩‍🚀👩‍🚀👩‍🚀👩‍🚀', 40, measure)).not.toMatch(/\u200d…$/);
   });
 });
 

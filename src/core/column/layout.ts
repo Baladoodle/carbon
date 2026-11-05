@@ -236,18 +236,33 @@ export interface CellLayout {
   more: (Rect & { count: number }) | null;
 }
 
-/** Truncates `text` with an ellipsis so it measures at most `max` px. */
+const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+
+/** Where each grapheme (a character as a person sees it) ends, in UTF-16 units. */
+export function graphemeEnds(text: string): number[] {
+  const ends: number[] = [];
+  for (const g of segmenter.segment(text)) ends.push(g.index + g.segment.length);
+  return ends;
+}
+
+/**
+ * Truncates `text` with an ellipsis so it measures at most `max` px. It cuts
+ * only between graphemes, so an emoji, an accented letter or a ZWJ sequence
+ * is never split into broken halves.
+ */
 export function fitText(text: string, max: number, measure: Measure): string {
   if (measure(text) <= max) return text;
   if (max <= measure('…')) return '';
+  const ends = graphemeEnds(text);
+  const cut = (k: number): string => `${text.slice(0, ends[k - 1] ?? 0).trimEnd()}…`;
   let lo = 0;
-  let hi = text.length;
+  let hi = ends.length;
   while (lo < hi) {
     const mid = Math.ceil((lo + hi) / 2);
-    if (measure(`${text.slice(0, mid).trimEnd()}…`) <= max) lo = mid;
+    if (measure(cut(mid)) <= max) lo = mid;
     else hi = mid - 1;
   }
-  return lo === 0 ? '…' : `${text.slice(0, lo).trimEnd()}…`;
+  return lo === 0 ? '…' : cut(lo);
 }
 
 /**
