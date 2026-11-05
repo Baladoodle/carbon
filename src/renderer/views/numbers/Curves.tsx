@@ -71,6 +71,7 @@ function ExprInput({
   placeholder,
   error,
   className,
+  expandable = false,
 }: {
   value: string;
   onCommit: (v: string) => void;
@@ -78,6 +79,8 @@ function ExprInput({
   placeholder?: string;
   error?: string | undefined;
   className?: string;
+  /** Formulas expand into the large editor (ctrl+shift+e); numbers don't. */
+  expandable?: boolean;
 }): ReactNode {
   const [text, setText] = useState(value);
   // Follow the stored value when it changes (undo, another edit).
@@ -89,7 +92,8 @@ function ExprInput({
   return (
     <Input
       mono
-      expandable={false}
+      expandable={expandable}
+      onCommit={() => text !== value && onCommit(text)}
       aria-label={label}
       className={className}
       value={text}
@@ -203,6 +207,7 @@ function CurveCard({
         <ExprInput
           value={curve.y}
           label="Curve formula"
+          expandable
           error={yErr}
           className="numbers-curve-y"
           onCommit={(y) => void put({ ...curve, y })}
