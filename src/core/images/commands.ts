@@ -133,7 +133,7 @@ export const setArt = defineCommand({
     const kinds = { ...cur.kinds };
     for (const [k, v] of Object.entries(p.kinds ?? {})) {
       const key = k as keyof typeof kinds;
-      if (v === null || v === undefined || v.trim() === '') delete kinds[key];
+      if (v === null || v.trim() === '') delete kinds[key];
       else kinds[key] = v;
     }
     const direction = p.direction ?? cur.direction;

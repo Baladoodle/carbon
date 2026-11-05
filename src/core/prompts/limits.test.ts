@@ -83,6 +83,13 @@ function requestFor(m: Moment, w: World, junk: string): unknown {
       return { entityId: first, trigger: 'on_demand' };
     case 'spec_draft':
       return { entityIds: ids.slice(0, 400), name: junk.repeat(2_000) };
+    case 'image_prompt':
+      // images-core: the art direction goes into the ask; make it as large as the schema allows.
+      w.settings.art = {
+        direction: junk.repeat(4_000).slice(0, 4_000),
+        kinds: { item: junk.repeat(2_000).slice(0, 2_000) },
+      };
+      return { entityId: item, kind: 'icon' };
     case 'spread':
       return {
         spot: { type: 'selection', entities: ids.slice(0, 40) },

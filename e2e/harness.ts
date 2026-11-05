@@ -79,6 +79,8 @@ export async function launchCarbon(opts: LaunchOptions = {}): Promise<CarbonApp>
       CARBON_AI: 'fake',
       // Never read a real key from the developer's keyring in a test run.
       CARBON_KEYRING: 'off',
+      // images-core: never OpenAI in tests.
+      CARBON_IMAGES: 'fake',
       ...opts.env,
     },
   });

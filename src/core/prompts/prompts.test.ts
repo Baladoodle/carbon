@@ -59,9 +59,9 @@ describe('registry', () => {
     expect(new PromptRegistry().has('spread')).toBe(false);
     // W4's five moments are built in; W5 registers spread and patterns.
     expect(BUILTIN_BUILDERS.map((b) => b.moment).sort()).toEqual(
-      MOMENTS.filter((m) => m !== 'spread' && m !== 'patterns').sort(),
+      MOMENTS.filter((m) => m !== 'spread' && m !== 'patterns' && m !== 'image_prompt').sort(),
     );
-    expect(PACKAGE_BUILDERS.map((b) => b.moment)).toEqual(['spread', 'patterns']);
+    expect(PACKAGE_BUILDERS.map((b) => b.moment)).toEqual(['spread', 'patterns', 'image_prompt']);
     expect(r.get('spread')).toBe(PACKAGE_BUILDERS[0]);
   });
 });
@@ -73,6 +73,7 @@ describe('every built prompt', () => {
     fill_entity: { entityId: 'high-drift' },
     critique: { entityId: 'cinder-wasp', trigger: 'finish_edit' },
     spec_draft: { entityIds: ['cinder-sting', 'glide'], name: 'First set' },
+    image_prompt: { entityId: 'cinder-sting', kind: 'icon' },
     spread: {
       // Vary aims at entities; a cell takes Fill.
       spot: { type: 'cell', band: 'hollows', lane: 'creatures' },
