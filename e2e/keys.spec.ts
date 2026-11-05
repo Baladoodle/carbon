@@ -35,12 +35,24 @@ const SECTIONS: [string, (r: Row) => boolean][] = [
     'Kill reasons (the defaults; after `x` in a spread, `g` in the state dialog)',
     (r) => r.id.startsWith('codex.kill.'),
   ],
+  ['Images (in every view)', (r) => r.id.startsWith('images.')],
   ['Numbers', (r) => r.id.startsWith('numbers.')],
   ['Spread', (r) => r.id.startsWith('spread.')],
   ['Taste', (r) => r.id.startsWith('taste.')],
   ['Export', (r) => r.id.startsWith('export.')],
   ['AI log', (r) => r.id.startsWith('ai-log.')],
 ];
+/**
+ * Image actions name what they act on in the palette ("Generate concept:
+ * Glide"); the guide describes the target instead.
+ */
+const GUIDE_LABEL: Record<string, string> = {
+  'images.concept': 'Generate concept: the entity in focus, or a batch over a multi-selection',
+  'images.icon': 'Generate icon: the entity in focus, or a batch over a multi-selection',
+  'codex.images.concept':
+    'Generate concept: the cursor row, or a batch over the selected rows shown',
+  'codex.images.icon': 'Generate icon: the cursor row, or a batch over the selected rows shown',
+};
 /** Not listed: each repeats `ctrl+z` (it drops a nudge still waiting to be sent, then undoes as usual). */
 const LEFT_OUT = new Set(['column.undo-nudge', 'climate.undo-nudge']);
 
@@ -67,7 +79,9 @@ export function renderKeys(rows: Row[]): string {
     for (const r of mine) used.add(r.id);
     out.push('', `#### ${name}`, '', '| Key | Action |', '|---|---|');
     for (const r of mine)
-      out.push(`| ${r.keys.map(keyText).join(' or ')} | ${r.label.replace(/\|/g, '\\|')} |`);
+      out.push(
+        `| ${r.keys.map(keyText).join(' or ')} | ${(GUIDE_LABEL[r.id] ?? r.label).replace(/\|/g, '\\|')} |`,
+      );
   }
   const orphans = rows.filter((r) => !used.has(r.id) && !LEFT_OUT.has(r.id));
   if (orphans.length > 0) throw new Error(`No section for ${orphans.map((r) => r.id).join(', ')}`);

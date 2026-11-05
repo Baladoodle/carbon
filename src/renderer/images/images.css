@@ -55,8 +55,17 @@
 
 /* ── The confirm step and the batch dialog ─────────────────────────────── */
 
-.img-confirm {
-  width: min(620px, 92vw);
+.ui-dialog.img-confirm {
+  width: min(680px, 92vw);
+}
+.img-options .ui-select {
+  width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.img-options .ui-select > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .img-confirm-body {
   display: flex;
@@ -94,7 +103,7 @@
 }
 .img-options {
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 0.8fr) minmax(0, 1fr) auto;
   gap: 8px;
   align-items: end;
 }
@@ -118,7 +127,7 @@
   font-size: var(--text-dense);
 }
 
-.img-batch {
+.ui-dialog.img-batch {
   width: min(820px, 94vw);
 }
 .img-batch-list {
@@ -150,6 +159,8 @@
   white-space: nowrap;
 }
 .img-batch-row textarea {
+  width: 100%;
+  box-sizing: border-box;
   min-height: 34px;
   font-size: var(--text-dense);
   resize: vertical;
@@ -190,7 +201,7 @@
 
 /* ── The lightbox ──────────────────────────────────────────────────────── */
 
-.img-lightbox {
+.ui-dialog.img-lightbox {
   width: auto;
   max-width: 92vw;
   padding: 8px;
@@ -206,7 +217,7 @@
   height: 512px;
 }
 .img-options-5 {
-  grid-template-columns: minmax(0, 1.4fr) minmax(0, 0.8fr) minmax(0, 1fr) minmax(0, 0.8fr) auto;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 0.8fr) minmax(0, 1.1fr) minmax(0, 0.8fr) auto;
 }
 .img-batch-state {
   display: block;

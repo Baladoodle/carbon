@@ -87,7 +87,7 @@ fixes it.
    emptiest climate, its name ready to type. Drag it to move, drag its corners
    to resize, or nudge it with the arrows (`shift` + arrows resize).
 
-   <img src="screens/climate.png" width="720" alt="Climate">
+   <img src="screens/climate.png" width="720" alt="Climate: biome panels filled by their concept art">
 
 3. **What lives there.** Back on the Column, click a cell (a band's row in a
    lane: Materials, Creatures, …) and press `n`. The Bench on the right holds
@@ -279,6 +279,8 @@ the view (in Taste, `d` dismisses the pattern), unless focus is in the Bench.
 | `]` | Next kind |
 | `enter` | Edit cell |
 | `x` | Select row |
+| `ctrl+g` | Generate concept: the cursor row, or a batch over the selected rows shown |
+| `ctrl+shift+g` | Generate icon: the cursor row, or a batch over the selected rows shown |
 | `ctrl+a` | Select all rows |
 | `escape` | Clear selection |
 | `/` | Filter |
@@ -314,6 +316,13 @@ the view (in Taste, `d` dismisses the pattern), unless focus is in the Bench.
 | `6` | redundant |
 | `7` | breaks a rule |
 | `0` | other |
+
+#### Images (in every view)
+
+| Key | Action |
+|---|---|
+| `ctrl+g` | Generate concept: the entity in focus, or a batch over a multi-selection |
+| `ctrl+shift+g` | Generate icon: the entity in focus, or a batch over a multi-selection |
 
 #### Numbers
 
@@ -423,6 +432,55 @@ The AI runs only at these moments, and nothing else calls the API.
 
 The first run against the real API (`npm run smoke:ai`, `npm run eval`), what
 it costs and what each result means: [`AI-FIRST-RUN.md`](AI-FIRST-RUN.md).
+
+### Images and icons
+
+Concept art for any entity, and 16×16 item icons in Infinite's style, from
+OpenAI's Images 2.6 models (the full design is [`IMAGES.md`](IMAGES.md)).
+
+- **Deliberate, always.** Nothing generates on its own. `ctrl+g` (concept)
+  and `ctrl+shift+g` (icon) work on whatever is selected, in every view; the
+  same actions are in the Climate panel's menu (right-click, or the quiet
+  button on a selected panel), the Column chip's and Codex row's menus, the
+  Bench's `…` menu and image strip, and the palette.
+- **The confirm step comes first.** Claude writes a prompt (on Haiku, from
+  the entity, its place and the art direction); you can edit it or write your
+  own. Choose the model (`gpt-image-2.6-flare` by default, or `sunburst`), the
+  quality (**low** by default) and the size, and see the estimated cost.
+  `enter` sends it, `esc` cancels with nothing spent.
+
+  <img src="screens/images-confirm.png" width="720" alt="The confirm step">
+
+- **Where they show:** a biome's concept fills its Climate panel; the Bench
+  shows the concept (click to enlarge), the icon at 1× and 4×, and earlier
+  versions (click one to choose it); item chips on the Column and the Codex's
+  image column show icons, always pixelated.
+
+  <img src="screens/bench-images.png" width="360" alt="The Bench's image strip">
+
+- **Icon from concept** filters the chosen concept into a 16×16 icon with
+  Genforge's `item` filter. It's free: no API call.
+- **Batches:** select rows in the Codex (`Concepts…` or `Icons…` in the bulk
+  bar, or the key), or use the palette's "Generate icons in this cell/lane"
+  on the Column. The dialog lists every prompt, each editable, with the model,
+  quality, call count and estimated total, and skips entities that already
+  have one unless you choose Replace. It runs two at a time, with progress, a
+  cancel and a result per row.
+
+  <img src="screens/images-batch.png" width="720" alt="A batch of icons">
+
+- **Undo:** choosing and removing images are ordinary undo steps. Removing
+  keeps the files; "Delete image files of removed images" in the palette
+  purges them, after a confirm.
+- **Art direction:** Taste's Art direction section holds a paragraph for
+  every image prompt, and a note per kind (`+ Kind`).
+- **Cost and budget:** OpenAI's spend is in the status line beside Claude's
+  (`images $0.04 / $1.00`), with its own budget ($1 per session, $10 per
+  month by default; click it to change). At the limit images pause, and the
+  confirm step says so. Every image call is in the AI log (`ctrl+l`), with a
+  thumbnail, under its own `images` tab.
+- **Export** copies each chosen entity's selected images beside the spec,
+  and the preview shows them.
 
 ## 6. Where your data lives
 

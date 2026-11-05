@@ -293,3 +293,37 @@ test('ai log and export: image calls with thumbnails; the spec preview shows the
   await page().locator('[data-testid="export-list"] [data-entity="cinder-sting"]').click();
   await expect(page().getByTestId('export-images').getByTestId('export-icon')).toBeVisible();
 });
+
+test('batch: progress, then cancel the rest; finished items keep their image, the rest are not sent', async () => {
+  const slow = await launchCarbon({ env: { CARBON_IMAGES_DELAY_MS: '700' } });
+  try {
+    const p = slow.page;
+    await slow.gotoView('codex', '3');
+    await p.getByRole('tab', { name: /^Biomes/ }).click();
+    await p.getByTestId('codex-scroll').focus();
+    await p.locator('body').press('Control+a');
+    // The key reaches the rows the filter shows: a batch of concepts.
+    await p.locator('body').press('Control+g');
+    const batch = p.getByTestId('image-batch');
+    await expect(batch).toHaveAttribute('data-phase', 'ready');
+    await expect(p.getByTestId('image-batch-calls')).toHaveText('4 calls');
+    await p.getByTestId('image-batch-prompt').first().press('Control+Enter');
+    await expect(batch).toHaveAttribute('data-phase', 'running');
+    await expect(p.getByTestId('image-batch-progress')).toBeVisible();
+    await expect(p.locator('[data-testid="image-batch-row"][data-result="ok"]')).toHaveCount(2, {
+      timeout: 10_000,
+    });
+    await p.getByTestId('image-batch-cancel').click();
+    await expect(batch).toHaveAttribute('data-phase', 'done');
+    const made = await p.locator('[data-testid="image-batch-row"][data-result="ok"]').count();
+    expect(made).toBeLessThan(4);
+    const w = (await slow.invoke('world:snapshot', null)).world;
+    expect(Object.values(w.images ?? {}).filter((x) => x.concept).length).toBe(made);
+    const log = await slow.invoke('images:log', {});
+    expect(log.filter((l) => l.outcome === 'ok').length).toBe(made);
+    await p.getByTestId('image-batch-close').click();
+    await expect(batch).toHaveCount(0);
+  } finally {
+    await slow.close();
+  }
+});

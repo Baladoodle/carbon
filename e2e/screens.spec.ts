@@ -5,6 +5,8 @@ import path from 'node:path';
 import { cmd } from '@core/commands/registry';
 import { stressWorld } from '../src/core/testing/stress';
 import { writeWorldDir } from '../src/main/store/world-dir';
+import { sampleWorld } from '../src/core/testing/sample';
+import { withArt, withHollowsBiomes } from './art';
 import { launchCarbon, SCREEN_SCALE, type CarbonApp } from './harness';
 
 /**
@@ -132,13 +134,7 @@ test('screens of every view, the Bench and the palette', async () => {
   await page().keyboard.press('Escape');
   await page().keyboard.press('Escape');
 
-  await carbon.gotoView('climate', '2');
-  await page().getByRole('tab', { name: 'Hollows' }).click();
-  await page().locator('[data-testid="climate-region"][data-entity="glowmoss-caverns"]').click();
-  const plane = (await page().getByTestId('climate-plane').boundingBox())!;
-  await page().mouse.move(plane.x + plane.width * 0.62, plane.y + plane.height * 0.42);
-  await expect(page().locator('.ui-toast')).toHaveCount(0, { timeout: 15000 });
-  await carbon.screenshot('climate', docs);
+  // Climate's canonical screen is the images test's (its panels hold concept art).
 
   await carbon.gotoView('codex', '3');
   await body().press('/');
@@ -221,6 +217,71 @@ test('the Column over 2,000 entities', async () => {
     await big.screenshot('column-stress', { docs: true });
   } finally {
     await big.close();
+    rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('images: Climate panels filled by concept art, the Bench strip, the confirm step, a batch', async () => {
+  test.setTimeout(120_000);
+  const tmp = mkdtempSync(path.join(os.tmpdir(), 'carbon-screens-art-'));
+  const art = withArt(withHollowsBiomes(sampleWorld()), tmp);
+  await writeWorldDir(tmp, art);
+  const c = await launchCarbon({ worldDir: tmp, scale: SCREEN_SCALE });
+  const p = c.page;
+  const calm = async (): Promise<void> => {
+    await p.mouse.move(2, 2);
+    await expect(p.locator('.ui-toast')).toHaveCount(0, { timeout: 15000 });
+    await expect(p.locator('.img-shimmer, [data-loading]')).toHaveCount(0);
+  };
+  try {
+    // Climate: every Hollows biome filled by its concept, one selected.
+    await c.gotoView('climate', '2');
+    await p.getByRole('tab', { name: 'Hollows' }).click();
+    const region = (id: string) => p.locator(`[data-testid="climate-region"][data-entity="${id}"]`);
+    for (const id of ['glowmoss-caverns', 'ash-vents', 'mossed-hollows', 'painted-plains'])
+      await expect(region(id).getByTestId('climate-art')).toHaveAttribute('data-loaded', '');
+    await region('glowmoss-caverns').click();
+    const plane = (await p.getByTestId('climate-plane').boundingBox())!;
+    await p.mouse.move(plane.x + plane.width * 0.44, plane.y + plane.height * 0.86);
+    await expect(p.locator('.ui-toast')).toHaveCount(0, { timeout: 15000 });
+    await c.screenshot('climate', { docs: true });
+
+    // The Bench's image strip: the concept, the icon at 1× and 4×, earlier versions.
+    await p.locator('body').press('Control+k');
+    await p.keyboard.type('Spore Lantern');
+    await expect(p.getByTestId('palette').locator('[data-highlighted]')).toContainText(
+      'Spore Lantern',
+    );
+    await p.keyboard.press('Enter');
+    await expect(p.getByTestId('bench-entity')).toHaveAttribute('data-entity', 'spore-lantern');
+    await p.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    await expect(p.getByTestId('bench-version')).toHaveCount(3);
+    await calm();
+    await c.screenshot('bench-images', { docs: true, element: p.getByTestId('bench') });
+
+    // The confirm step: Claude's prompt, the model, low quality, the size, the cost.
+    await p.locator('body').press('Control+g');
+    await expect(p.getByTestId('image-prompt')).not.toHaveValue('');
+    await expect(p.getByTestId('image-estimate')).toHaveText(/^\$/);
+    await p.mouse.move(2, 2);
+    await c.screenshot('images-confirm', { docs: true });
+    await p.keyboard.press('Escape');
+
+    // A batch from the Codex selection, with every prompt editable.
+    await c.gotoView('codex', '3');
+    await p.getByRole('tab', { name: /^Items/ }).click();
+    await p.getByTestId('codex-scroll').focus();
+    await p.locator('body').press('Control+a');
+    await p.getByTestId('codex-bulk-icons').click();
+    await expect(p.getByTestId('image-batch')).toHaveAttribute('data-phase', 'ready');
+    await p.getByRole('combobox', { name: 'Existing' }).click();
+    await p.getByRole('option', { name: 'Replace' }).click();
+    await expect(p.getByTestId('image-batch-calls')).toHaveText('4 calls');
+    await p.mouse.move(2, 2);
+    await c.screenshot('images-batch', { docs: true });
+    await p.keyboard.press('Escape');
+  } finally {
+    await c.close();
     rmSync(tmp, { recursive: true, force: true });
   }
 });
