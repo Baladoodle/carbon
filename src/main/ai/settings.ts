@@ -90,15 +90,30 @@ export function effortFor(settings: AiSettings, moment: Moment): Effort | undefi
   return settings.effort[moment];
 }
 
-/** Cost in US dollars of one call's usage. */
-export function costOf(usage: Usage, price: Price): number {
+/** Billionths of a dollar: spend is added up in these, as integers, so sums are exact. */
+export const NANOS_PER_USD = 1_000_000_000;
+
+/**
+ * Cost of one call's usage in nano-dollars (an integer). A price per million
+ * tokens is `price × 1000` nano-dollars per token, so each term is rounded once
+ * and the sum is exact; the budget pause compares integers.
+ */
+export function costNanos(usage: Usage, price: Price): number {
   const totalInput = usage.input + usage.cacheRead + usage.cacheWrite;
   const mult = totalInput > price.longContextThreshold ? price.longContextMultiplier : 1;
-  const usd =
-    (usage.input * price.inputPerMTok +
-      usage.output * price.outputPerMTok +
-      usage.cacheRead * price.cacheReadPerMTok +
-      usage.cacheWrite * price.cacheWritePerMTok) /
-    1_000_000;
-  return usd * mult;
+  const term = (tokens: number, perMTok: number): number => Math.round(tokens * perMTok * 1000);
+  const nanos =
+    term(usage.input, price.inputPerMTok) +
+    term(usage.output, price.outputPerMTok) +
+    term(usage.cacheRead, price.cacheReadPerMTok) +
+    term(usage.cacheWrite, price.cacheWritePerMTok);
+  return Math.round(nanos * mult);
+}
+
+export const usdToNanos = (usd: number): number => Math.round(usd * NANOS_PER_USD);
+export const nanosToUsd = (nanos: number): number => nanos / NANOS_PER_USD;
+
+/** Cost in US dollars of one call's usage. */
+export function costOf(usage: Usage, price: Price): number {
+  return nanosToUsd(costNanos(usage, price));
 }
