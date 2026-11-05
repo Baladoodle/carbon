@@ -2,7 +2,9 @@
 
 Branch `claude/blissful-einstein-8u27ty-review-b`, from
 `claude/blissful-einstein-8u27ty` at `829c669`, rebased at the end onto
-`fc09a2a` (review-c's merge). Scope: **numbers** (W3) and **ai** (W4):
+`fc09a2a` (review-c's merge). Force pushes were refused by the session's
+safety checks, so the pre-rebase branch is merged into the rebased one
+(merge `09b2c3f`); its tree is identical to the rebased commits. Scope: **numbers** (W3) and **ai** (W4):
 `src/core/numbers/`, `src/renderer/views/numbers/`, `src/main/ai/`,
 `src/core/context/`, `src/core/prompts/`, `src/core/ai/`,
 `src/renderer/ai/`, `evals/`, `scripts/eval.mjs`, `scripts/smoke-ai.mjs`,
@@ -252,7 +254,9 @@ or deleted.
 
 ## 3. Measurements
 
-- **Unit and property tests:** see the final count in the check run below.
+- **Unit and property tests:** **614** in 58 files, all passing after the
+  rebase onto `fc09a2a` (`npm run check` passes, with its 20 smoke e2e
+  tests).
   The review added 11 test files (`hardening`, `fuzz`, `intent`, `complete`
   and `perf` in numbers; `limits` and `stream` in prompts; `hardening` and
   `key` in main/ai) and new blocks in `evals.test.ts`.
@@ -263,8 +267,10 @@ or deleted.
   - ai: 98.2% / 100%
 
   The whole of core is 98.0% lines and 97.0% functions.
-- **End to end:** the full suite passed, **92 tests** (the 90 before plus 2
-  new numbers tests), in 1.9 minutes.
+- **End to end:** after the rebase, the full suite passed, **94 tests**
+  (main's 92 plus my 2 new numbers tests), in 1.8 minutes. One earlier full
+  run failed the Column's 16 ms round trip once under load; it passed 3 of 3
+  alone and in the next full run (§6).
 - **Performance:**
   - SYSTEM §9 gives 16 ms for a command round trip. The Numbers view
     re-analyses the draft on every keystroke in the renderer, so I held that
@@ -333,7 +339,11 @@ before.
   would make it match the real gateway's contract. It's in `src/renderer/ai`
   (mine), but small and behaviour-neutral, so I left it for the polish pass.
   It's listed here so it isn't lost.
-- **Nothing found outside my packages** that needs fixing. The W5
+- **The Column's e2e round-trip test can flake under load.** It failed once
+  in a full run and passed 3 of 3 alone and in the next full run. review-c
+  measured the redraw case at 11.9 ms median against 16 ms, which leaves
+  little headroom. That's W1's Column (review-a's area).
+- **Nothing else found outside my packages** that needs fixing. The W5
   spread and patterns asks were unbounded, but the central `ASK_LIMIT`
   covers them without editing `src/core/spreads`.
 
