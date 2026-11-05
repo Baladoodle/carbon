@@ -198,6 +198,45 @@ test('drags an intent point and nudges one with the keyboard; both persist', asy
   await shot('numbers-curves');
 });
 
+test('completes names as you type: definitions, built-ins, properties after a dot', async () => {
+  await carbon.gotoView('numbers', '4');
+  const list = page().getByTestId('numbers-complete');
+  const original = await source().inputValue();
+  await source().click();
+  await page().keyboard.press('Control+End');
+  await page().keyboard.type('probe = tak');
+  await expect(list).toBeVisible();
+  await expect(list.getByRole('option').first()).toContainText('taken');
+  await expect(list.getByRole('option').first()).toContainText('(number, number) → number');
+  await page().keyboard.press('Tab');
+  await expect(list).toHaveCount(0);
+  await page().keyboard.type('20, sum(armor, .def');
+  await expect(list.getByRole('option').first()).toContainText('defense');
+  await page().keyboard.press('Enter');
+  await page().keyboard.type('))');
+  await expect(source()).toHaveValue(`${original}probe = taken(20, sum(armor, .defense))`);
+  // Escape closes the list and keeps typing in the editor; ctrl+space opens it.
+  await page().keyboard.type(' + ba');
+  await expect(list).toBeVisible();
+  await page().keyboard.press('ArrowDown');
+  await expect(list.locator('[aria-selected="true"]')).toHaveCount(1);
+  await page().keyboard.press('Escape');
+  await expect(list).toHaveCount(0);
+  await expect(source()).toBeFocused();
+  await page().keyboard.press('Control+Space');
+  await expect(list).toBeVisible();
+  await shot('numbers-complete');
+  await page().keyboard.press('Escape');
+  // Leave the source as it was.
+  await source().fill(FORMULAS);
+  await page()
+    .locator('body')
+    .click({ position: { x: 5, y: 5 } });
+  await expect
+    .poll(() => readFileSync(path.join(carbon.worldDir, 'numbers/formulas.carbon'), 'utf8'))
+    .toBe(FORMULAS);
+});
+
 test('intent points: add by double-click and +, move along x, delete; palette too', async () => {
   await carbon.gotoView('numbers', '4');
   const file = path.join(carbon.worldDir, 'numbers/curves.json');

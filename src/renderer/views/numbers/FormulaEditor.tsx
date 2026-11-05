@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { cmd } from '@core/commands/registry';
 import {
+  completions,
   formatValue,
   lineCol,
   lineStarts,
+  type Completions,
   type Diagnostic,
   type NumbersAnalysis,
 } from '@core/numbers';
+import { schemaOf } from '@core/model/world';
 import { lex, type Token } from '@core/numbers/lexer';
 import type { World } from '@core/model/world';
 import { useActions } from '../../actions';
@@ -120,6 +123,26 @@ function lineInfo(analysis: NumbersAnalysis, world: World, source: string): Map<
   return out;
 }
 
+/** Where a character offset of a textarea is on screen (monospace, fixed line height). */
+function caretPoint(el: HTMLTextAreaElement, offset: number): { left: number; top: number } {
+  const { line, col } = lineCol(el.value, offset);
+  const style = getComputedStyle(el);
+  const lineHeight = parseFloat(style.lineHeight) || 20;
+  const ctx = document.createElement('canvas').getContext('2d');
+  let ch = 7.8;
+  if (ctx) {
+    ctx.font = `${style.fontSize} ${style.fontFamily}`;
+    ch = ctx.measureText('0000000000').width / 10 || ch;
+  }
+  const rect = el.getBoundingClientRect();
+  return {
+    left: rect.left + parseFloat(style.paddingLeft) + (col - 1) * ch,
+    top: rect.top + parseFloat(style.paddingTop) + line * lineHeight,
+  };
+}
+
+type Suggest = Completions & { index: number; left: number; top: number };
+
 export interface FormulaEditorProps {
   world: World;
   analysis: NumbersAnalysis;
@@ -130,6 +153,7 @@ export interface FormulaEditorProps {
 export function FormulaEditor({ world, analysis, committed }: FormulaEditorProps): ReactNode {
   const [text, setText] = useState(committed);
   const [caretLine, setCaretLine] = useState<number | null>(null);
+  const [suggest, setSuggest] = useState<Suggest | null>(null);
   const ref = useRef<HTMLTextAreaElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dirty = text !== committed;
@@ -158,6 +182,30 @@ export function FormulaEditor({ world, analysis, committed }: FormulaEditorProps
     },
     [committed],
   );
+
+  /** Opens (or updates) the completion list at the caret; closes it when there's nothing to offer. */
+  const complete = (source: string, explicit = false): void => {
+    const el = ref.current;
+    if (!el) return;
+    const at = el.selectionStart;
+    if (at !== el.selectionEnd) return setSuggest(null);
+    const c = completions(analysis, source, at, {
+      schema: schemaOf(world),
+      variables: world.numbers.variables,
+      explicit,
+    });
+    if (!c) return setSuggest(null);
+    setSuggest({ ...c, index: 0, ...caretPoint(el, c.from) });
+  };
+
+  const accept = (s: Suggest, i = s.index): void => {
+    const el = ref.current;
+    const item = s.items[i];
+    if (!el || !item) return;
+    el.setRangeText(item.insert, s.from, s.to, 'end');
+    setSuggest(null);
+    change(el.value);
+  };
 
   const change = (source: string): void => {
     setText(source);
@@ -188,6 +236,15 @@ export function FormulaEditor({ world, analysis, committed }: FormulaEditorProps
       group: 'Numbers',
       keys: ['e'],
       run: () => ref.current?.focus(),
+    },
+    {
+      id: 'numbers.complete',
+      label: 'Complete the name',
+      group: 'Numbers',
+      keys: ['ctrl+space'],
+      inInputs: true,
+      enabled: () => document.activeElement === ref.current,
+      run: () => complete(ref.current?.value ?? text, true),
     },
     {
       // While typing, the first undo drops what hasn't been committed yet.
@@ -264,15 +321,46 @@ export function FormulaEditor({ world, analysis, committed }: FormulaEditorProps
               wrap="off"
               value={text}
               placeholder="taken(raw, def) = raw * k / (k + def)"
-              onChange={(e) => change(e.target.value)}
+              onChange={(e) => {
+                const v = e.target.value;
+                change(v);
+                const kind = (e.nativeEvent as Partial<InputEvent>).inputType ?? '';
+                if (kind === 'insertText' || (kind.startsWith('delete') && suggest)) complete(v);
+                else setSuggest(null);
+              }}
               onBlur={() => {
                 setCaretLine(null);
+                setSuggest(null);
                 if (pending.current) void commit(text);
               }}
               onKeyUp={caret}
-              onClick={caret}
+              onClick={() => {
+                caret();
+                setSuggest(null);
+              }}
               onSelect={caret}
               onKeyDown={(e) => {
+                if (suggest) {
+                  const n = suggest.items.length;
+                  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    const d = e.key === 'ArrowDown' ? 1 : -1;
+                    setSuggest({ ...suggest, index: (suggest.index + d + n) % n });
+                    return;
+                  }
+                  if (e.key === 'Enter' || e.key === 'Tab') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    accept(suggest);
+                    return;
+                  }
+                  if (e.key === 'Escape') {
+                    e.stopPropagation();
+                    setSuggest(null);
+                    return;
+                  }
+                  if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') setSuggest(null);
+                }
                 if (e.key === 'Escape') {
                   e.currentTarget.blur();
                   e.stopPropagation();
@@ -292,6 +380,32 @@ export function FormulaEditor({ world, analysis, committed }: FormulaEditorProps
           })}
         </ol>
       </div>
+      {suggest && (
+        <ul
+          className="ui-menu numbers-complete"
+          role="listbox"
+          aria-label="Names"
+          data-testid="numbers-complete"
+          style={{ left: suggest.left, top: suggest.top }}
+        >
+          {suggest.items.map((c, i) => (
+            <li
+              key={c.label}
+              role="option"
+              aria-selected={i === suggest.index}
+              data-highlighted={i === suggest.index ? '' : undefined}
+              className="ui-menu-item"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                accept(suggest, i);
+              }}
+            >
+              <span className="mono">{c.label}</span>
+              {c.detail && <span className="mono t-3 numbers-complete-detail">{c.detail}</span>}
+            </li>
+          ))}
+        </ul>
+      )}
       <div className="numbers-problem" role="status" data-testid="numbers-problem">
         {problem && (
           <>
