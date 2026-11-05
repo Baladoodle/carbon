@@ -475,3 +475,27 @@
   display: flex;
   height: 100%;
 }
+
+/* A field in the large editor (ctrl+shift+e): plain body text, whatever its look on the Bench. */
+.bench-field[data-expanded] .ui-expand-area > .ui-input {
+  margin-left: 0;
+  padding: 5px 9px;
+  border-color: var(--line-strong);
+  font-size: var(--text-body);
+  font-weight: 400;
+  letter-spacing: normal;
+  color: var(--text);
+}
+.bench-field[data-expanded] .ui-expand-area > .ui-input:focus {
+  box-shadow: var(--ring);
+}
+.bench-field[data-expanded] .ui-expand-area .ui-suggest-mirror {
+  margin-left: 0;
+  padding: 6px 10px;
+  font-size: var(--text-body);
+  font-weight: 400;
+  letter-spacing: normal;
+}
+.bench-field[data-expanded] {
+  gap: 8px;
+}

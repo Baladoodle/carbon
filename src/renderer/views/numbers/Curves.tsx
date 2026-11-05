@@ -89,6 +89,7 @@ function ExprInput({
   return (
     <Input
       mono
+      expandable={false}
       aria-label={label}
       className={className}
       value={text}

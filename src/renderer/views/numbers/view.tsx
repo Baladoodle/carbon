@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { ResizablePane } from '../../ui';
 import { IconNumbers } from '../../ui/icons';
 import { defineView } from '../define';
 import { useNumbers } from './analysis';
@@ -22,10 +23,19 @@ function NumbersView(): ReactNode {
         <FormulaEditor world={n.world} analysis={n.analysis} committed={n.committed} />
         <Curves world={n.world} analysis={n.analysis} />
       </div>
-      <aside className="numbers-side">
-        <Variables world={n.world} analysis={n.analysis} />
-        <Attributes world={n.world} />
-      </aside>
+      <ResizablePane
+        id="numbers-side"
+        edge="start"
+        defaultSize={340}
+        min={240}
+        max={({ parent }) => parent * 0.6}
+        label="Side panel width"
+      >
+        <aside className="numbers-side">
+          <Variables world={n.world} analysis={n.analysis} />
+          <Attributes world={n.world} />
+        </aside>
+      </ResizablePane>
     </div>
   );
 }

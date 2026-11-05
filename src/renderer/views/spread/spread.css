@@ -394,3 +394,8 @@
   margin-top: 6px;
   font-size: var(--text-dense);
 }
+/* Resized by its top edge (ResizablePane), the detail takes the height it was given. */
+.spread-detail-pane[data-sized] > .spread-detail {
+  min-height: 0;
+  max-height: none;
+}
