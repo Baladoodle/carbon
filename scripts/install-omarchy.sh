@@ -14,6 +14,7 @@
 #   ~/.local/bin/carbon                 the launcher: focuses the running carbon through
 #                                       hyprctl if there is one, starts it otherwise
 #   ~/.local/share/applications/carbon.desktop
+#   ~/.local/share/icons/hicolor/scalable/apps/carbon.svg
 #   ~/.config/hypr/carbon.conf          the suggested Hyprland window rule (a file of its own;
 #                                       hyprland.conf sources it only with --hypr)
 #
@@ -32,6 +33,7 @@ DESKTOP="$DATA/applications/carbon.desktop"
 HYPR_DIR="$CONFIG/hypr"
 HYPR_SNIPPET="$HYPR_DIR/carbon.conf"
 HYPR_MAIN="$HYPR_DIR/hyprland.conf"
+ICON="$DATA/icons/hicolor/scalable/apps/carbon.svg"
 SOURCE_LINE="source = $HYPR_SNIPPET $MARK"
 
 mode=install
@@ -51,7 +53,7 @@ while [ $# -gt 0 ]; do
     --dir) [ $# -ge 2 ] || die '--dir needs a directory'; unpacked="$2"; shift ;;
     --hypr) hypr=1 ;;
     --dry-run) dry=1 ;;
-    -h|--help) sed -n '2,24p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,25p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) die "unknown option: $1 (see --help)" ;;
   esac
   shift
@@ -82,16 +84,49 @@ remove_ours() {
   else say "left $path (not installed by this script)"; fi
 }
 
+# The Hyprland version, as "major minor" (e.g. "0 53"), or nothing without hyprctl.
+hypr_version() {
+  command -v hyprctl >/dev/null 2>&1 || return 0
+  hyprctl version -j 2>/dev/null | sed -n 's/.*"tag": *"v\{0,1\}\([0-9]*\)\.\([0-9]*\).*/\1 \2/p' | head -n1
+}
+
+# Window rule syntax changed twice: 0.48 renamed windowrulev2 to windowrule,
+# and 0.53 moved to `match:` props with `on` effects (the old forms are
+# rejected there). Write the one the installed Hyprland reads; without
+# hyprctl, the current one, with the older forms commented for reference.
 hypr_rule() {
-  cat <<EOF
-$MARK
-# carbon gets a workspace of its own. Open it with \`carbon\`; the launcher focuses it if it's running.
-# Hyprland 0.48+ syntax; on older versions use the windowrulev2 lines below instead.
-windowrule = workspace name:carbon, class:^(carbon)\$
-windowrule = tile, class:^(carbon)\$
-# windowrulev2 = workspace name:carbon, class:^(carbon)\$
-# windowrulev2 = tile, class:^(carbon)\$
-EOF
+  local v major minor style=current
+  v="$(hypr_version)"
+  if [ -n "$v" ]; then
+    read -r major minor <<<"$v"
+    if [ "$major" -eq 0 ] && [ "$minor" -lt 48 ]; then style=v2
+    elif [ "$major" -eq 0 ] && [ "$minor" -lt 53 ]; then style=v048; fi
+  fi
+  echo "$MARK"
+  echo "# carbon gets a workspace of its own. Open it with \`carbon\`; the launcher focuses it if it's running."
+  case "$style" in
+    current)
+      echo "# Hyprland 0.53+ syntax${v:+ (found ${v/ /.})}."
+      echo 'windowrule = match:class ^(carbon)$, workspace name:carbon'
+      echo 'windowrule = match:class ^(carbon)$, tile on'
+      echo '# Hyprland 0.48 to 0.52:'
+      echo '# windowrule = workspace name:carbon, class:^(carbon)$'
+      echo '# windowrule = tile, class:^(carbon)$'
+      echo '# Before 0.48:'
+      echo '# windowrulev2 = workspace name:carbon, class:^(carbon)$'
+      echo '# windowrulev2 = tile, class:^(carbon)$'
+      ;;
+    v048)
+      echo "# Hyprland ${v/ /.} (0.48 to 0.52 syntax)."
+      echo 'windowrule = workspace name:carbon, class:^(carbon)$'
+      echo 'windowrule = tile, class:^(carbon)$'
+      ;;
+    v2)
+      echo "# Hyprland ${v/ /.} (windowrulev2 syntax)."
+      echo 'windowrulev2 = workspace name:carbon, class:^(carbon)$'
+      echo 'windowrulev2 = tile, class:^(carbon)$'
+      ;;
+  esac
 }
 
 uninstall() {
@@ -99,6 +134,7 @@ uninstall() {
   remove_ours "$LAUNCHER"
   remove_ours "$DESKTOP"
   remove_ours "$HYPR_SNIPPET"
+  remove_ours "$ICON"
   if [ -f "$HYPR_MAIN" ] && grep -qF "$MARK" "$HYPR_MAIN"; then
     if [ "$dry" = 1 ]; then echo "  would remove the source line from $HYPR_MAIN"
     else
@@ -165,7 +201,14 @@ Comment=A live design studio for Infinite
 Exec=$LAUNCHER %U
 Terminal=false
 Categories=Development;
+Icon=carbon
 StartupWMClass=carbon"
+
+  # The icon carries the marker as an XML comment, so --uninstall knows it's ours.
+  if [ -f "$ROOT/build/icon.svg" ]; then
+    write_file "$ICON" 644 "<!-- $MARK -->
+$(cat "$ROOT/build/icon.svg")"
+  fi
 
   write_file "$HYPR_SNIPPET" 644 "$(hypr_rule)"
 

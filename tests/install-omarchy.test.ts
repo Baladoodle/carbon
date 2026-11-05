@@ -66,6 +66,58 @@ describe('install-omarchy.sh', () => {
     expect(r.out).toContain('is not on your PATH');
   });
 
+  const fakeHyprVersion = (tag: string): void => {
+    writeFileSync(
+      p('fakebin/hyprctl'),
+      `#!/bin/sh\nif [ "$1" = version ]; then echo '{"branch": "", "tag": "${tag}", "version": "x"}'; fi\n`,
+    );
+    chmodSync(p('fakebin/hyprctl'), 0o755);
+  };
+  const rule = (): string[] =>
+    readFileSync(p('home/.config/hypr/carbon.conf'), 'utf8')
+      .split('\n')
+      .filter((l) => /^windowrule/.test(l));
+
+  it('writes the window rule in the syntax of the Hyprland it finds', () => {
+    fakeHyprVersion('v0.53.1');
+    expect(run('--appimage', fakeApp).status).toBe(0);
+    expect(rule()).toEqual([
+      'windowrule = match:class ^(carbon)$, workspace name:carbon',
+      'windowrule = match:class ^(carbon)$, tile on',
+    ]);
+    fakeHyprVersion('v0.50.0');
+    expect(run('--appimage', fakeApp).status).toBe(0);
+    expect(rule()).toEqual([
+      'windowrule = workspace name:carbon, class:^(carbon)$',
+      'windowrule = tile, class:^(carbon)$',
+    ]);
+    fakeHyprVersion('v0.45.2');
+    expect(run('--appimage', fakeApp).status).toBe(0);
+    expect(rule()).toEqual([
+      'windowrulev2 = workspace name:carbon, class:^(carbon)$',
+      'windowrulev2 = tile, class:^(carbon)$',
+    ]);
+  });
+
+  it('without hyprctl, writes the current syntax and keeps the older forms as comments', () => {
+    expect(run('--appimage', fakeApp).status).toBe(0);
+    expect(rule()).toEqual([
+      'windowrule = match:class ^(carbon)$, workspace name:carbon',
+      'windowrule = match:class ^(carbon)$, tile on',
+    ]);
+    const text = readFileSync(p('home/.config/hypr/carbon.conf'), 'utf8');
+    expect(text).toContain('# windowrule = workspace name:carbon, class:^(carbon)$');
+  });
+
+  it('installs the icon and names it in the desktop entry', () => {
+    expect(run('--appimage', fakeApp).status).toBe(0);
+    expect(existsSync(p('home/.local/share/icons/hicolor/scalable/apps/carbon.svg'))).toBe(true);
+    const desktop = readFileSync(p('home/.local/share/applications/carbon.desktop'), 'utf8');
+    expect(desktop).toMatch(/^Icon=carbon$/m);
+    expect(run('--uninstall').status).toBe(0);
+    expect(existsSync(p('home/.local/share/icons/hicolor/scalable/apps/carbon.svg'))).toBe(false);
+  });
+
   it('the launcher starts carbon when it isn’t running (no hyprctl)', () => {
     run('--appimage', fakeApp);
     execFileSync(launcher(), ['--world', '/x'], { env });

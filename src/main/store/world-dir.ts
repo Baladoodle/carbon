@@ -1,4 +1,4 @@
-import { mkdir, readdir, readFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { emptyWorld, WORLD_FORMAT, type World } from '@core/model/world';
 import {
@@ -36,33 +36,62 @@ async function listFiles(dir: string, rel: string, ext: string): Promise<string[
   }
 }
 
-/** Reads every file carbon knows about into a path → content map. */
-export async function readWorldFiles(dir: string): Promise<FileMap> {
+/** A directory, or a symlink to one (a kind folder kept elsewhere and linked in). */
+async function isDir(p: string): Promise<boolean> {
+  try {
+    return (await stat(p)).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Text as carbon reads it: without a byte-order mark and with LF line ends,
+ * so a file saved by an editor on another OS loads exactly like its LF twin
+ * instead of failing to parse (and being quarantined). carbon writes LF.
+ */
+export const normaliseText = (s: string): string =>
+  (s.charCodeAt(0) === 0xfeff ? s.slice(1) : s).replace(/\r\n?/g, '\n');
+
+/**
+ * Reads every file carbon knows about into a path → content map. A listed
+ * file that exists but can't be read (a directory named like an entity file,
+ * no permission) is reported in `unreadable`, never dropped silently.
+ */
+export async function readWorldFiles(dir: string, unreadable?: LoadIssue[]): Promise<FileMap> {
   const rels: string[] = [
     PATHS.settings,
     PATHS.schema,
     PATHS.variables,
     PATHS.formulas,
+    PATHS.curves,
     PATHS.rules,
     PATHS.reasons,
     PATHS.patterns,
   ];
-  const kinds = await readdir(path.join(dir, 'entities'), { withFileTypes: true }).then(
-    (ds) => ds.filter((d) => d.isDirectory()).map((d) => d.name),
-    () => [] as string[],
-  );
+  const names = await readdir(path.join(dir, 'entities')).catch(() => [] as string[]);
+  const kinds: string[] = [];
+  for (const n of names) if (await isDir(path.join(dir, 'entities', n))) kinds.push(n);
   for (const k of kinds) rels.push(...(await listFiles(dir, `entities/${k}`, '.md')));
   rels.push(...(await listFiles(dir, 'spreads', '.json')));
   const files: FileMap = new Map();
+  const problems: LoadIssue[] = [];
   await Promise.all(
     rels.map(async (rel) => {
       try {
-        files.set(rel, await readFile(path.join(dir, rel), 'utf8'));
-      } catch {
-        // missing optional file
+        files.set(rel, normaliseText(await readFile(path.join(dir, rel), 'utf8')));
+      } catch (e) {
+        const code = (e as NodeJS.ErrnoException).code;
+        if (code === 'ENOENT') return; // a missing optional file
+        problems.push({
+          path: rel,
+          code: 'file.unreadable',
+          message: `can't be read (${code ?? (e instanceof Error ? e.message : String(e))})`,
+        });
       }
     }),
   );
+  unreadable?.push(...problems.sort((a, b) => a.path.localeCompare(b.path)));
   return new Map([...files].sort(([a], [b]) => a.localeCompare(b)));
 }
 
@@ -86,6 +115,9 @@ const QUARANTINE_CODES = new Set([
   'file.location',
   'file.duplicate_id',
 ]);
+
+/** Error codes that mean the world directory can't be written. */
+const UNWRITABLE = new Set(['EROFS', 'EACCES', 'EPERM', 'ENOSPC', 'EDQUOT']);
 
 /** Root files that always exist: a quarantined one is replaced by its default. */
 const ROOT_FILES = new Set<string>([
@@ -148,16 +180,28 @@ export async function loadWorldDir(dir: string, opts: LoadOptions = {}): Promise
   const disk = diskState(dir);
   disk.readOnly = null;
 
-  await initWorldDir(dir);
-  const cleaned = await cleanTempFiles(dir);
-  await recoverMigration(dir, readWorldFiles);
+  // A filesystem carbon can't write to (mounted read-only, no permission, full)
+  // still opens: read-only, with the reason, and nothing is moved.
+  let cleaned: string[] = [];
+  try {
+    await initWorldDir(dir);
+    cleaned = await cleanTempFiles(dir);
+    await recoverMigration(dir, readWorldFiles);
+  } catch (e) {
+    const code = (e as NodeJS.ErrnoException).code;
+    if (!code || !UNWRITABLE.has(code)) throw e;
+    disk.readOnly = `the world directory can't be written (${code}); opened read-only`;
+  }
 
-  let files = await readWorldFiles(dir);
-  const issues: LoadIssue[] = [];
+  const unreadable: LoadIssue[] = [];
+  let files = await readWorldFiles(dir, unreadable);
+  const issues: LoadIssue[] = [...unreadable];
   let migrated: MigrationReport | undefined;
   const format = formatOf(files);
   const status = format === target ? 'current' : format < target ? 'older' : 'newer';
-  if (status === 'older') {
+  if (disk.readOnly) {
+    // Neither migrated nor quarantined: the reason is already set.
+  } else if (status === 'older') {
     const r = await migrateWorldDir(dir, files, format, target, {
       migrations,
       at: now(),
@@ -184,6 +228,16 @@ export async function loadWorldDir(dir: string, opts: LoadOptions = {}): Promise
       code: 'format.newer',
       message: disk.readOnly ?? '',
     });
+
+  // carbon.json and schema.json carry what every other file is read with (the
+  // format, the kinds and their fields). Quarantining a broken one would put
+  // the defaults in its place and then quarantine every entity they reject:
+  // open read-only instead, move nothing, and say which file to fix.
+  const foundation = fileIssues.find(
+    (i) => (i.path === PATHS.settings || i.path === PATHS.schema) && QUARANTINE_CODES.has(i.code),
+  );
+  if (foundation && !disk.readOnly)
+    disk.readOnly = `${foundation.path} is invalid; fix it and reopen carbon (nothing was moved)`;
 
   const quarantined: string[] = [];
   const kept = new Map(files);
@@ -219,17 +273,55 @@ export async function loadWorldDir(dir: string, opts: LoadOptions = {}): Promise
   };
 }
 
-/** Applies file changes: atomic writes, then durable removals. Refused for read-only worlds. */
+/**
+ * Applies file changes: atomic writes, then durable removals. Refused for
+ * read-only worlds.
+ *
+ * A file whose write fails (a full disk, a filesystem gone read-only) is kept
+ * in `unsaved` with carbon's content and retried by every later call; the
+ * other files are still written. The call throws while anything is unsaved,
+ * so the save status never says "saved" while the disk lags the world.
+ */
 export async function writeChanges(dir: string, changes: FileChanges): Promise<void> {
   const disk = diskState(dir);
   if (disk.readOnly) throw new Error(disk.readOnly);
+  const write = new Map<string, string>();
+  const remove = new Set<string>();
+  for (const [rel, content] of disk.unsaved) {
+    if (content === null) remove.add(rel);
+    else write.set(rel, content);
+  }
   for (const [rel, content] of changes.write) {
-    noteWrite(disk, rel, content);
-    await writeFileAtomic(path.join(dir, rel), content);
+    remove.delete(rel);
+    write.set(rel, content);
   }
   for (const rel of changes.remove) {
-    noteWrite(disk, rel, null);
-    await removeFileDurable(path.join(dir, rel));
+    write.delete(rel);
+    remove.add(rel);
+  }
+  const failed: unknown[] = [];
+  const attempt = async (rel: string, content: string | null, run: () => Promise<void>) => {
+    const prior = disk.known.get(rel);
+    noteWrite(disk, rel, content);
+    try {
+      await run();
+      disk.unsaved.delete(rel);
+    } catch (e) {
+      // The write is atomic: the disk still has the old file, and so does `known`.
+      if (prior === undefined) disk.known.delete(rel);
+      else disk.known.set(rel, prior);
+      disk.writes++;
+      disk.unsaved.set(rel, content);
+      failed.push(e);
+    }
+  };
+  for (const [rel, content] of write)
+    await attempt(rel, content, () => writeFileAtomic(path.join(dir, rel), content));
+  for (const rel of remove) await attempt(rel, null, () => removeFileDurable(path.join(dir, rel)));
+  if (failed.length > 0) {
+    const first = failed[0] instanceof Error ? failed[0].message : String(failed[0]);
+    const n = disk.unsaved.size;
+    throw new Error(`${n} file${n === 1 ? '' : 's'} not saved: ${first}`);
   }
 }
 

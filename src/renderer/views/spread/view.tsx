@@ -91,15 +91,22 @@ function SpreadBody({ world, s }: { world: World; s: SpreadSession }): ReactNode
   const spread = shownSpread(world, s);
   const live = s.live;
   const axes = live?.axes ?? spread?.axes ?? effectiveAxes(s.setup);
+  const queuedState = new Map<string, FieldCard['state']>();
+  for (const q of s.queued)
+    for (const k of q.type === 'merge' ? q.keys : [q.key]) queuedState.set(k, q.type);
   const cards: FieldCard[] = live
-    ? live.candidates.map((candidate) => ({ candidate, state: 'open' }))
+    ? live.candidates.map((candidate) => ({
+        candidate,
+        state: queuedState.get(candidate.key) ?? 'open',
+      }))
     : (spread?.candidates.map((candidate) => ({
         candidate,
         state: spread.judgements[candidate.key]?.verdict ?? 'open',
       })) ?? []);
   const order = readingOrder(placed);
   const focusCard = cards.find((c) => c.candidate.key === s.focus && c.state === 'open');
-  const canTriage = !live && !!spread && !!focusCard;
+  // Triage works while streaming too: judgements queue until the record is saved.
+  const canTriage = (!!live || !!spread) && !!focusCard;
 
   const moveTo = (key: string | undefined): void => {
     if (key) patchSession({ focus: key });
@@ -237,7 +244,7 @@ function SpreadBody({ world, s }: { world: World; s: SpreadSession }): ReactNode
       label: 'Merge marked',
       group: 'Spread',
       keys: ['m'],
-      enabled: () => !live && !!spread,
+      enabled: () => !!live || !!spread,
       run: () => void merge(order),
     },
     {
@@ -246,7 +253,7 @@ function SpreadBody({ world, s }: { world: World; s: SpreadSession }): ReactNode
       group: 'Spread',
       keys: ['arrowright'],
       enabled: () =>
-        !live && !!spread && !!s.focus && spread.candidates.some((c) => c.key === s.focus),
+        !!s.focus && (live ?? spread)?.candidates.some((c) => c.key === s.focus) === true,
       run: () => s.focus && void follow(s.focus, order),
     },
     { id: 'spread.undo', label: 'Undo', group: 'Spread', keys: ['u'], run: undoLast },

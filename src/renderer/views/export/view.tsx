@@ -222,6 +222,19 @@ function ExportView(): ReactNode {
       enabled: () => exportable.length > 0,
       run: () => setChoice({ ...EMPTY, kinds: [...kinds] }),
     },
+    // Every kind and band toggle is in the palette too (keyboard reach).
+    ...kinds.map((k) => ({
+      id: `export.kind.${k}`,
+      label: `Export: choose by kind, ${label(k)}`,
+      group: 'Export',
+      run: () => setChoice((c) => ({ ...c, kinds: toggle(c.kinds, k) })),
+    })),
+    ...bands.map((b) => ({
+      id: `export.band.${b.id}`,
+      label: `Export: choose by band, ${b.name}`,
+      group: 'Export',
+      run: () => setChoice((c) => ({ ...c, bands: toggle(c.bands, b.id) })),
+    })),
     {
       id: 'export.clear',
       label: 'Clear the export choice',

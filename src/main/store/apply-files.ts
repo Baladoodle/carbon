@@ -18,6 +18,7 @@ export const ROOT_PATHS = [
   PATHS.schema,
   PATHS.variables,
   PATHS.formulas,
+  PATHS.curves,
   PATHS.rules,
   PATHS.reasons,
   PATHS.patterns,
@@ -32,6 +33,9 @@ export function rootFiles(world: World): FileMap {
     [PATHS.schema, json(world.schema)],
     [PATHS.variables, json(world.numbers.variables)],
     [PATHS.formulas, world.numbers.formulas],
+    ...(world.numbers.curves
+      ? [[PATHS.curves, json(world.numbers.curves)] as [string, string]]
+      : []),
     [PATHS.rules, json(world.taste.rules)],
     [PATHS.reasons, json(world.taste.reasons)],
     [PATHS.patterns, json(world.taste.patterns)],
@@ -66,6 +70,13 @@ export function applyFileChanges(
       numbers: {
         variables: bad.has(PATHS.variables) ? world.numbers.variables : r.world.numbers.variables,
         formulas: r.world.numbers.formulas,
+        ...(bad.has(PATHS.curves)
+          ? world.numbers.curves
+            ? { curves: world.numbers.curves }
+            : {}
+          : r.world.numbers.curves
+            ? { curves: r.world.numbers.curves }
+            : {}),
       },
       taste: {
         rules: bad.has(PATHS.rules) ? world.taste.rules : r.world.taste.rules,

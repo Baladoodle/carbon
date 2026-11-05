@@ -49,6 +49,12 @@ test('@smoke mechanical checks show as notes, and a dismissal persists until its
   expect(notes.length).toBeGreaterThan(0);
   const status = page().getByTestId('status-line');
   await expect(status).toContainText(`${notes.length} note`);
+  // The checks run in a worker, off the renderer's main thread.
+  expect(
+    page()
+      .workers()
+      .some((w) => /checks\.worker/.test(w.url())),
+  ).toBe(true);
 
   // Dismiss one the way the margin does (persisted with its inputs hash), then reload the renderer.
   const n = notes.find((x) => x.id === 'check:material-nowhere:sky-coral');
@@ -101,8 +107,34 @@ test('export: choose by kind, draft with the AI, edit, write and mark exported',
     (e) => e.kind === 'band' && (e.state === 'decided' || e.state === 'exported'),
   );
   for (const b of bands) expect(b.state).toBe('exported');
-  // One undo step reverts the marking.
+  // One undo step reverts the marking and takes the spec file away; redo puts both back.
   expect(snap.history.undoLabel).toMatch(/^Export /);
+  const exportsDir = path.join(carbon.worldDir, 'exports');
+  const specs = (): string[] => readdirSync(exportsDir).filter((f) => f.endsWith('.md'));
+  await page().locator('body').press('Control+z');
+  await expect.poll(specs).toEqual([]);
+  await page().locator('body').press('Control+Shift+z');
+  await expect.poll(specs).toEqual(files);
+  expect(readFileSync(path.join(exportsDir, files[0] ?? ''), 'utf8')).toBe(text);
+  const redone = await carbon.invoke('world:snapshot', null);
+  for (const b of bands) expect(redone.world.entities[b.id]?.state).toBe('exported');
+});
+
+test('the export choice is reachable from the palette: every kind and band', async () => {
+  await carbon.gotoView('export', '7');
+  const chip = page().getByTestId('export-band-low-sky');
+  await expect(chip).toHaveAttribute('aria-pressed', 'false');
+  await page().locator('body').press('Control+k');
+  await page().keyboard.type('choose by band low sky');
+  await expect(page().getByTestId('palette').locator('[data-highlighted]')).toContainText(
+    'Low Sky',
+  );
+  await page().keyboard.press('Enter');
+  await expect(chip).toHaveAttribute('aria-pressed', 'true');
+  await page().locator('body').press('Control+k');
+  await page().keyboard.type('clear the export choice');
+  await page().keyboard.press('Enter');
+  await expect(chip).toHaveAttribute('aria-pressed', 'false');
 });
 
 test('external edits flow in; a clash with an unsaved edit asks which to keep', async () => {

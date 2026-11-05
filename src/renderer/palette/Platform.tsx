@@ -4,6 +4,7 @@ import { resolvedPlaces } from '@core/checks/placement';
 import { createCheckRunner, type CheckAdapters } from '@core/checks/runner';
 import type { Note } from '@core/model/notes';
 import { stableStringify } from '@core/util/json';
+import { CheckFeed, checkWorker, type FromWorker, type ToWorker } from './check-feed';
 import type { StoreConflict } from '@shared/ipc';
 import { useActions } from '../actions';
 import { invoke, on } from '../bridge';
@@ -35,25 +36,53 @@ export const CHECK_ADAPTERS: Required<CheckAdapters> = {
   numbers: createNumbersAdapter(),
 };
 
+/** The check runner: in a worker when one can start, else on this thread. */
+function checkTarget(onResult: (r: FromWorker) => void): {
+  post: (m: ToWorker) => void;
+  stop: () => void;
+} {
+  try {
+    const worker = new Worker(new URL('./checks.worker.ts', import.meta.url), { type: 'module' });
+    worker.onmessage = (e: MessageEvent<FromWorker>) => onResult(e.data);
+    worker.onerror = (e) => console.warn('carbon: checks worker', e.message);
+    return { post: (m) => worker.postMessage(m), stop: () => worker.terminate() };
+  } catch {
+    const handle = checkWorker(createCheckRunner(CHECK_ADAPTERS));
+    return {
+      post: (m) => {
+        const r = handle(m);
+        if (r) onResult(r);
+      },
+      stop: () => undefined,
+    };
+  }
+}
+
 function useChecks(): void {
   useEffect(() => {
-    const runner = createCheckRunner(CHECK_ADAPTERS);
-    let last: unknown = null;
+    const feed = new CheckFeed();
+    let latest = -1;
+    const target = checkTarget((r) => {
+      // Only the newest run counts: an older one may finish late.
+      if (r.rev !== latest) return;
+      publishNotes('checks', r.notes);
+    });
     let timer: ReturnType<typeof setTimeout> | null = null;
     let first: number | null = null;
     const run = (): void => {
       timer = null;
       first = null;
-      const w = worldStore.get().world;
-      if (!w || w === last) return;
-      last = w;
-      publishNotes('checks', runner.run(w));
+      const { world: w, rev } = worldStore.get();
+      if (!w) return;
+      const msg = feed.next(rev, w);
+      if (!msg) return;
+      latest = rev;
+      target.post(msg);
     };
     // Coalesce bursts of patches (typing commits, drags, a run of commands)
     // into one run after the burst: QUIET ms after the last patch, and never
-    // more than MAX_WAIT ms after the first. A check run on a large world
-    // takes a few ms, and doing it between two commands of a burst would
-    // delay the second one's round trip.
+    // more than MAX_WAIT ms after the first. The run itself is in a worker, so
+    // it never delays a frame or a command's round trip.
     const QUIET = 120;
     const MAX_WAIT = 500;
     const schedule = (): void => {
@@ -62,10 +91,13 @@ function useChecks(): void {
       if (timer) clearTimeout(timer);
       timer = setTimeout(run, Math.max(0, Math.min(QUIET, first + MAX_WAIT - now)));
     };
+    const offPatch = on('world:patch', (e) => feed.onPatch(e.rev, e.patch));
     run();
     const off = worldStore.subscribe(schedule);
     return () => {
       off();
+      offPatch();
+      target.stop();
       if (timer) clearTimeout(timer);
     };
   }, []);

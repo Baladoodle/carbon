@@ -40,6 +40,44 @@ const byKind = (w: World, kind: string): ReturnType<typeof runChecks> =>
   runChecks(w).filter((n) => n.kind === kind);
 const ctx = { now: '2026-11-04T10:00:00.000Z' };
 
+describe('overlapping bands', () => {
+  it('flags two bands that share heights, with the overlap, and nothing for bands that only touch', () => {
+    expect(byKind(bandsWorld(), 'band-overlap')).toEqual([]);
+    expect(byKind(sampleWorld(), 'band-overlap')).toEqual([]);
+    const w = bandsWorld([band('mist', 400, 700)]);
+    const notes = byKind(w, 'band-overlap');
+    expect(notes.map((n) => [n.id, n.entities, n.text])).toEqual([
+      ['check:band-overlap:high:mist', ['high', 'mist'], 'high and mist overlap from 500 to 700'],
+      ['check:band-overlap:mist:sky', ['mist', 'sky'], 'mist and sky overlap from 400 to 500'],
+    ]);
+    expect(notes[1]?.y).toBe(450);
+    expect(notes.every((n) => n.severity === 'warn')).toBe(true);
+  });
+
+  it('names an endless overlap, and leaves out graveyard bands', () => {
+    const top = byKind(bandsWorld([band('void', 800, '+inf')]), 'band-overlap');
+    expect(top.map((n) => n.text)).toEqual(['high and void overlap above 800']);
+    const dead = { ...band('void', 800, '+inf'), state: 'graveyard' as const };
+    expect(byKind(bandsWorld([dead]), 'band-overlap')).toEqual([]);
+  });
+
+  it('follows edits incrementally: resizing a band clears the note', () => {
+    const runner = createCheckRunner();
+    const w = bandsWorld([band('mist', 400, 700)]);
+    expect(runner.run(w).filter((n) => n.kind === 'band-overlap')).toHaveLength(2);
+    const r = applyCommand(
+      w,
+      cmd('entity.setField', { id: 'mist', field: 'y_bottom', value: 500 }),
+      ctx,
+    );
+    if (!r.ok) throw new Error(r.error.message);
+    // mist no longer reaches into sky; it still overlaps high.
+    const after = runner.run(r.value.world).filter((n) => n.kind === 'band-overlap');
+    expect(after.map((n) => n.entities)).toEqual([['high', 'mist']]);
+    expect(runner.run(r.value.world)).toEqual(runChecks(r.value.world));
+  });
+});
+
 describe('placement (from the resolver)', () => {
   it('is resolvePlacement: every placed entity, its bands sorted, inferred when the resolver infers', () => {
     const w = sampleWorld();

@@ -66,6 +66,19 @@ const storeModule: MainModule = {
     });
     if (process.env.CARBON_WATCH !== 'off') watcher.start();
 
+    // ── Failed saves (a full disk, a filesystem gone read-only): retried with backoff ──
+    let retry: ReturnType<typeof setTimeout> | null = null;
+    let retryMs = 2000;
+    const offSave = session.onSaveStatus((st) => {
+      if (st.state === 'saved') retryMs = 2000;
+      if (st.state !== 'error' || retry || !session.hasUnsaved()) return;
+      retry = setTimeout(() => {
+        retry = null;
+        retryMs = Math.min(retryMs * 2, 60_000);
+        session.retrySave();
+      }, retryMs);
+    });
+
     // ── Git snapshots: after N idle minutes, and on quit ────────────────────
     const snapshots = new Snapshotter(dir, () => session.world);
     const enabled = (): boolean =>
@@ -135,8 +148,13 @@ const storeModule: MainModule = {
 
     return async () => {
       offPatch();
+      offSave();
       if (idle) clearTimeout(idle);
+      if (retry) clearTimeout(retry);
       watcher.stop();
+      await session.flush();
+      // One last try for anything a failed save left behind.
+      session.retrySave();
       await session.flush();
       if (!enabled()) return;
       // On quit: a final snapshot, but never hold the quit hostage (git gets 8 s).

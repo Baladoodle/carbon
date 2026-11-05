@@ -14,6 +14,11 @@ const cards = () => page().getByTestId('spread-card');
 const openCards = () =>
   page().locator('[data-testid="spread-card"][data-state="open"]:not(.spread-card-out)');
 
+const openCard = (key: string | null) =>
+  page().locator(
+    `[data-testid="spread-card"][data-state="open"][data-key="${key ?? ''}"]:not(.spread-card-out)`,
+  );
+
 async function world() {
   const snap = await carbon.invoke('world:snapshot', null);
   return snap.world;
@@ -270,6 +275,65 @@ test.describe('streaming', () => {
     };
     expect(rec.status).toBe('cancelled');
     expect(rec.candidates).toHaveLength(n);
+  });
+});
+
+test.describe('triage while streaming', () => {
+  test.beforeAll(async () => {
+    carbon = await launchCarbon({ env: { CARBON_AI_DELAY_MS: '150' } });
+  });
+  test.afterAll(async () => {
+    await carbon.close();
+  });
+
+  test('k, x and u work on candidates that have arrived; the judgements land in order', async () => {
+    await carbon.gotoView('spread', '5');
+    await aim('Hollows · creatures');
+    const before = await world();
+    const count3 = before.taste.reasons.find((r) => r.key === '3')?.count ?? 0;
+    await page().locator('body').press('Enter');
+    await expect(page().getByTestId('spread-progress')).toBeVisible();
+    await expect.poll(async () => cards().count()).toBeGreaterThan(2);
+    const focused = page().locator('[data-testid="spread-card"][data-focused]');
+    // Keep the first, kill the second with reason 3, keep the third and take it back with u.
+    const first = await focused.getAttribute('data-key');
+    await page().locator('body').press('k');
+    await expect(openCard(first)).toHaveCount(0);
+    const second = await focused.getAttribute('data-key');
+    expect(second).not.toBe(first);
+    await page().locator('body').press('x');
+    await page().keyboard.press('3');
+    await expect(openCard(second)).toHaveCount(0);
+    const third = await focused.getAttribute('data-key');
+    await page().locator('body').press('k');
+    await expect(openCard(third)).toHaveCount(0);
+    await page().locator('body').press('u');
+    await expect(openCard(third)).toHaveCount(1);
+    // Still streaming: nothing has reached the world yet.
+    await expect(page().getByTestId('spread-progress')).toBeVisible();
+
+    await expect(page().getByTestId('spread-progress')).toHaveCount(0, { timeout: 10_000 });
+    await expect
+      .poll(async () => {
+        const w = await world();
+        const rec = Object.values(w.spreads).find((x) => x.id.includes('hollows-creatures')) as
+          { judgements?: Record<string, { verdict: string; reason?: string }> } | undefined;
+        return rec?.judgements ?? {};
+      })
+      .toEqual({
+        [first as string]: expect.objectContaining({ verdict: 'keep' }) as unknown,
+        [second as string]: expect.objectContaining({ verdict: 'kill', reason: '3' }) as unknown,
+      });
+    const w = await world();
+    expect(Object.keys(w.entities).length).toBe(Object.keys(before.entities).length + 1);
+    expect(w.taste.reasons.find((r) => r.key === '3')?.count).toBe(count3 + 1);
+    // Each judgement is its own undo step, in the order they were made.
+    await page().locator('body').press('u');
+    await expect
+      .poll(async () => (await world()).taste.reasons.find((r) => r.key === '3')?.count)
+      .toBe(count3);
+    await expect(openCard(second)).toHaveCount(1);
+    await expect(openCard(first)).toHaveCount(0);
   });
 });
 

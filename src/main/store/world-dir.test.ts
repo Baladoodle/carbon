@@ -271,6 +271,32 @@ describe('migrations on disk', () => {
     expect(again.world).toEqual(r.world);
   });
 
+  it('the backup is byte-exact, even for files carbon reads normalised', async () => {
+    await writeWorldDir(dir, sampleWorld());
+    const glide = path.join(dir, 'entities/capability/glide.md');
+    const raw = `\uFEFF${(await readFile(glide, 'utf8')).replace(/\n/g, '\r\n')}`;
+    await writeFile(glide, raw);
+    const r = await loadWorldDir(dir, { now: at, migrations: TEST_MIGRATIONS, format: 3 });
+    const backup = path.join(dir, r.migrated?.backup ?? '');
+    expect(await readFile(path.join(backup, 'entities/capability/glide.md'), 'utf8')).toBe(raw);
+  });
+
+  it('never overwrites an earlier backup', async () => {
+    await writeWorldDir(dir, sampleWorld());
+    const taken = path.join(dir, `${META.backups}/2026-11-04T10-00-00-000Z-format-1`);
+    await mkdir(taken, { recursive: true });
+    await writeFile(path.join(taken, 'carbon.json'), 'an older backup');
+    const r = await loadWorldDir(dir, { now: at, migrations: TEST_MIGRATIONS, format: 3 });
+    expect(r.migrated?.backup).not.toBe(`${META.backups}/2026-11-04T10-00-00-000Z-format-1`);
+    expect(await readFile(path.join(taken, 'carbon.json'), 'utf8')).toBe('an older backup');
+    const backup = path.join(dir, r.migrated?.backup ?? '');
+    expect(
+      formatOf(
+        new Map([[PATHS.settings, await readFile(path.join(backup, 'carbon.json'), 'utf8')]]),
+      ),
+    ).toBe(1);
+  });
+
   it('recovers from a crash at every point of a migration', async () => {
     // A clean migration, for reference.
     await writeWorldDir(dir, sampleWorld());

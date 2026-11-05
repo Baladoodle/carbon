@@ -1,7 +1,9 @@
 import { execFile } from 'node:child_process';
 import { realpath } from 'node:fs/promises';
+import path from 'node:path';
 import { entityFromMarkdown } from '@core/files/entity-file';
 import type { World } from '@core/model/world';
+import { exists } from './meta';
 import { parsePorcelain, snapshotMessage } from './snapshot-message';
 
 /**
@@ -70,6 +72,13 @@ export type SnapshotResult =
   | { status: 'unavailable'; reason: string }
   | { status: 'failed'; message: string };
 
+/**
+ * Everything under the world directory except the temporary files of saves in
+ * flight (`.<name>.<pid>.<n>.tmp`, atomic.ts): a command can be saved while a
+ * snapshot runs, and its temporary file must never land in the history.
+ */
+const PATHSPEC = ['.', ':(exclude,glob)**/.*.tmp'];
+
 /** Options for `git commit` that never prompt, sign, or run hooks. */
 const COMMIT_CONFIG = ['-c', 'commit.gpgsign=false', '-c', 'core.hooksPath=/dev/null'];
 
@@ -95,6 +104,13 @@ export class Snapshotter {
     if (v.spawnError || v.code !== 0) return { ok: false, reason: 'git is not installed' };
     const top = await this.git(['rev-parse', '--show-toplevel'], this.dir);
     if (top.code !== 0) {
+      // A `.git` that git can't read is a broken repository, not a missing one:
+      // `git init` over it could point HEAD at a fresh branch. Leave it to the user.
+      if (await exists(path.join(this.dir, '.git')))
+        return {
+          ok: false,
+          reason: `the world's git repository is broken (${firstLine(top.stderr)})`,
+        };
       if (this.opts.init === false)
         return { ok: false, reason: 'the world is not a git repository' };
       const init = await this.git(['init', '-q'], this.dir);
@@ -122,13 +138,13 @@ export class Snapshotter {
     const ready = await this.prepare();
     if (!ready.ok) return { status: 'unavailable', reason: ready.reason };
     const st = await this.git(
-      ['status', '--porcelain=v1', '-z', '--untracked-files=all', '--', '.'],
+      ['status', '--porcelain=v1', '-z', '--untracked-files=all', '--', ...PATHSPEC],
       this.dir,
     );
     if (st.code !== 0) return { status: 'failed', message: firstLine(st.stderr) };
     const entries = parsePorcelain(st.stdout);
     if (entries.length === 0) return { status: 'clean' };
-    const add = await this.git(['add', '-A', '--', '.'], this.dir);
+    const add = await this.git(['add', '-A', '--', ...PATHSPEC], this.dir);
     if (add.code !== 0) return { status: 'failed', message: firstLine(add.stderr) };
     const world = this.world();
     const names = new Map<string, string>();
@@ -142,7 +158,17 @@ export class Snapshotter {
     const message = snapshotMessage(entries, world, reason, names);
     const identity = await this.identity();
     const commit = await this.git(
-      [...COMMIT_CONFIG, ...identity, 'commit', '-q', '--no-verify', '-m', message, '--', '.'],
+      [
+        ...COMMIT_CONFIG,
+        ...identity,
+        'commit',
+        '-q',
+        '--no-verify',
+        '-m',
+        message,
+        '--',
+        ...PATHSPEC,
+      ],
       this.dir,
     );
     if (commit.code !== 0) {

@@ -28,6 +28,7 @@ export const CHECK_KINDS = [
   'required-missing',
   'duplicate-name',
   'near-duplicate-name',
+  'band-overlap',
   'formula-error',
   'off-curve',
 ] as const;
@@ -407,3 +408,48 @@ export function curveNotes(
 }
 
 const fmt = (n: number): string => (Number.isInteger(n) ? String(n) : n.toFixed(2));
+
+const edge = (v: number): string => String(v);
+
+/**
+ * Bands that share heights (EXPERIENCE §2: bands are strips of the Y axis;
+ * two over the same heights draw on top of each other on the Column). Bands
+ * that only touch are fine. One note per overlapping pair, at the middle of
+ * the overlap (clamped at the endless ends, like every height).
+ */
+export function bandOverlapNotes(spans: readonly BandSpan[]): Note[] {
+  const out: Note[] = [];
+  for (let i = 0; i < spans.length; i++) {
+    const a = spans[i] as BandSpan;
+    for (let j = i + 1; j < spans.length; j++) {
+      const b = spans[j] as BandSpan;
+      if (b.bottom >= a.top) break; // sorted by bottom: nothing later reaches into a
+      const lo = Math.max(a.bottom, b.bottom);
+      const hi = Math.min(a.top, b.top);
+      if (!(hi > lo)) continue;
+      const [x, y] = a.id < b.id ? [a, b] : [b, a];
+      const where =
+        hi === Infinity && lo === -Infinity
+          ? 'everywhere'
+          : hi === Infinity
+            ? `above ${edge(lo)}`
+            : lo === -Infinity
+              ? `below ${edge(hi)}`
+              : `from ${edge(lo)} to ${edge(hi)}`;
+      const mid =
+        Number.isFinite(lo) && Number.isFinite(hi) ? (lo + hi) / 2 : Number.isFinite(lo) ? lo : hi;
+      out.push(
+        note(
+          'band-overlap',
+          `${x.id}:${y.id}`,
+          'warn',
+          `${x.name} and ${y.name} overlap ${where}`,
+          [x.id, y.id],
+          mid,
+          { lo, hi, a: x.name, b: y.name },
+        ),
+      );
+    }
+  }
+  return out;
+}

@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <title>carbon</title>
+  <defs>
+    <linearGradient id="depth" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#14171a"/>
+      <stop offset="0.5" stop-color="#141416"/>
+      <stop offset="1" stop-color="#1a1614"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#e8a54b" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#e8a54b" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect x="16" y="16" width="480" height="480" rx="104" fill="url(#depth)"/>
+  <rect x="16.5" y="16.5" width="479" height="479" rx="103.5" fill="none" stroke="#37373d" stroke-width="3"/>
+  <!-- the Column: a ruler with log-scale ticks, and the ember mark at Y 0 -->
+  <g stroke="#6e6e78" stroke-width="6" stroke-linecap="round">
+    <line x1="196" y1="96" x2="196" y2="416"/>
+    <line x1="196" y1="112" x2="244" y2="112"/>
+    <line x1="196" y1="168" x2="228" y2="168"/>
+    <line x1="196" y1="208" x2="220" y2="208"/>
+    <line x1="196" y1="304" x2="220" y2="304"/>
+    <line x1="196" y1="344" x2="228" y2="344"/>
+    <line x1="196" y1="400" x2="244" y2="400"/>
+  </g>
+  <circle cx="256" cy="256" r="120" fill="url(#glow)"/>
+  <line x1="172" y1="256" x2="340" y2="256" stroke="#e8a54b" stroke-width="14" stroke-linecap="round"/>
+  <rect x="268" y="132" width="72" height="88" rx="14" fill="#1f1f23" stroke="#37373d" stroke-width="4"/>
+  <rect x="268" y="292" width="72" height="88" rx="14" fill="#1f1f23" stroke="#37373d" stroke-width="4"/>
+</svg>

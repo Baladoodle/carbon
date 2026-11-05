@@ -17,9 +17,11 @@
       "entry": {
         "Name": "carbon",
         "StartupWMClass": "carbon",
-        "Terminal": "false"
+        "Terminal": "false",
+        "Icon": "carbon"
       }
     },
-    "syncDesktopName": true
+    "syncDesktopName": true,
+    "icon": "build/icon.png"
   }
 }
