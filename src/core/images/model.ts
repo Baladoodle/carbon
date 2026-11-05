@@ -24,7 +24,12 @@ export const ImageMetaKindSchema = z.enum(IMAGE_META_KINDS);
 export type ImageMetaKind = z.infer<typeof ImageMetaKindSchema>;
 
 /** The OpenAI image models carbon offers. The first is the default. */
-export const IMAGE_MODELS = ['gpt-image-2.6-flare', 'gpt-image-2.6-sunburst'] as const;
+/** The OpenAI image models carbon offers: 2.6 flare is the default; 2.5 flare is the cheaper option. */
+export const IMAGE_MODELS = [
+  'gpt-image-2.6-flare',
+  'gpt-image-2.6-sunburst',
+  'gpt-image-2.5-flare',
+] as const;
 export const ImageModelSchema = z.enum(IMAGE_MODELS);
 export type ImageModel = z.infer<typeof ImageModelSchema>;
 export const DEFAULT_IMAGE_MODEL: ImageModel = 'gpt-image-2.6-flare';

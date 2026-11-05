@@ -12,8 +12,13 @@ import {
   toFile,
 } from 'openai';
 import type { ImageError, ImageErrorCode } from '@core/images/gateway';
-import type { ImageQuality } from '@core/images/model';
-import { OUTPUT_TOKENS, REFERENCE_IMAGE_TOKENS } from '@core/images/pricing';
+import {
+  IMAGE_QUALITIES,
+  IMAGE_SIZES,
+  type ImageQuality,
+  type ImageSize,
+} from '@core/images/model';
+import { outputTokens, REFERENCE_IMAGE_TOKENS } from '@core/images/pricing';
 import { createHash } from 'node:crypto';
 import { sheetLayout } from './pixel';
 import { encodePng, type Rgba } from './png';
@@ -360,8 +365,12 @@ export class FakeImageProvider implements ImageProvider {
             req.background === 'transparent',
           ),
         );
-    const table = OUTPUT_TOKENS[req.quality as ImageQuality] as Record<string, number> | undefined;
-    const out = table?.[req.size] ?? OUTPUT_TOKENS.low['1024x1024'];
+    const known =
+      (IMAGE_QUALITIES as readonly string[]).includes(req.quality) &&
+      (IMAGE_SIZES as readonly string[]).includes(req.size);
+    const out = known
+      ? outputTokens(req.model, req.quality as ImageQuality, req.size as ImageSize)
+      : outputTokens(req.model, 'low', '1024x1024');
     const text = Math.max(1, Math.ceil(req.prompt.length / 4));
     const image = req.reference ? REFERENCE_IMAGE_TOKENS : 0;
     return {

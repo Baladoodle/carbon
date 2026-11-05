@@ -563,3 +563,50 @@ describe('.gitattributes', () => {
     );
   });
 });
+
+describe('icons always ask for a transparent background', () => {
+  // gpt-image-2.5-flare paints a fake checkerboard into the pixels unless asked explicitly.
+  it.each(['gpt-image-2.6-flare', 'gpt-image-2.6-sunburst', 'gpt-image-2.5-flare'] as const)(
+    '%s: generated icons, icons edited from a concept, and sheets',
+    async (model) => {
+      const provider = new Scripted((_n, req) => fakePng(req));
+      const g = gateway(provider);
+      const c = await g.generate({
+        requestId: 'c',
+        entityId: 'glide',
+        kind: 'concept',
+        prompt: 'A glider over clouds',
+        model,
+      });
+      if (!c.ok) throw new Error('concept failed');
+      await g.generate({
+        requestId: 'i',
+        entityId: 'glide',
+        kind: 'icon',
+        prompt: 'A glider icon here',
+        model,
+      });
+      await g.generate({
+        requestId: 'e',
+        entityId: 'glide',
+        kind: 'icon',
+        prompt: 'A glider icon here',
+        model,
+        reference: c.image.id,
+      });
+      await g.sheetRun({
+        batchId: 's',
+        model,
+        items: [{ entityId: 'glide', line: 'Glide, a capability' }],
+      });
+      expect(
+        provider.seen.map((r) => [r.model, r.background, r.reference ? 'edit' : 'generate']),
+      ).toEqual([
+        [model, 'auto', 'generate'],
+        [model, 'transparent', 'generate'],
+        [model, 'transparent', 'edit'],
+        [model, 'transparent', 'edit'],
+      ]);
+    },
+  );
+});
