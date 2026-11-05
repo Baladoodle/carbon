@@ -23,6 +23,7 @@ import {
 import { defineView } from '../define';
 import { startSpread } from '../spread/start';
 import { learnPatterns, learnStore, useLearning } from './learn';
+import { ArtDirectionSection } from './ArtDirection';
 import './taste.css';
 
 /**
@@ -232,6 +233,7 @@ function TasteBody({ taste, since }: { taste: Taste; since: number }): ReactNode
 
   return (
     <div className="taste-view" data-testid="taste-view">
+      <div className="taste-stack">
       <section
         className={cx('taste-col', cursor.col === 'rules' && 'is-current')}
         aria-label="Rules"
@@ -271,6 +273,8 @@ function TasteBody({ taste, since }: { taste: Taste; since: number }): ReactNode
           />
         </form>
       </section>
+      <ArtDirectionSection />
+      </div>
 
       <section
         className={cx('taste-col', cursor.col === 'reasons' && 'is-current')}

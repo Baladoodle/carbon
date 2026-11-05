@@ -123,6 +123,26 @@ export interface CellEntity {
   inferred: boolean;
   /** Group within the cell: an item's subkind, else ''. */
   group: string;
+  /** The selected icon's image id (docs/IMAGES.md §6: drawn before the name). */
+  icon?: string;
+}
+
+/** An entity's selected icon, if it has one (`world.images`, docs/IMAGES.md §3). */
+export function iconOf(world: World, id: string): string | undefined {
+  const images = (world as { images?: Record<string, { icon?: string } | undefined> }).images;
+  return images && Object.prototype.hasOwnProperty.call(images, id) ? images[id]?.icon : undefined;
+}
+
+/** The fields of a cell entry, from its entity. */
+export function cellBase(world: World, e: Entity): Omit<CellEntity, 'inferred'> {
+  const icon = iconOf(world, e.id);
+  return {
+    id: e.id,
+    name: e.name,
+    state: e.state,
+    group: groupOf(e),
+    ...(icon ? { icon } : {}),
+  };
 }
 
 export const cellKey = (row: string, lane: Lane): string => `${row}|${lane}`;
@@ -177,7 +197,7 @@ export function cellIndex(
     if (!opts.graveyard && e.state === 'graveyard') continue;
     const lane = LANE_OF_KIND[e.kind];
     const p = placements.get(e.id);
-    const base = { id: e.id, name: e.name, state: e.state, group: groupOf(e) };
+    const base = cellBase(world, e);
     if (lane === null) {
       if (bandSpan(e) === null) unplacedBands.push({ ...base, inferred: false });
       continue;
@@ -203,6 +223,9 @@ export const CELL_PAD = 5;
 const CHIP_PAD_L = 6;
 const CHIP_PAD_R = 7;
 const CHIP_GLYPH = 14;
+/** An icon's room: 16px and a 3px gap before the name. */
+export const CHIP_ICON = 19;
+const lead = (e: { icon?: string | undefined }): number => CHIP_GLYPH + (e.icon ? CHIP_ICON : 0);
 /** The "+N" chip's minimum width. */
 const MORE_MIN_W = 28;
 /** The narrowest a chip may shrink to beside a "+N" chip. */
@@ -227,6 +250,8 @@ export interface Glyph extends Rect {
   fullW: number;
   state: EntityState;
   inferred: boolean;
+  /** The icon's image id, when the entity has one. */
+  icon?: string;
 }
 
 export interface CellLayout {
@@ -238,9 +263,9 @@ export interface CellLayout {
   more: (Rect & { count: number }) | null;
 }
 
-/** A chip's natural width: its state glyph and its whole name. */
-export const chipWidth = (name: string, measure: Measure): number =>
-  Math.ceil(CHIP_PAD_L + CHIP_GLYPH + measure(name) + CHIP_PAD_R);
+/** A chip's natural width: its state glyph, its icon if any, and its whole name. */
+export const chipWidth = (name: string, measure: Measure, icon = false): number =>
+  Math.ceil(CHIP_PAD_L + CHIP_GLYPH + (icon ? CHIP_ICON : 0) + measure(name) + CHIP_PAD_R);
 
 /**
  * Lane widths that share `available` px fairly by need (max–min fair, or
@@ -334,7 +359,8 @@ export function layoutCell(
   );
   if (entities.length === 0 || innerW < MORE_MIN_W)
     return { glyphs: [], hidden: entities.map((e) => e.id), more: null };
-  const maxTextW = Math.max(0, innerW - CHIP_PAD_L - CHIP_GLYPH - CHIP_PAD_R);
+  const maxTextW = (e: CellEntity): number =>
+    Math.max(0, innerW - CHIP_PAD_L - lead(e) - CHIP_PAD_R);
 
   // Lines of chips (x and widths); y comes once we know how many lines show.
   interface Placed {
@@ -349,8 +375,8 @@ export function layoutCell(
   let x = 0;
   let group: string | null = null;
   for (const e of entities) {
-    const text = fitText(e.name, maxTextW, measure);
-    const w = Math.min(innerW, Math.ceil(CHIP_PAD_L + CHIP_GLYPH + measure(text) + CHIP_PAD_R));
+    const text = fitText(e.name, maxTextW(e), measure);
+    const w = Math.min(innerW, Math.ceil(CHIP_PAD_L + lead(e) + measure(text) + CHIP_PAD_R));
     const newGroup = group !== null && e.group !== group;
     if (x > 0 && (newGroup || x + w > innerW)) {
       line++;
@@ -385,9 +411,9 @@ export function layoutCell(
         // Rather than drop the tail chip, shrink it (shorter name) when it can still say something.
         const room = innerW - tail.x - CHIP_GAP - moreW(n);
         if (room >= SHRINK_MIN_W && room < tail.w) {
-          const text = fitText(tail.e.name, room - CHIP_PAD_L - CHIP_GLYPH - CHIP_PAD_R, measure);
+          const text = fitText(tail.e.name, room - CHIP_PAD_L - lead(tail.e) - CHIP_PAD_R, measure);
           if (text !== '' && text !== '…') {
-            const w = Math.ceil(CHIP_PAD_L + CHIP_GLYPH + measure(text) + CHIP_PAD_R);
+            const w = Math.ceil(CHIP_PAD_L + lead(tail.e) + measure(text) + CHIP_PAD_R);
             shown = [...shown.slice(0, -1), { ...tail, w, text }];
             continue;
           }
@@ -407,9 +433,10 @@ export function layoutCell(
     id: p.e.id,
     text: p.text,
     name: p.e.name,
-    fullW: chipWidth(p.e.name, measure),
+    fullW: chipWidth(p.e.name, measure, !!p.e.icon),
     state: p.e.state,
     inferred: p.e.inferred,
+    ...(p.e.icon ? { icon: p.e.icon } : {}),
     x: rect.x + CELL_PAD + p.x,
     y: yOf(p.line),
     w: p.w,

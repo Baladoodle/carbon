@@ -8,7 +8,7 @@ import {
   chipWidth,
   compareCellEntities,
   laneWidths,
-  groupOf,
+  cellBase,
   CELL_PAD,
   CHIP_GAP,
   CHIP_H,
@@ -163,6 +163,8 @@ function cellsOf(
 function reindex(prevWorld: World, prev: ColumnModel, next: World): ColumnModel | null {
   if (prevWorld === next) return prev;
   if (prevWorld.settings !== next.settings || prevWorld.schema !== next.schema) return null;
+  // A chosen or removed icon changes chip widths: rebuild (rare, and deliberate).
+  if (imagesOf(prevWorld) !== imagesOf(next)) return null;
   const a = prevWorld.entities;
   const b = next.entities;
   if (a === b) return prev;
@@ -207,10 +209,7 @@ function reindex(prevWorld: World, prev: ColumnModel, next: World): ColumnModel 
     const p = placements.get(y.id);
     for (const key of cellsOf(y, placements, graveyard))
       list(key).push({
-        id: y.id,
-        name: y.name,
-        state: y.state,
-        group: groupOf(y),
+        ...cellBase(next, y),
         inferred: !!p && p.places.length > 0 && p.inferred,
       });
   }
@@ -288,7 +287,7 @@ function cellDemand(es: readonly CellEntity[], measure: Measure, version: number
   const hit = cellDemandCache.get(es);
   if (hit && hit.measure === measure && hit.version === version) return hit.w;
   let w = 0;
-  for (const e of es) w = Math.max(w, chipWidth(e.name, measure) + 2 * CELL_PAD);
+  for (const e of es) w = Math.max(w, chipWidth(e.name, measure, !!e.icon) + 2 * CELL_PAD);
   cellDemandCache.set(es, { measure, version, w });
   return w;
 }
@@ -533,3 +532,6 @@ export function locate(model: ColumnModel, id: string): { row: string; lane: num
         return { row, lane: i };
   return null;
 }
+
+/** The world's image index (an object that changes only when images do). */
+const imagesOf = (w: World): unknown => (w as { images?: unknown }).images;

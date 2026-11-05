@@ -231,3 +231,44 @@
   margin: 4px 8px 8px;
   align-self: flex-start;
 }
+
+/* The first column: rules above, art direction below (docs/IMAGES.md §5). */
+.taste-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+}
+.taste-stack > .taste-col:first-child {
+  flex: 1 1 auto;
+}
+.taste-art {
+  flex: 0 0 auto;
+  max-height: 55%;
+}
+.taste-art-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+  overflow: auto;
+  padding: 8px;
+}
+.taste-art-direction {
+  resize: none;
+}
+.taste-art-kind {
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+}
+.taste-art-kind-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-meta);
+}
+.ui-btn.taste-art-add {
+  align-self: flex-start;
+}

@@ -16,6 +16,7 @@ export { Select, type SelectProps, type SelectOption } from './Select';
 export { Combobox, type ComboboxProps, type ComboboxItem } from './Combobox';
 export { Popover, PopoverParts, type PopoverProps } from './Popover';
 export { Menu, type MenuProps, type MenuEntry } from './Menu';
+export { ContextMenu, type ContextMenuProps } from './ContextMenu';
 export { Tooltip, TooltipProvider, type TooltipProps } from './Tooltip';
 export { Dialog, type DialogProps } from './Dialog';
 export { Toaster, toast, dismissToast, type ToastTone } from './Toast';

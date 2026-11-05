@@ -90,3 +90,11 @@ export const IconIntent = (): ReactNode => (
     <rect x="7.5" y="4.5" width="3" height="3" />
   </Svg>
 );
+/** A framed picture (images: generate concept art or an icon). */
+export const IconImage = (): ReactNode => (
+  <Svg>
+    <rect x="2.5" y="3" width="11" height="10" rx="1.5" />
+    <path d="m3 11.5 3.2-3.2 2.3 2.3 1.6-1.6 2.9 2.9" />
+    <circle cx="10.5" cy="6" r="1" />
+  </Svg>
+);
