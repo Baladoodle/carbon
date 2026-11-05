@@ -168,3 +168,32 @@ rename: Column model 3.2 → 0.8 ms, geometry 2.0 → 0.6 ms.
 - **Docs screenshots** of the Column (lane widths) weren't regenerated; the
   polish phase regenerates every screen.
 - The Column's scroll position is still kept for the session only.
+
+## 8. The coordinator's requests
+
+1. **Bench drafts against outside edits** (review-c's proposal: publish
+   dirty drafts to a store, and have W6's `PlatformRuntime` open the conflict
+   dialog). Already covered Bench-side by defect 9, without touching the
+   platform. `bench/outside.ts` tells outside patches (`cause: 'external'`,
+   and `world:reset`) from carbon's own. A field you're typing in keeps your
+   draft and asks inline, Keep mine / Use theirs, and leaving the field
+   decides nothing, so a blur can no longer overwrite the outside value
+   unasked. I didn't add the store-plus-dialog route on top: it would ask the
+   same question twice. If the dialog is preferred for consistency with
+   whole-file conflicts, the draft state in `useTypedDraft` is the one place
+   to publish from.
+2. **`transact` resolves before its patch reaches the mirror.** I checked
+   every call site in the Column, Bench, Climate and Codex. None reads the
+   world back in a way that loses data: the Bench's commits already wait
+   (`landedIn`), and the Burst commits wait. The create paths (`n` in the
+   Column, Climate and Codex, drawing a band, placing or saving a climate)
+   set a cursor or selection to an id the mirror didn't have yet, so the
+   Column's cursor fell back to the Y 0 row for a frame. They now
+   `await whenRev(r.rev)` first. This was transient (no failing test was
+   possible), so it's hardening, not a counted defect.
+3. **Round-trip test reliability.** `column.spec › a command round-trips in
+   under 16 ms` now takes the median of 80 runs after 10 warm-ups (it was 30
+   after 5). On failure it prints p10, p25, the median, p75, p90 and max.
+   The budget stays a 16 ms median. Headroom on the final merged main:
+   rename median 8.5–11.0 ms (p90 13–18), identity 5.6–6.1 ms, over four
+   runs including one inside the full suite.

@@ -17,7 +17,7 @@ import { schemaOf, type World } from '@core/model/world';
 import { resolvePlacement, type Placements } from '@core/placement';
 import { useActions } from '../../actions';
 import { flash, focusEntity, setUi, startSpreadAt, useUi } from '../../state/ui';
-import { currentWorld, dispatch, useWorld } from '../../state/world';
+import { currentWorld, dispatch, useWorld, whenRev } from '../../state/world';
 import { Button, Combobox, Input, Kbd, StateGlyph, Tabs, Textarea, Tooltip, cx } from '../../ui';
 import { IconCodex } from '../../ui/icons';
 import { defineView } from '../define';
@@ -402,6 +402,8 @@ function CodexView(): ReactNode {
     const id = uniqueId(name, (c) => c in w.entities);
     const r = await dispatch(cmd('entity.create', { kind: tab, name, id }));
     if (!r.ok) return flash(r.error.message, 'error');
+    // The cursor and the editor go to the new row once the mirror has it.
+    await whenRev(r.rev);
     if (compiled && !compiled.empty) setQuery('');
     setCursor({ id, col: 0 });
     focusEntity(id);

@@ -385,6 +385,8 @@ function Column({ world, model }: { world: World; model: ColumnModel }): ReactNo
         const id = uniqueId('New band', (x) => getEntity(w, x) !== undefined);
         const r = await transact('Create band', [createBandCommand(span, id)]);
         if (!r.ok) return flash(r.error.message, 'error');
+        // The cursor goes to the new band once the mirror has it (not to a row it can't find yet).
+        await whenRev(r.rev);
         focusEntity(id);
         setColumn({ cursor: { row: id, lane: -1, entity: id } });
         requestFieldFocus(id, 'name', true);
@@ -407,6 +409,7 @@ function Column({ world, model }: { world: World; model: ColumnModel }): ReactNo
         cmd('entity.create', { kind, name, id, fields, relations }),
       ]);
       if (!r.ok) return flash(r.error.message, 'error');
+      await whenRev(r.rev);
       focusEntity(id);
       setColumn({ cursor: { ...c, entity: id } });
       requestFieldFocus(id, 'name', true);
@@ -730,8 +733,9 @@ function Column({ world, model }: { world: World; model: ColumnModel }): ReactNo
       const w = currentWorld();
       if (!w) return;
       const id = uniqueId('New band', (x) => getEntity(w, x) !== undefined);
-      void transact('Create band', [createBandCommand(span, id)]).then((r) => {
+      void transact('Create band', [createBandCommand(span, id)]).then(async (r) => {
         if (!r.ok) return flash(r.error.message, 'error');
+        await whenRev(r.rev);
         focusEntity(id);
         setColumn({ cursor: { row: id, lane: -1, entity: id } });
         requestFieldFocus(id, 'name', true);

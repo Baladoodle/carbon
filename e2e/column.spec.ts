@@ -714,37 +714,46 @@ test.describe('performance (SYSTEM §9)', () => {
 
   test('a command round-trips in under 16 ms', async () => {
     const { page } = carbon;
-    // Let the pan test's rendering and GC settle; the first 5 runs warm up and aren't counted.
+    // Let the pan test's rendering and GC settle. The budget is the median of many runs after
+    // a warm-up, so one GC pause or a busy machine can't decide it; the failure prints the spread.
     await page.waitForTimeout(1000);
+    const WARM = 10;
+    const RUNS = 80;
     const measure = (field: string): Promise<number[]> =>
-      page.evaluate(async (f) => {
-        const out: number[] = [];
-        for (let i = 0; i < 35; i++) {
-          const t0 = performance.now();
-          const patched = new Promise<void>((resolve) => {
-            const off = window.carbon.on('world:patch', () => {
-              off();
-              resolve();
+      page.evaluate(
+        async ({ f, warm, runs }) => {
+          const out: number[] = [];
+          for (let i = 0; i < warm + runs; i++) {
+            const t0 = performance.now();
+            const patched = new Promise<void>((resolve) => {
+              const off = window.carbon.on('world:patch', () => {
+                off();
+                resolve();
+              });
             });
-          });
-          await window.carbon.invoke('world:dispatch', {
-            commands: [
-              { type: 'entity.setField', payload: { id: 'e-500', field: f, value: `Stress ${i}` } },
-            ],
-          });
-          await patched;
-          if (i >= 5) out.push(performance.now() - t0);
-        }
-        return out.sort((a, b) => a - b);
-      }, field);
+            await window.carbon.invoke('world:dispatch', {
+              commands: [
+                {
+                  type: 'entity.setField',
+                  payload: { id: 'e-500', field: f, value: `Stress ${i}` },
+                },
+              ],
+            });
+            await patched;
+            if (i >= warm) out.push(performance.now() - t0);
+          }
+          return out.sort((a, b) => a - b);
+        },
+        { f: field, warm: WARM, runs: RUNS },
+      );
+    const at = (xs: number[], q: number): number =>
+      xs[Math.min(xs.length - 1, Math.floor(q * xs.length))]!;
     // An edit the Column doesn't draw (identity), and one it redraws (the name on a chip).
     for (const f of ['identity', 'name']) {
       const times = await measure(f);
-      const median = times[Math.floor(times.length / 2)]!;
-      console.log(
-        `command round trip (${f}): median ${median.toFixed(1)} ms, max ${times[times.length - 1]!.toFixed(1)} ms`,
-      );
-      expect(median).toBeLessThan(16);
+      const spread = `p10 ${at(times, 0.1).toFixed(1)}, p25 ${at(times, 0.25).toFixed(1)}, median ${at(times, 0.5).toFixed(1)}, p75 ${at(times, 0.75).toFixed(1)}, p90 ${at(times, 0.9).toFixed(1)}, max ${times[times.length - 1]!.toFixed(1)} ms over ${times.length} runs`;
+      console.log(`command round trip (${f}): ${spread}`);
+      expect(at(times, 0.5), `${f} round trip: ${spread}`).toBeLessThan(16);
     }
   });
 });

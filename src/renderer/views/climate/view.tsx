@@ -198,7 +198,8 @@ function ClimateView(): ReactNode {
     const r = await dispatch(
       cmd('entity.setField', { id, field: 'climate', value: climateOf(rect) }),
     );
-    if (!r.ok) flash(r.error.message, 'error');
+    if (!r.ok) return flash(r.error.message, 'error');
+    await whenRev(r.rev);
   };
 
   const nudge = (dx: number, dy: number, resize: boolean): void => {
@@ -219,6 +220,7 @@ function ClimateView(): ReactNode {
       cmd('entity.create', { kind: 'biome', name, id, fields: { band, climate: climateOf(rect) } }),
     );
     if (!r.ok) return flash(r.error.message, 'error');
+    await whenRev(r.rev);
     select(id);
   };
 
