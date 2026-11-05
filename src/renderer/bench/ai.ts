@@ -4,10 +4,10 @@ import { cmd, type Command } from '@core/commands/registry';
 import type { Note } from '@core/model/notes';
 import { getEntity, schemaOf, type World } from '@core/model/world';
 import { hashValue } from '@core/util/hash';
-import { critiqueNotes, critiqueSource } from './critique';
+import { critiqueNotes, critiqueSource } from '@core/bench/critique';
 import { RequestSlots } from './slots';
 import { benchStore, fieldId, setBench, setEntry, type Pending } from './store';
-import { checkValue, defOf, isEmptyField } from './value';
+import { checkValue, defOf, isEmptyField } from '@core/bench/value';
 
 /**
  * The Bench's AI moments (docs/EXPERIENCE.md §5), through an `AiGateway` (in

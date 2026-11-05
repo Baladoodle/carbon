@@ -1,5 +1,5 @@
 import { createStore, useStore } from '../../state/store';
-import type { Cursor } from './cursor';
+import type { Cursor } from '@core/column/cursor';
 
 /**
  * The Column's own UI state (not part of the world): zoom, the cursor, the

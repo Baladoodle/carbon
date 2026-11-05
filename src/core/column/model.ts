@@ -1,6 +1,6 @@
-import { LANE_OF_KIND, ENTITY_KINDS, type Lane } from '@core/model/kinds';
-import type { Entity } from '@core/model/entity';
-import { schemaOf, type World } from '@core/model/world';
+import { LANE_OF_KIND, ENTITY_KINDS, type Lane } from '../model/kinds';
+import type { Entity } from '../model/entity';
+import { schemaOf, type World } from '../model/world';
 import type { NavContext } from './cursor';
 import { columnSettings, type ColumnSettings } from './lanes';
 import {
@@ -25,7 +25,7 @@ import {
   type Row,
 } from './layout';
 import { placementsOf, type Placement } from './placement';
-import { samePlacingInputs } from '@core/placement/resolve';
+import { samePlacingInputs } from '../placement/resolve';
 
 /**
  * Everything the Column draws, computed from the world (zoom-independent) and

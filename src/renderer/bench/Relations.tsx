@@ -6,7 +6,7 @@ import { flash } from '../state/ui';
 import { transact } from '../state/world';
 import { Combobox, Select, StateGlyph } from '../ui';
 import { EntityChip } from './fields';
-import { incomingTo, relationTypesFrom, targetsFor } from './relations';
+import { incomingTo, relationTypesFrom, targetsFor } from '@core/bench/relations';
 
 /**
  * Relations of the entity in focus: what it holds (removable), what others

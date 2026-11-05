@@ -24,8 +24,8 @@ import {
   saveLayout,
   setGraveyard,
   toggleLane,
-} from './lanes';
-import type { ColumnModel } from './model';
+} from '@core/column/lanes';
+import type { ColumnModel } from '@core/column/model';
 import { createStore, useStore } from '../../state/store';
 
 const saveOpen = createStore(false);

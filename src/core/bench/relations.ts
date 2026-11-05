@@ -1,7 +1,7 @@
-import type { Entity } from '@core/model/entity';
-import type { EntityKind } from '@core/model/kinds';
-import type { KindSet, RelationTypeDef } from '@core/model/schema';
-import { getEntity, schemaOf, type World } from '@core/model/world';
+import type { Entity } from '../model/entity';
+import type { EntityKind } from '../model/kinds';
+import type { KindSet, RelationTypeDef } from '../model/schema';
+import { getEntity, schemaOf, type World } from '../model/world';
 
 /**
  * Relation rules for the Bench's picker, pure. They mirror what the commands

@@ -9,7 +9,7 @@ import { flash } from '../state/ui';
 import { transact } from '../state/world';
 import { Button, Dialog, Input, Kbd, Textarea } from '../ui';
 import { settled } from './controller';
-import { defOf } from './value';
+import { defOf } from '@core/bench/value';
 
 /**
  * The lifecycle on the Bench (docs/EXPERIENCE.md §8): transitions, the Why

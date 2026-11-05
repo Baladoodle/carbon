@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import { cmd, type Command } from '@core/commands/registry';
-import { LANES, type Lane } from '@core/model/kinds';
-import type { World } from '@core/model/world';
+import { cmd, type Command } from '../commands/registry';
+import { LANES, type Lane } from '../model/kinds';
+import type { World } from '../model/world';
 
 /**
  * Which lanes the Column shows, in which order, and the saved layouts

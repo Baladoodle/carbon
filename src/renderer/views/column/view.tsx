@@ -22,7 +22,7 @@ import { currentWorld, transact, useWorld } from '../../state/world';
 import { Kbd } from '../../ui';
 import { IconColumn } from '../../ui/icons';
 import { defineView } from '../define';
-import { at, normalize, side, step, type Cursor } from './cursor';
+import { at, normalize, side, step, type Cursor } from '@core/column/cursor';
 import {
   clampEdge,
   createBandCommand,
@@ -33,7 +33,7 @@ import {
   moveEdgeCommands,
   newBandSpan,
   nudge,
-} from './edges';
+} from '@core/column/edges';
 import {
   BandLabels,
   Cell,
@@ -45,9 +45,17 @@ import {
   RowsLayer,
   yAtPx,
 } from './Layers';
-import { columnSettings, moveLane } from './lanes';
+import { columnSettings, moveLane } from '@core/column/lanes';
 import { LanesMenu, useLaneActions } from './LanesMenu';
-import { cellKey, INBOX_ROW, pxOfU, pxOfY, uOfPx, type BandSpan, type Rect } from './layout';
+import {
+  cellKey,
+  INBOX_ROW,
+  pxOfU,
+  pxOfY,
+  uOfPx,
+  type BandSpan,
+  type Rect,
+} from '@core/column/layout';
 import { Margin } from './Margin';
 import { measureChip, measureNote, resetMeasures } from './measure';
 import {
@@ -62,8 +70,8 @@ import {
   RULER_W,
   type ColumnModel,
   type Geometry,
-} from './model';
-import { placementOf } from './placement';
+} from '@core/column/model';
+import { placementOf } from '@core/column/placement';
 import { clampZoom, columnStore, setColumn, useColumn } from './store';
 import './column.css';
 

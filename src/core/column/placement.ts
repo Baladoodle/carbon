@@ -1,5 +1,5 @@
-import { resolvePlacement } from '@core/placement';
-import type { World } from '@core/model/world';
+import { resolvePlacement } from '../placement';
+import type { World } from '../model/world';
 
 /**
  * Where an entity sits on the Column: the band (and biome, when there is one)

@@ -1,4 +1,4 @@
-import { cmd, type Command } from '@core/commands/registry';
+import { cmd, type Command } from '../commands/registry';
 import type { BandSpan } from './layout';
 import { fromU, snapY, toU } from './scale';
 

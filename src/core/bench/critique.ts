@@ -1,7 +1,7 @@
-import type { CritiqueNote } from '@core/ai/moments';
-import type { Note } from '@core/model/notes';
-import { getEntity, type World } from '@core/model/world';
-import { hashValue } from '@core/util/hash';
+import type { CritiqueNote } from '../ai/moments';
+import type { Note } from '../model/notes';
+import { getEntity, type World } from '../model/world';
+import { hashValue } from '../util/hash';
 
 /**
  * Critique results → notes for the margin and the Bench, pure. Published under

@@ -1,4 +1,4 @@
-import type { Measure } from './layout';
+import type { Measure } from '@core/column/layout';
 
 /**
  * Text width at the Column's chip font, measured on a canvas and cached. The

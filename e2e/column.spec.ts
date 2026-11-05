@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { cmd } from '@core/commands/registry';
 import { writeWorldDir } from '../src/main/store/world-dir';
-import { stressWorld } from '../src/renderer/views/column/stress';
+import { stressWorld } from '../src/core/testing/stress';
 import { launchCarbon, type CarbonApp } from './harness';
 
 /**

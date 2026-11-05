@@ -1,11 +1,11 @@
 import { memo, type ReactNode } from 'react';
 import { StateGlyph } from '../../ui';
 import { depthTint } from '../../ui/tokens';
-import type { Edge } from './edges';
-import { edgeKey } from './edges';
-import { CHIP_H, pxOfY, type Frame, type Glyph, type Rect } from './layout';
-import { LABEL_W, RULER_W, type CellBox, type RowBox } from './model';
-import { formatY, fromU, ticks } from './scale';
+import type { Edge } from '@core/column/edges';
+import { edgeKey } from '@core/column/edges';
+import { CHIP_H, pxOfY, type Frame, type Glyph, type Rect } from '@core/column/layout';
+import { LABEL_W, RULER_W, type CellBox, type RowBox } from '@core/column/model';
+import { formatY, fromU, ticks } from '@core/column/scale';
 
 /** SVG layers of the Column. Everything is in content pixels. */
 

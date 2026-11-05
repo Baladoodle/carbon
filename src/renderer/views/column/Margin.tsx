@@ -2,8 +2,8 @@ import { memo, useMemo, type ReactNode } from 'react';
 import type { Note } from '@core/model/notes';
 import { dismissNote } from '../../state/notes';
 import { IconButton, IconClose } from '../../ui';
-import { pxOfY, stackMargin, type Measure } from './layout';
-import { MARGIN_W, type ColumnModel, type Geometry } from './model';
+import { pxOfY, stackMargin, type Measure } from '@core/column/layout';
+import { MARGIN_W, type ColumnModel, type Geometry } from '@core/column/model';
 
 const NOTE_LINE = 17;
 const NOTE_PAD = 10;

@@ -1,10 +1,10 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
-import { applyCommands } from '@core/commands/apply';
-import { cmd } from '@core/commands/registry';
-import { LANES } from '@core/model/kinds';
-import { validateWorld } from '@core/model/validate';
-import { sampleWorld } from '@core/testing/sample';
+import { applyCommands } from '../commands/apply';
+import { cmd } from '../commands/registry';
+import { LANES } from '../model/kinds';
+import { validateWorld } from '../model/validate';
+import { sampleWorld } from '../testing/sample';
 import { at, normalize, side, step, stopsOf, type NavContext } from './cursor';
 import {
   clampEdge,
@@ -45,7 +45,7 @@ import {
 } from './layout';
 import { placementOf, placementsOf } from './placement';
 import { formatY, fromU, LINEAR, snapY, ticks, toU } from './scale';
-import { stressWorld } from './stress';
+import { stressWorld } from '../testing/stress';
 
 const ctx = { now: '2026-11-02T00:00:00.000Z' };
 const measure = (s: string): number => s.length * 6.5;

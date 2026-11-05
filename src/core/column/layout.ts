@@ -1,7 +1,7 @@
-import type { Entity } from '@core/model/entity';
-import { heightValue, HeightSchema } from '@core/model/fields';
-import { ITEM_SUBKINDS, LANE_OF_KIND, type EntityState, type Lane } from '@core/model/kinds';
-import type { World } from '@core/model/world';
+import type { Entity } from '../model/entity';
+import { heightValue, HeightSchema } from '../model/fields';
+import { ITEM_SUBKINDS, LANE_OF_KIND, type EntityState, type Lane } from '../model/kinds';
+import type { World } from '../model/world';
 import type { Placement } from './placement';
 import { toU } from './scale';
 

@@ -17,7 +17,7 @@ import {
   toast,
   type MenuEntry,
 } from '../ui';
-import { placementOf } from '../views/column/placement';
+import { placementOf } from '@core/column/placement';
 import './bench.css';
 import { finishEditing } from '../ai/triggers';
 import { entityConsequences } from '@core/numbers';
@@ -27,7 +27,7 @@ import { FieldRow, focusSibling, useFocusRequest } from './fields';
 import { Relations } from './Relations';
 import { KillDialog, neededStore, stateDialog, transitions, WhyDialog } from './StateControl';
 import { benchStore, fieldId, setBench, useBench } from './store';
-import { attributesFor, COMMON_DEFS, defOf, parseNumber } from './value';
+import { attributesFor, COMMON_DEFS, defOf, parseNumber } from '@core/bench/value';
 
 /**
  * The Bench (docs/EXPERIENCE.md §3): the entity in focus, rendered from its

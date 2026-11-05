@@ -26,9 +26,9 @@ import {
   cx,
 } from '../ui';
 import { benchAi, commitField } from './controller';
-import { refTargets } from './relations';
+import { refTargets } from '@core/bench/relations';
 import { benchStore, fieldId, setBench, useBench } from './store';
-import { checkValue, formatValue, isTextual, parseNumber, parseText } from './value';
+import { checkValue, formatValue, isTextual, parseNumber, parseText } from '@core/bench/value';
 
 const FOCUSABLE = 'input, textarea, button[role="combobox"], [role="combobox"], button';
 

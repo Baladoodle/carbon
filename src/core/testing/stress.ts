@@ -1,8 +1,8 @@
-import { EntitySchema, type Entity, type EntityInput, type Relation } from '@core/model/entity';
-import { ITEM_SUBKINDS, type EntityKind, type EntityState } from '@core/model/kinds';
-import { emptyWorld, type World } from '@core/model/world';
-import { seededRandom } from '@core/util/hash';
-import { fromU } from './scale';
+import { EntitySchema, type Entity, type EntityInput, type Relation } from '../model/entity';
+import { ITEM_SUBKINDS, type EntityKind, type EntityState } from '../model/kinds';
+import { emptyWorld, type World } from '../model/world';
+import { seededRandom } from '../util/hash';
+import { fromU } from '../column/scale';
 
 /**
  * A generated stress world for the Column's performance budget (docs/SYSTEM.md

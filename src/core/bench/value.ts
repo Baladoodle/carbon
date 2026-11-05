@@ -1,7 +1,7 @@
-import { fieldValueSchema, isEmptyValue, type FieldDef } from '@core/model/fields';
-import { fieldValue } from '@core/model/lifecycle';
-import type { Entity } from '@core/model/entity';
-import type { KindDef } from '@core/model/schema';
+import { fieldValueSchema, isEmptyValue, type FieldDef } from '../model/fields';
+import { fieldValue } from '../model/lifecycle';
+import type { Entity } from '../model/entity';
+import type { KindDef } from '../model/schema';
 
 /**
  * Field values ⇄ the text you type on the Bench, per field type, pure. Every
