@@ -26,6 +26,57 @@ const decided = (): string[] =>
     .filter((e) => e.state === 'decided')
     .map((e) => e.id);
 
+describe('undoing an export', () => {
+  const file = 'exports/2026-11-04-first-set.md';
+  const write = (s: WorldSession) =>
+    writeExport(
+      s,
+      { name: 'First set', markdown: '# First set', entityIds: decided() },
+      '2026-11-04',
+    );
+  const has = async (rel: string): Promise<boolean> =>
+    (await readdir(path.join(dir, 'exports'))).includes(path.basename(rel));
+
+  it('removes the spec file, and redo puts it back', async () => {
+    const s = await WorldSession.open(dir);
+    await write(s);
+    const text = await readFile(path.join(dir, file), 'utf8');
+    s.undo();
+    await s.flush();
+    expect(await has(file)).toBe(false);
+    s.redo();
+    await s.flush();
+    expect(await readFile(path.join(dir, file), 'utf8')).toBe(text);
+    for (const id of decided()) expect(s.world.entities[id]?.state).toBe('exported');
+  });
+
+  it('keeps a spec you edited after exporting it', async () => {
+    const s = await WorldSession.open(dir);
+    await write(s);
+    await writeFile(path.join(dir, file), 'my edits');
+    s.undo();
+    await s.flush();
+    expect(await readFile(path.join(dir, file), 'utf8')).toBe('my edits');
+    s.redo();
+    await s.flush();
+    expect(await readFile(path.join(dir, file), 'utf8')).toBe('my edits');
+  });
+
+  it('two exports at once with the same name get two files', async () => {
+    const s = await WorldSession.open(dir);
+    const ids = decided();
+    const [a, b] = await Promise.all([
+      writeExport(s, { name: 'Same', markdown: 'a', entityIds: ids }, '2026-11-04'),
+      writeExport(s, { name: 'Same', markdown: 'b', entityIds: ids }, '2026-11-04'),
+    ]);
+    expect(a.ok && b.ok).toBe(true);
+    if (!a.ok || !b.ok) return;
+    expect(a.path).not.toBe(b.path);
+    expect(await readFile(path.join(dir, a.path), 'utf8')).toContain('a');
+    expect(await readFile(path.join(dir, b.path), 'utf8')).toContain('b');
+  });
+});
+
 describe('writeExport', () => {
   it('writes the spec with its header and marks the entities exported, as one undo step', async () => {
     const s = await WorldSession.open(dir);
@@ -45,8 +96,6 @@ describe('writeExport', () => {
     expect(text).toContain('# First set\n\nBody.\n');
     for (const id of ids) expect(s.world.entities[id]?.state).toBe('exported');
     expect(s.snapshot().history.undoLabel).toBe('Export First set');
-    s.undo();
-    for (const id of ids) expect(s.world.entities[id]?.state).toBe('decided');
     // The same name again gets its own file.
     const again = await writeExport(
       s,
@@ -54,9 +103,14 @@ describe('writeExport', () => {
       '2026-11-04',
     );
     expect(again).toMatchObject({ ok: true, path: 'exports/2026-11-04-first-set-2.md' });
-    expect((await listExports(dir)).map((x) => x.path)).toEqual(
-      ['exports/2026-11-04-first-set.md', 'exports/2026-11-04-first-set-2.md'].sort().reverse(),
-    );
+    s.undo();
+    await s.flush();
+    for (const id of ids) expect(s.world.entities[id]?.state).toBe('decided');
+    // The re-export marked nothing (one undo step: the first export), so undo
+    // takes back the first export and its file; the second file stays.
+    expect((await listExports(dir)).map((x) => x.path)).toEqual([
+      'exports/2026-11-04-first-set-2.md',
+    ]);
   });
 
   it('refuses entities that are missing or not decided, and writes nothing', async () => {

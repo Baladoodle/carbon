@@ -10,7 +10,7 @@ import {
 import { getEntity } from '@core/model/world';
 import type { ExportRecord, InvokeResponse } from '@shared/ipc';
 import { removeFileDurable, writeFileAtomic } from './atomic';
-import type { WorldSession } from '../world-session';
+import type { StepEffect, WorldSession } from '../world-session';
 
 /**
  * Writing an export (docs/EXPERIENCE.md §7) as one transaction: the spec file
@@ -31,10 +31,43 @@ async function existingExports(dir: string): Promise<string[]> {
   }
 }
 
-export async function writeExport(
+/** One export at a time per directory: two at once must not pick the same file name. */
+const queues = new Map<string, Promise<unknown>>();
+
+export function writeExport(
   session: Pick<WorldSession, 'dir' | 'world' | 'dispatch' | 'flush'>,
   req: { name: string; markdown: string; entityIds: string[] },
   date = localDate(),
+): Promise<InvokeResponse<'export:write'>> {
+  const prev = queues.get(session.dir) ?? Promise.resolve();
+  const run = prev.then(() => writeOne(session, req, date));
+  queues.set(
+    session.dir,
+    run.catch(() => undefined),
+  );
+  return run;
+}
+
+/**
+ * Undo removes the spec file and redo writes it back, unless you edited the
+ * file since: then it's yours and stays as it is (the states still revert).
+ */
+function specEffect(file: string, written: string): StepEffect {
+  const current = (): Promise<string | null> => readFile(file, 'utf8').catch(() => null);
+  return {
+    async undo() {
+      if ((await current()) === written) await removeFileDurable(file);
+    },
+    async redo() {
+      if ((await current()) === null) await writeFileAtomic(file, written);
+    },
+  };
+}
+
+async function writeOne(
+  session: Pick<WorldSession, 'dir' | 'world' | 'dispatch' | 'flush'>,
+  req: { name: string; markdown: string; entityIds: string[] },
+  date: string,
 ): Promise<InvokeResponse<'export:write'>> {
   const fail = (code: string, message: string): InvokeResponse<'export:write'> => ({
     ok: false,
@@ -48,13 +81,11 @@ export async function writeExport(
   }
   const rel = exportPath(date, req.name, new Set(await existingExports(session.dir)));
   const file = path.join(session.dir, rel);
-  await writeFileAtomic(
-    file,
-    withExportHeader(req.markdown, { name: req.name, date, entities: ids }),
-  );
+  const text = withExportHeader(req.markdown, { name: req.name, date, entities: ids });
+  await writeFileAtomic(file, text);
   const cmds = exportCommands(session.world, ids);
   if (cmds.length > 0) {
-    const r = session.dispatch(cmds, `Export ${req.name}`);
+    const r = session.dispatch(cmds, `Export ${req.name}`, specEffect(file, text));
     if (!r.ok) {
       await removeFileDurable(file);
       return { ok: false, error: r.error };
