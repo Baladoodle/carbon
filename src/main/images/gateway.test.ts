@@ -540,3 +540,26 @@ describe('Delete image files', () => {
     expect(ImageMetaSchema.parse(meta)).toEqual(a.image);
   });
 });
+
+describe('.gitattributes', () => {
+  it('the first image marks PNGs binary in the world, once, keeping existing lines', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await writeFile(path.join(dir, '.gitattributes'), '*.md text eol=lf');
+    const g = gateway();
+    await g.generate({
+      requestId: 'a',
+      entityId: 'glide',
+      kind: 'concept',
+      prompt: 'A glider over clouds',
+    });
+    await g.generate({
+      requestId: 'b',
+      entityId: 'glide',
+      kind: 'concept',
+      prompt: 'A glider over clouds 2',
+    });
+    expect(await readFile(path.join(dir, '.gitattributes'), 'utf8')).toBe(
+      '*.md text eol=lf\n*.png binary\n',
+    );
+  });
+});
