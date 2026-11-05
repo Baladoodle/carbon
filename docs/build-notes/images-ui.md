@@ -8,16 +8,16 @@ recorded real images.
 
 **Merged in before the final runs** (for the coordinator):
 
-- `origin/claude/blissful-einstein-8u27ty` up to `eac34bb`, which brings the
-  critique and expand workers' work, the §2a sheets spec, the 2.5-flare
-  default and the k-then-x triage fix
-- `origin/claude/blissful-einstein-8u27ty-images-core` up to `25f7f93`
+- `origin/claude/blissful-einstein-8u27ty` up to `660437d`, which holds
+  images-core (2.5-flare in `IMAGE_MODELS`, pixel's crop and filter), expand,
+  critique (k-then-x, ordered AI partials) and pixel's grid-registered crop.
+  images-core needs no separate merge any more.
 - **Conflicts resolved:**
   - `ui/icons.tsx`: kept both `IconImage` and `IconExpand`.
   - Taste: the Rules pane is now the base's `ResizablePane`, holding Rules
     and Art direction stacked.
-  - `package.json`: images-core's `openai`, `pngjs` and `@types/pngjs`, plus
-    the base's `fast-png`. The base hasn't merged images-core yet.
+  - `package.json`: main's, now that main holds images-core (`pngjs` is gone;
+    PNGs go through `fast-png`).
   - The spread files: the base's version, plus one guard (§4).
 
 ---
@@ -192,7 +192,7 @@ takes `itemsAt(target, point)` and draws the same entries and look as `Menu`.
 - **Keys:** `keys.spec` passes, and the GUIDE table is regenerated
   (`npm run guide:keys`).
 - **Full `npm run test:e2e`:**
-  - After the final merges: **147 of 147**, twice in a row.
+  - After the final merge: **148 of 148**, twice in a row.
   - The screens spec alone: 5 of 5.
 - **The acceptance flake, found and fixed** (`views/spread/view.tsx`):
   - It failed twice in earlier full runs: `x` right after a kill reason
@@ -210,12 +210,16 @@ takes `itemsAt(target, point)` and draws the same entries and look as `Menu`.
 - **`screens.spec` race** (from the coordinator): the `+ Field` loop now
   waits, after each pick, for the menu to close and exactly one more field to
   show, before it looks at `+ Field` again. No sleeps, no retries.
-- **Units:** 1,051 passed. Lint, prettier and `tsc` are clean.
+- **Units:** 1,070 passed. Lint, prettier and `tsc` are clean.
 
 ## 5. Screens (`docs/screens/`, 2×)
 
 - **New:** `bench-images.png`, `images-confirm.png`, `images-batch.png` and
-  `images-sheet.png` (the fake's synthetic sheet in review).
+  `images-sheet.png`. The last is the Review sheet dialog on images-core's
+  real 100-icon sheet (gpt-image-2.5-flare, low, pixel's crop;
+  `e2e/art.ts › withRealSheet`), with one cell accepted over IPC first. The
+  fake's synthetic sheet review is a test artifact
+  (`test-results/screens/images-sheet-fake.png`).
 - **Replaced:** `climate.png`, now Hollows with Glowmoss Caverns filled by
   images-core's recorded real sunburst concept.
 - **Regenerated:** the rest, because the Codex image column, the Taste
@@ -229,6 +233,12 @@ takes `itemsAt(target, point)` and draws the same entries and look as `Menu`.
 - `README.md` keeps `column.png` as its hero, so it didn't change.
 
 ## 6. Left for later
+
+- **Expanding the confirm step's prompt:** the coordinator asked for the
+  expandable field there. The kit refuses it by design: `ui/expand.ts`
+  (`IN_OVERLAY`) says fields inside a dialog don't expand, with no overlay
+  over an overlay. The prompt is a kit `Textarea`, 120px tall and resizable.
+  If the rule should bend for this dialog, that's a kit decision for expand.
 
 - **Choose in the `…` menu:** it lists the three most recent other versions;
   the strip lists all of them.
