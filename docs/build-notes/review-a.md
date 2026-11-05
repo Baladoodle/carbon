@@ -75,15 +75,19 @@ and now assert the corrected rule; each is named in its row.
 The 2,000-entity stress world, Electron under xvfb, 1440×900, median of 30
 after 5 warm-ups (`column.spec › performance`):
 
-| Measure | Before | After | Budget (SYSTEM §9) |
-|---|---|---|---|
-| Round trip, rename (the Column redraws) | 14.4 ms | 9.6–10.0 ms (four runs) | 16 ms |
-| Round trip, identity (not drawn) | 6.4 ms | 6.3–7.3 ms | 16 ms |
-| Column panning | 60.6 fps | 60.3–60.6 fps | 50 fps |
-| Codex `shift+g` over 2,000 rows | < 2 s | < 2 s | 2 s (W2's own) |
+| Measure | Before (phase start) | Main after the other reviews merged, alone | This branch on that main | Budget (SYSTEM §9) |
+|---|---|---|---|---|
+| Round trip, rename (the Column redraws) | 14.4 ms | 15.5–21.0 ms (2 of 3 runs failed) | 9.9–11.0 ms (five runs) | 16 ms |
+| Round trip, identity (not drawn) | 6.4 ms | — | 5.9–9.0 ms | 16 ms |
+| Column panning | 60.6 fps | — | 60.4 fps | 50 fps |
+| Codex `shift+g` over 2,000 rows | < 2 s | — | < 2 s | 2 s (W2's own) |
 
-In Node, per rename on the stress world: Column model 3.2 → 0.8 ms,
-geometry 2.0 → 0.6 ms.
+Before the merge this branch measured 9.6–10.0 ms for a rename. Main's newer
+work added per-patch cost in the renderer; a CDP profile per rename then
+showed the Column's share (two passes over the entities, lane demands for
+every cell, the margin re-sorting ~3,400 check notes) and I removed it:
+one pass, per-cell cached demands, a reused margin stack. In Node, per
+rename: Column model 3.2 → 0.8 ms, geometry 2.0 → 0.6 ms.
 
 ## 4. Coverage, keyboard reach, tests
 
@@ -95,9 +99,9 @@ geometry 2.0 → 0.6 ms.
   a palette action per biome; the Bench's notes ("Dismiss the notes on X")
   and relations ("Unrelate X (pairs with)") are palette actions. Codex
   widths: `>`, `<`, palette reset.
-- **Tests:** unit 502 → 566 on the merged main (mine: about 45 new, several
-  property tests); e2e 90 → the full suite with my 15 new tests across
-  `column.spec` and `world.spec`.
+- **Tests:** unit and property tests: 566 on the merged main (about 45 of
+  them mine, several property tests); e2e: 103 on the merged main, 15 of
+  them mine, in `column.spec` and `world.spec`.
 
 ## 5. Outside my folders, and decisions
 
@@ -136,6 +140,12 @@ geometry 2.0 → 0.6 ms.
 - **The kit's `Tabs` keeps focus on a click of the current tab**, so arrows
   then move between tabs. I handed focus back in Climate and the Codex; other
   views with tabs over keyboard surfaces may want the same (kit).
+- **The status line counts entities with `Object.keys` on every world
+  change** (`shell/StatusLine.tsx`): about 1.2 ms per command on 2,000
+  entities, the largest single item in a rename's renderer profile. A count
+  kept from patches (or memoised per `entities` object) would remove it.
+  W4's state-change trigger (`ai/triggers.ts`) also walks every entity per
+  patch (~0.4 ms).
 - **Codex selection survives filtering**: bulk state and spread act on
   selected rows the filter now hides (the count is shown). A design call,
   not changed.
