@@ -6,7 +6,7 @@ import { cmd } from '@core/commands/registry';
 import { stressWorld } from '../src/core/testing/stress';
 import { writeWorldDir } from '../src/main/store/world-dir';
 import { sampleWorld } from '../src/core/testing/sample';
-import { withArt } from './art';
+import { withArt, withRealSheet } from './art';
 import { launchCarbon, SCREEN_SCALE, type CarbonApp } from './harness';
 
 /**
@@ -291,6 +291,45 @@ test('images: Climate panels filled by concept art, the Bench strip, the confirm
     await expect(p.getByTestId('image-batch')).toHaveAttribute('data-phase', 'review');
     await expect(p.getByTestId('image-cell')).toHaveCount(4);
     await p.keyboard.press('ArrowRight');
+    await p.keyboard.press('x');
+    await p.mouse.move(2, 2);
+    await c.screenshot('images-sheet-fake');
+    await p.keyboard.press('Escape');
+  } finally {
+    await c.close();
+    rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('images: a real 100-icon sheet in review', async () => {
+  test.setTimeout(120_000);
+  const tmp = mkdtempSync(path.join(os.tmpdir(), 'carbon-screens-sheet-'));
+  const real = withRealSheet(sampleWorld(), tmp);
+  await writeWorldDir(tmp, real.world);
+  const c = await launchCarbon({ worldDir: tmp, scale: SCREEN_SCALE });
+  const p = c.page;
+  try {
+    // One cell accepted (free: a crop of the kept sheet), so its icon leads back to the sheet.
+    const r = await c.invoke('images:sheetAccept', {
+      entityId: real.first,
+      imageId: real.sheet,
+      cells: [0],
+    });
+    expect(r.ok).toBe(true);
+    await c.gotoView('column', '1');
+    await p.locator('body').press('Control+k');
+    await p.keyboard.type('Iron Sword');
+    await expect(p.getByTestId('palette').locator('[data-highlighted]')).toContainText(
+      'Iron Sword',
+    );
+    await p.keyboard.press('Enter');
+    await expect(p.getByTestId('bench-entity')).toHaveAttribute('data-entity', real.first);
+    await p.getByTestId('bench-image-review-sheet').click();
+    const again = p.getByTestId('image-sheet-again');
+    await expect(again.getByTestId('image-cell')).toHaveCount(100);
+    await expect(again.getByTestId('image-sheet-box')).toHaveCount(100);
+    for (let i = 0; i < 12; i++) await p.keyboard.press('ArrowRight');
+    await p.keyboard.press('a');
     await p.keyboard.press('x');
     await p.mouse.move(2, 2);
     await c.screenshot('images-sheet', { docs: true });

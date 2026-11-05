@@ -420,3 +420,55 @@ const REAL: [string, 'concept' | 'icon', string, string][] = [
   ['cinder-sting', 'icon', 'cinder-sting-icon-sunburst', 'gpt-image-2.6-sunburst'],
   ['cloud-anklet', 'icon', 'cloud-anklet-icon-flare', 'gpt-image-2.6-flare'],
 ];
+
+/**
+ * images-core's real 100-icon sheet (gpt-image-2.5-flare, low, pixel's
+ * crop), with an item for each cell, so the sheet review can be shown on a
+ * real generation. The sheet is kept on its first cell's entity, as carbon
+ * keeps it; nothing is an icon yet.
+ */
+export function withRealSheet(
+  world: World,
+  dir: string,
+): { world: World; sheet: string; first: string } {
+  const review = JSON.parse(
+    readFileSync(path.join(FIXTURES, 'items-sheet-100-flare25-pixel.review.json'), 'utf8'),
+  ) as { sheet: ImageMeta & { sheet?: { cells: { index: number; entity: string }[] } } };
+  const meta = review.sheet;
+  const cells = meta.sheet?.cells ?? [];
+  const base = world.entities['spore-lantern'];
+  if (!base) throw new Error('the sample world has no spore-lantern');
+  const title = (id: string): string =>
+    id
+      .split('-')
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ');
+  const entities = { ...world.entities };
+  for (const c of cells)
+    entities[c.entity] = {
+      ...base,
+      id: c.entity,
+      name: title(c.entity),
+      identity: '',
+      state: 'idea',
+      ai_fields: [],
+      relations: [],
+      fields: { subkind: base.fields.subkind },
+    };
+  const bytes = new Uint8Array(
+    readFileSync(path.join(FIXTURES, 'items-sheet-100-flare25-pixel.png')),
+  );
+  const file = path.join(dir, imagePaths(meta.entity, meta.id).png);
+  mkdirSync(path.dirname(file), { recursive: true });
+  writeFileSync(file, bytes);
+  const stored: ImageMeta = { ...meta, hashes: { output: sha256(bytes) } };
+  return {
+    world: {
+      ...world,
+      entities,
+      images: { ...(world.images ?? {}), [meta.entity]: { all: [stored] } },
+    },
+    sheet: meta.id,
+    first: meta.entity,
+  };
+}
