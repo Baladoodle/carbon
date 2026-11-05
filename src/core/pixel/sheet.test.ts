@@ -1,4 +1,7 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import fc from 'fast-check';
+import { decodePng } from './png';
 import { describe, expect, it } from 'vitest';
 import { filterImage } from './filter';
 import { GUIDE_CELL, GUIDE_GUTTER, cropSheet, drawGuide, sheetLayout } from './sheet';
@@ -173,5 +176,84 @@ describe('cropSheet', () => {
     expect(() =>
       cropSheet({ width: 2, height: 2, data: new Uint8ClampedArray(1) }, layout),
     ).toThrow(/bytes/);
+  });
+});
+
+describe('cropSheet against grid drift', () => {
+  const layout = sheetLayout(4, { w: 256, h: 256 });
+  const blank = (): RgbaImage => ({
+    width: 256,
+    height: 256,
+    data: new Uint8ClampedArray(256 * 256 * 4),
+  });
+
+  it('keeps a drifted sprite whole and unflagged in the cell its centre falls in', () => {
+    // like the real sheet: the model's grid sits up to ~half a gutter off ours (28 of 58 px)
+    const wide = sheetLayout(4, { w: 400, h: 400 }, { gutter: 40 });
+    const img: RgbaImage = { width: 400, height: 400, data: new Uint8ClampedArray(400 * 400 * 4) };
+    wide.cells.forEach((c, i) =>
+      rect(img, c.x - 30, c.y - 25, 110, 100, [60 * (i + 1), 90, 40, 255]),
+    );
+    const cells = cropSheet(img, wide);
+    expect(cells.map((c) => c.flags)).toEqual([[], [], [], []]);
+    cells.forEach((c, i) => {
+      const cell = wide.cells[i]!;
+      expect(c.bbox).toEqual({ x: cell.x - 30, y: cell.y - 25, w: 110, h: 100 });
+    });
+  });
+
+  it('gives a sprite whose centre lies in a gutter to the nearest cell', () => {
+    const img = blank();
+    const [a, b] = layout.cells;
+    rect(img, a!.x + a!.w - 8, a!.y + 30, 12, 20, [200, 40, 40, 255]); // centre just past a's right edge
+    const cells = cropSheet(img, layout);
+    expect(cells[0]!.bbox).not.toBeNull();
+    expect(cells[1]!.bbox).toBeNull();
+    expect(b).toBeDefined();
+  });
+
+  it('flags touches_edge on both sprites when they really run into each other', () => {
+    const img = blank();
+    const [a, b, c] = layout.cells;
+    rect(img, a!.x + 20, a!.y + 30, 60, 40, [200, 40, 40, 255]);
+    rect(img, b!.x + 20, b!.y + 30, 60, 40, [40, 40, 200, 255]);
+    rect(img, a!.x + 70, a!.y + 45, b!.x - a!.x, 8, [120, 120, 120, 255]); // a bridge joining them
+    rect(img, c!.x + 30, c!.y + 30, 40, 40, [40, 200, 40, 255]);
+    const cells = cropSheet(img, layout);
+    // the merged part goes to one cell (flagged), the other cell is left empty and says why
+    const [first, second] = [cells[0]!, cells[1]!];
+    const owner = first.bbox ? first : second;
+    const robbed = first.bbox ? second : first;
+    expect(owner.flags).toContain('touches_edge');
+    expect(robbed.flags).toEqual(['empty', 'touches_edge']);
+    expect(cells[2]!.flags).toEqual([]);
+  });
+});
+
+describe('the recorded real sheet (images-core, gpt-image-2.6-flare, 100 items, 2880² stored at 1440²)', () => {
+  const dir = resolve(import.meta.dirname, '../../../fixtures/pixel/sheets');
+  const sheet = decodePng(readFileSync(`${dir}/items-sheet-100-flare.png`));
+  const layout = sheetLayout(100, { w: 2880, h: 2880 });
+
+  it('crops all 100 sprites with no flags, despite the model drifting up to ~28 px from the grid', () => {
+    const cells = cropSheet(sheet, layout);
+    expect(cells.filter((c) => c.crop === null)).toEqual([]);
+    expect(cells.filter((c) => c.flags.length).map((c) => [c.index, c.flags])).toEqual([]);
+    const k = 2880 / sheet.width;
+    for (const c of cells) {
+      const cell = layout.cells[c.index]!;
+      const cx = (c.bbox!.x + c.bbox!.w / 2) * k;
+      const cy = (c.bbox!.y + c.bbox!.h / 2) * k;
+      expect(Math.abs(cx - (cell.x + cell.w / 2))).toBeLessThan(cell.w / 2);
+      expect(Math.abs(cy - (cell.y + cell.h / 2))).toBeLessThan(cell.h / 2);
+    }
+  });
+
+  it('every crop goes through the item preset to a non-empty 16×16 icon', () => {
+    for (const c of cropSheet(sheet, layout)) {
+      const { image, report } = filterImage(c.crop!, { target: { w: 16, h: 16 }, preset: 'item' });
+      expect([image.width, image.height]).toEqual([16, 16]);
+      expect(report.opaquePixels).toBeGreaterThan(20);
+    }
   });
 });

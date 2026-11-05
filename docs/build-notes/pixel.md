@@ -229,8 +229,8 @@ step):
 - A table for `halo_attenuate`.
 - Reusing the pooled alpha sums.
 
-Cropping 100 sheet cells from 1024² takes about 96 ms, and filtering them all
-another 37.
+Cropping the real 100-cell sheet (1440²) takes about 130 ms, and filtering all
+100 crops to 16² about 570 ms.
 
 ## Icon prompts (Genforge's house style)
 
@@ -315,16 +315,58 @@ ends with Genforge's *Return the same framing at the same size.*
 Not adopted: Genforge's per-art-pixel draft noise. It exists to keep a model
 from leaving repainted surfaces flat, and a layout guide needs no texture.
 
-**`cropSheet`** has these options and flags:
+**`cropSheet` assigns sprites by their centre, not by cell bounds.** On a real
+10×10 sheet (images-core, `gpt-image-2.6-flare`, low, 2880², $0.106), the
+model's grid drifted up to about 28 px from the layout's 58 px gutters, and
+cutting by strict cell bounds flagged 54 of 100 good sprites. Now:
 
-- **Segmentation:** by alpha (`a ≥ 128`), by a given flat colour, or `auto`
-  (the median of each region's border).
-- **The crop:** a square-padded bounding box.
-- **Flags:**
-  - `empty`: foreground under 0.5%
-  - `background_only`: empty, with a luminance range ≤ 4
-  - `touches_edge`
-  - `fragmented`: more than one large 8-connected part
+1. The whole sheet is segmented once into 8-connected foreground parts:
+   - by alpha (`a ≥ 128`)
+   - by a given flat colour
+   - or `auto`: alpha if there's any transparency, else the median colour of
+     the sheet's outer border
+2. Specks under 0.05% of a cell are ignored.
+3. Each part belongs to **the cell its centre falls in**, or the nearest cell
+   when the centre lies in a gutter.
+4. The crop holds only the cell's own parts, square-padded. The bounding box
+   covers those parts.
+
+The rule is images-core's, as the coordinator asked.
+
+**Flags:**
+
+- `empty`: own foreground under 0.5% of the cell.
+- `background_only`: the empty cell is one flat colour (luminance range ≤ 4),
+  or the "foreground" fills over 97% of the cell, meaning the background was
+  segmented as a sprite.
+- `touches_edge` keeps a real meaning. It fires when a part touches the sheet
+  edge, or when a part has 15% or more of its pixels in another cell that owns
+  no sprite of its own, i.e. two sprites merged into one connected part. The
+  robbed cell is flagged `empty` + `touches_edge`. A sprite that only drifts
+  across a cell line is **not** flagged.
+- `fragmented`: the cell owns more than one large part (≥ 15% of the largest
+  and ≥ 1% of its foreground).
+
+**Regression tests:**
+
+- **The recorded real sheet** (`fixtures/pixel/sheets/`, 3.5 MB, stored at
+  1440²): all 100 sprites crop, **0 flags** (48 under the old bounds rule),
+  each bounding box is centred within its cell, and every crop filters to a
+  16×16 icon.
+- **Synthetic cases:**
+  - drift into the gutter: whole, unflagged
+  - a centre in a gutter: goes to the nearest cell
+  - two sprites joined by a bridge: owner flagged `touches_edge`, robbed cell
+    `empty` + `touches_edge`
+  - a sprite off the sheet edge
+  - empty and flat cells
+  - two-blob fragmentation
+  - ±12 noise
+  - an explicit background and forced alpha
+  - a sheet returned at another size
+
+Cropping the real sheet takes about 130 ms, and filtering its 100 crops about
+570 ms.
 
 ## Regenerating
 
