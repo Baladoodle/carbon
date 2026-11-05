@@ -152,6 +152,7 @@ export function Variables({
               {ed?.field === 'name' ? (
                 <Input
                   mono
+                  expandable={false}
                   autoFocus
                   aria-label="Name"
                   className="numbers-var-name-input"
@@ -184,6 +185,7 @@ export function Variables({
               {ed?.field === 'value' ? (
                 <Input
                   mono
+                  expandable={false}
                   autoFocus
                   aria-label={`Value of ${name}`}
                   className="numbers-var-value-input"

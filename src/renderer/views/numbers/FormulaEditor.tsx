@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import { cmd } from '@core/commands/registry';
 import {
   completions,
@@ -15,7 +23,8 @@ import type { World } from '@core/model/world';
 import { useActions } from '../../actions';
 import { dispatch } from '../../state/world';
 import { flash } from '../../state/ui';
-import { cx } from '../../ui';
+import { IconButton, IconExpand, cx } from '../../ui';
+import { blurExpander, focusExpander, openHost, type Expander } from '../../ui/expand';
 import { numbersUi } from './analysis';
 
 const COMMIT_MS = 600;
@@ -155,6 +164,7 @@ export function FormulaEditor({ world, analysis, committed }: FormulaEditorProps
   const [caretLine, setCaretLine] = useState<number | null>(null);
   const [suggest, setSuggest] = useState<Suggest | null>(null);
   const ref = useRef<HTMLTextAreaElement>(null);
+  const root = useRef<HTMLDivElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dirty = text !== committed;
 
@@ -229,6 +239,40 @@ export function FormulaEditor({ world, analysis, committed }: FormulaEditorProps
     numbersUi.set({ draft: null });
   };
 
+  // The large editor (ctrl+shift+e, ui/expand.ts): the same editor, floated and centred,
+  // so its highlighting, errors, values and completions all come along.
+  const [expanded, setExpanded] = useState(false);
+  const expandedRef = useRef(false);
+  const latest = useRef({ text, commit });
+  useLayoutEffect(() => {
+    expandedRef.current = expanded;
+    latest.current = { text, commit };
+  });
+  const expander = useMemo<Expander>(
+    () => ({
+      toggle: () => {
+        setExpanded((v) => !v);
+        ref.current?.focus();
+      },
+      expanded: () => expandedRef.current,
+    }),
+    [],
+  );
+  useLayoutEffect(() => {
+    const box = root.current;
+    if (!expanded || !box) return undefined;
+    return openHost(box, {
+      hold: true,
+      multiline: () => true,
+      onClose: (commitNow) => {
+        setExpanded(false);
+        ref.current?.focus();
+        if (commitNow) void latest.current.commit(latest.current.text);
+      },
+    });
+  }, [expanded]);
+  useEffect(() => () => blurExpander(expander), [expander]);
+
   useActions([
     {
       id: 'numbers.editFormulas',
@@ -277,10 +321,27 @@ export function FormulaEditor({ world, analysis, committed }: FormulaEditorProps
 
   return (
     <div
+      ref={root}
+      data-expand-host=""
       className="numbers-editor"
       data-testid="numbers-editor"
       data-dirty={dirty ? '' : undefined}
     >
+      {!expanded && (
+        <IconButton
+          size="sm"
+          label="Expand"
+          keys="ctrl+shift+e"
+          icon={<IconExpand />}
+          className="numbers-expand"
+          tabIndex={-1}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => {
+            setExpanded(true);
+            ref.current?.focus();
+          }}
+        />
+      )}
       <div className="numbers-editor-body">
         <div
           className="numbers-code"
@@ -328,7 +389,15 @@ export function FormulaEditor({ world, analysis, committed }: FormulaEditorProps
                 if (kind === 'insertText' || (kind.startsWith('delete') && suggest)) complete(v);
                 else setSuggest(null);
               }}
-              onBlur={() => {
+              onFocus={() => focusExpander(expander)}
+              onBlur={(e) => {
+                // Moving within the expanded editor (its expand button, its list) isn't leaving it.
+                const next = e.relatedTarget as Node | null;
+                if (!root.current?.contains(next)) {
+                  blurExpander(expander);
+                  // Tabbing away from the expanded editor leaves it.
+                  if (next) setExpanded(false);
+                }
                 setCaretLine(null);
                 setSuggest(null);
                 if (pending.current) void commit(text);
@@ -382,6 +451,7 @@ export function FormulaEditor({ world, analysis, committed }: FormulaEditorProps
       </div>
       {suggest && (
         <ul
+          data-expand-esc=""
           className="ui-menu numbers-complete"
           role="listbox"
           aria-label="Names"

@@ -27,6 +27,7 @@ import {
   Kbd,
   Menu,
   Popover,
+  ResizablePane,
   Select,
   Tooltip,
 } from '../../ui';
@@ -329,11 +330,21 @@ function SpreadBody({ world, s }: { world: World; s: SpreadSession }): ReactNode
           {s.error.message}
         </div>
       )}
-      {focusCard ? (
-        <Detail world={world} spread={spread} candidate={focusCard.candidate} />
-      ) : (
-        <div className="spread-detail spread-detail-empty" />
-      )}
+      <ResizablePane
+        id="spread-detail"
+        axis="y"
+        edge="start"
+        min={64}
+        max={({ parent }) => parent * 0.6}
+        label="Detail height"
+        className="spread-detail-pane"
+      >
+        {focusCard ? (
+          <Detail world={world} spread={spread} candidate={focusCard.candidate} />
+        ) : (
+          <div className="spread-detail spread-detail-empty" />
+        )}
+      </ResizablePane>
     </div>
   );
 }

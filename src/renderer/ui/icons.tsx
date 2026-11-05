@@ -90,3 +90,9 @@ export const IconIntent = (): ReactNode => (
     <rect x="7.5" y="4.5" width="3" height="3" />
   </Svg>
 );
+/** Expand a field into the large editor: two corners pulling out. */
+export const IconExpand = (): ReactNode => (
+  <Svg>
+    <path d="M9.5 2.5h4v4M6.5 13.5h-4v-4M13.5 2.5 9 7M2.5 13.5 7 9" />
+  </Svg>
+);

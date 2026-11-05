@@ -173,6 +173,11 @@ through idea → shaped → decided (`d`, with a Why) → exported, or to the
 graveyard with a reason; the glyph by the kind shows where it is. Fields the AI wrote carry
 an `ai` marker until you edit them.
 
+**Resizing and expanding.** Drag a panel's inner edge (the Bench, Numbers' side panel, the
+Spread detail, the Taste and Export columns) to resize it, double-click it to reset; a focused
+edge takes the arrows (`shift` for bigger steps). Any text field expands into a large editor
+with `ctrl+shift+e`: `ctrl+enter` commits and closes, `esc` closes and keeps your edit.
+
 **The AI log (`ctrl+l`).** Every AI call this session: moment, entity, tokens,
 cache reads, cost, latency, result. `enter` on a row shows the request sent.
 
@@ -201,6 +206,7 @@ the view (in Taste, `d` dismisses the pattern), unless focus is in the Bench.
 | `ctrl+shift+a` | Turn AI off / on for the session |
 | `ctrl+z` | Undo |
 | `ctrl+shift+z` or `ctrl+y` | Redo |
+| `ctrl+shift+e` | Expand the field |
 | `escape` | Close |
 
 #### Column

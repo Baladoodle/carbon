@@ -2,7 +2,7 @@
 .numbers-view {
   --numbers-line: 20px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 340px;
+  grid-template-columns: minmax(0, 1fr) auto;
   height: 100%;
   min-height: 0;
 }
@@ -473,4 +473,38 @@ tbody:hover .numbers-when[data-empty],
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: var(--text-meta);
+}
+
+/* The formula editor's expand affordance, and the editor expanded (ui/expand.ts). */
+.numbers-editor {
+  position: relative;
+}
+.numbers-expand.ui-icon-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 3;
+  width: 22px;
+  height: 22px;
+  background: var(--surface-2);
+  color: var(--text-3);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur-hover) var(--ease);
+}
+.numbers-expand svg {
+  width: 13px;
+  height: 13px;
+}
+.numbers-editor:is(:hover, :focus-within) .numbers-expand {
+  opacity: 1;
+  pointer-events: auto;
+}
+.numbers-editor[data-expanded] {
+  padding: 0;
+  background: var(--surface-1);
+}
+.numbers-editor[data-expanded] .numbers-editor-body {
+  max-height: 64vh;
+  min-height: 40vh;
 }

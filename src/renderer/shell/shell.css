@@ -1,7 +1,6 @@
 /* The shell's layout (docs/EXPERIENCE.md §1, docs/VISUAL.md). Tokens only. */
 :root {
   --rail-w: 48px;
-  --bench-w: 360px;
   --status-h: 26px;
 }
 
@@ -12,7 +11,8 @@
   height: 100%;
 }
 .shell.with-bench {
-  grid-template-columns: var(--rail-w) 1fr var(--bench-w);
+  /* The Bench's pane sizes itself (ResizablePane). */
+  grid-template-columns: var(--rail-w) minmax(0, 1fr) auto;
 }
 
 .rail {
@@ -60,8 +60,10 @@
   padding: 0 16px 16px;
 }
 
-.bench {
+.shell-bench {
   grid-row: 1;
+}
+.bench {
   overflow: auto;
   background: var(--surface-1);
   border-left: 1px solid var(--line);
