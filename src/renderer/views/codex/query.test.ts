@@ -279,3 +279,12 @@ describe('query properties', () => {
     }
   });
 });
+
+describe('numbers in filters', () => {
+  it('take the typographic minus the ruler shows, and refuse hex', () => {
+    expect(ids('y:<−100')).toEqual(ids('y:<-100'));
+    expect(ids('y:<−100').length).toBeGreaterThan(0);
+    expect(errs('y:−600..−100')).toEqual([]);
+    expect(errs('y:0x10')).toEqual([['0x10', '"0x10" is not a number']]);
+  });
+});

@@ -140,6 +140,32 @@ describe('inline edits', () => {
     return r.ok ? r.value.world.entities[id] : { error: r.error.code };
   };
 
+  it('reads numbers as the Bench and the ruler write them, and nothing else', () => {
+    // The typographic minus the Column and the Codex display, on both ends of a range, and
+    // a negative upper end (the number must not swallow the "..").
+    const range = (draft: string) => {
+      const c = commandForEdit({ type: 'range', key: 'r' }, E('hollows'), draft);
+      return c.ok ? (c.value.payload as { value: unknown }).value : c.error.message;
+    };
+    expect(range('−5..−2')).toEqual({ min: -5, max: -2 });
+    expect(range('-5..-2')).toEqual({ min: -5, max: -2 });
+    expect(range('-1.5 to 0.5')).toEqual({ min: -1.5, max: 0.5 });
+    expect(range('.5..2')).toEqual({ min: 0.5, max: 2 });
+    expect(range('5..2')).toBe('the low end comes first');
+    expect(range('1..2..3')).toBe('a range like 2..5');
+    expect(run({ type: 'height', key: 'y_bottom' }, 'hollows', '−600')).toMatchObject({
+      fields: { y_bottom: -600 },
+    });
+    expect(run({ type: 'attribute', key: 'defense' }, 'vent-glass-visor', ' 1,200 ')).toMatchObject(
+      { attributes: { defense: 1200 } },
+    );
+    // Not numbers someone types by hand into a design tool.
+    for (const junk of ['0x10', '0b11', 'Infinity', '1e999'])
+      expect(run({ type: 'attribute', key: 'defense' }, 'vent-glass-visor', junk)).toEqual({
+        error: 'a number',
+      });
+  });
+
   it('turns drafts into commands the world accepts', () => {
     expect(run({ type: 'text', key: 'name' }, 'glide', ' Soar ')).toMatchObject({ name: 'Soar' });
     expect(run({ type: 'text', key: 'name' }, 'glide', ' ')).toEqual({ error: 'a name is needed' });

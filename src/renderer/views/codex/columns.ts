@@ -8,6 +8,7 @@ import type { WorldSchema } from '@core/model/schema';
 import type { World } from '@core/model/world';
 import type { Placement, Placements } from '@core/placement';
 import { err, ok, type Result } from '@core/util/result';
+import { parseNumber } from '@core/bench/value';
 
 /**
  * The Codex's columns, driven by `schemaOf(world)`: which columns a tab has,
@@ -316,12 +317,8 @@ export function draftOf(edit: CellEdit, e: Entity): string {
   }
 }
 
-const num = (s: string): number | null => {
-  const t = s.trim().replace('−', '-');
-  if (t === '') return null;
-  const n = Number(t);
-  return Number.isFinite(n) ? n : null;
-};
+/** A number typed in a cell, read as the Bench reads one (typographic minus, no hex). */
+const num = (s: string): number | null => parseNumber(s);
 
 /**
  * Turns an inline edit's text into a command for the entity, or an error to
@@ -356,7 +353,11 @@ export function commandForEdit(edit: CellEdit, e: Entity, draft: string): Result
     }
     case 'range': {
       if (t === '') return set(null);
-      const m = /^(-?[\d.]+)\s*(?:\.\.|–|—|-|to)\s*(-?[\d.]+)$/.exec(t.replace('−', '-'));
+      // A number can't swallow the "..": -5..-2 is a range, not "-5.." and "2".
+      const n = String.raw`-?(?:\d+(?:\.\d+)?|\.\d+)`;
+      const m = new RegExp(String.raw`^(${n})\s*(?:\.\.|–|—|-|to)\s*(${n})$`).exec(
+        t.replace(/−/g, '-'),
+      );
       const single = num(t);
       const lo = m ? num(m[1] ?? '') : single;
       const hi = m ? num(m[2] ?? '') : single;
@@ -366,7 +367,7 @@ export function commandForEdit(edit: CellEdit, e: Entity, draft: string): Result
     }
     case 'height': {
       if (t === '') return set(null);
-      const l = t.toLowerCase().replace('−', '-');
+      const l = t.toLowerCase().replace(/−/g, '-');
       if (l === '-inf' || l === '-∞') return set('-inf');
       if (l === '+inf' || l === 'inf' || l === '+∞' || l === '∞') return set('+inf');
       const n = num(t);

@@ -10,6 +10,7 @@ import {
 import { fieldValue } from '@core/model/lifecycle';
 import { schemaOf, type World } from '@core/model/world';
 import type { Placement } from '@core/placement';
+import { parseNumber as parseDecimal } from '@core/bench/value';
 
 /**
  * The Codex filter language (docs/EXPERIENCE.md §2), e.g.
@@ -255,13 +256,13 @@ const suggest = (word: string, options: readonly string[]): string => {
     : '';
 };
 
+/** A number in a filter: as the Bench reads one (the ruler's typographic minus too), or ±inf. */
 const parseNumber = (s: string): number | null => {
-  const t = s.trim();
+  const t = s.trim().replace(/−/g, '-');
   if (t === '') return null;
   if (t === 'inf' || t === '+inf') return Infinity;
   if (t === '-inf') return -Infinity;
-  const v = Number(t);
-  return Number.isNaN(v) ? null : v;
+  return parseDecimal(t);
 };
 
 type NumTest = (x: number) => boolean;
