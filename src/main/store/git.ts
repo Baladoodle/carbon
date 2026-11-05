@@ -27,6 +27,10 @@ export interface GitResult {
 export type GitRunner = (args: string[], cwd: string) => Promise<GitResult>;
 
 const errorText = (e: unknown): string => (e instanceof Error ? e.message : String(e));
+const errorCode = (e: unknown): string => {
+  const code = (e as { code?: unknown } | null)?.code;
+  return typeof code === 'string' ? code : 'EINVAL';
+};
 
 export function systemGit(
   bin = 'git',
@@ -41,7 +45,7 @@ export function systemGit(
           code: -1,
           stdout: '',
           stderr: e instanceof Error ? e.message : String(e),
-          spawnError: String((e as { code?: unknown } | null)?.code ?? 'EINVAL'),
+          spawnError: errorCode(e),
         });
       try {
         execFile(
