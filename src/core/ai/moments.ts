@@ -19,6 +19,8 @@ export const MOMENTS = [
   'spread',
   'patterns',
   'spec_draft',
+  // Added by images-core: Claude writes the prompt for an image (docs/IMAGES.md §4).
+  'image_prompt',
 ] as const;
 export const MomentSchema = z.enum(MOMENTS);
 export type Moment = z.infer<typeof MomentSchema>;
@@ -182,6 +184,17 @@ export const SpecDraftRequestSchema = z.object({
 export const SpecDraftResultSchema = z.object({ title: z.string(), markdown: z.string() });
 
 /** Request and result schemas per moment: the single table everything is typed from. */
+// ── image prompt (added by images-core) ───────────────────────────────────
+
+export const ImagePromptMomentRequestSchema = z.object({
+  entityId: EntityIdSchema,
+  kind: z.enum(['concept', 'icon']),
+});
+export const ImagePromptMomentResultSchema = z.object({
+  /** The prompt for the image model: subject, setting, composition, palette, light. */
+  prompt: z.string().min(20).max(4000),
+});
+
 export const MOMENT_SCHEMAS = {
   suggest_one: { request: SuggestRequestSchema, result: SuggestOneResultSchema },
   suggest_three: { request: SuggestRequestSchema, result: SuggestThreeResultSchema },
@@ -190,6 +203,7 @@ export const MOMENT_SCHEMAS = {
   spread: { request: SpreadRequestSchema, result: SpreadResultSchema },
   patterns: { request: PatternsRequestSchema, result: PatternsResultSchema },
   spec_draft: { request: SpecDraftRequestSchema, result: SpecDraftResultSchema },
+  image_prompt: { request: ImagePromptMomentRequestSchema, result: ImagePromptMomentResultSchema },
 } as const satisfies Record<Moment, { request: z.ZodType; result: z.ZodType }>;
 
 /** What a caller passes (defaults may be omitted). */

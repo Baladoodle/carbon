@@ -27,6 +27,7 @@ const MOMENT_LABEL: Record<Moment, string> = {
   spread: 'spread',
   patterns: 'patterns',
   spec_draft: 'spec',
+  image_prompt: 'image prompt',
 };
 
 const usd = (n: number): string => (n === 0 ? '$0' : n < 0.0001 ? '<$0.0001' : `$${n.toFixed(4)}`);

@@ -6,6 +6,7 @@ import { suggestOneBuilder, suggestThreeBuilder } from './suggest';
 import type { AnyPromptBuilder, PromptBuilder } from './types';
 import { createSpreadPromptBuilders } from '../spreads/builders';
 import { assemble } from './common';
+import { imagePromptBuilder } from '../images/prompt';
 
 /**
  * The prompt-builder registry: one builder per AI moment. The real gateway
@@ -36,6 +37,8 @@ export const BUILTIN_BUILDERS: readonly AnyPromptBuilder[] = [
 export const PACKAGE_BUILDERS: readonly AnyPromptBuilder[] = [
   // W5 (spreads): `spread` (all nine moves, streamed) and `patterns`.
   ...createSpreadPromptBuilders(assemble),
+  // images-core: `image_prompt`.
+  imagePromptBuilder,
 ];
 
 export class PromptRegistry {
