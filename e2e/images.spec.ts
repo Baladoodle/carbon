@@ -201,16 +201,16 @@ test('codex: the image column, the row menu, and a batch from the bulk bar (skip
   await expect(
     page().locator('[data-testid="image-batch-row"][data-entity="spore-lantern"]'),
   ).toHaveAttribute('data-skip', '');
-  await expect(page().getByTestId('image-batch-calls')).toHaveText('1 call · 3 icons');
+  await expect(page().getByTestId('image-batch-calls')).toHaveText('1 call · 3 icons · 2×2');
   await page()
     .locator('[data-testid="image-batch-row"][data-entity="cloud-anklet"] textarea')
     .fill('An anklet of braided cloud, light as breath.');
   await page().getByRole('combobox', { name: 'Existing' }).click();
   await page().getByRole('option', { name: 'Replace' }).click();
-  await expect(page().getByTestId('image-batch-calls')).toHaveText('1 call · 4 icons');
+  await expect(page().getByTestId('image-batch-calls')).toHaveText('1 call · 4 icons · 2×2');
   await page().getByRole('combobox', { name: 'Existing' }).click();
   await page().getByRole('option', { name: 'Skip' }).click();
-  await expect(page().getByTestId('image-batch-calls')).toHaveText('1 call · 3 icons');
+  await expect(page().getByTestId('image-batch-calls')).toHaveText('1 call · 3 icons · 2×2');
   await carbon.screenshot('images-batch-ready');
   const before = (await imageLog()).length;
   // Icons batch as one sheet (IMAGES.md §2a): one paid call, then a review.
@@ -224,7 +224,20 @@ test('codex: the image column, the row menu, and a batch from the bulk bar (skip
   await carbon.screenshot('images-sheet-review');
   // Reject the Cloud Anklet's cell, and regenerate it as a smaller sheet.
   const anklet = page().locator('[data-testid="image-cell"][data-entity="cloud-anklet"]');
-  if ((await anklet.getAttribute('aria-pressed')) === 'true') await anklet.click();
+  // Keyboard triage, as in a spread: arrows move, x rejects, k accepts.
+  await expect(page().getByTestId('image-sheet-box')).toHaveCount(3);
+  await expect(page().getByTestId('image-cell').first()).toHaveAttribute('data-cursor', '');
+  const order = await cells.evaluateAll((els) => els.map((e) => e.getAttribute('data-entity')));
+  for (let i = 0; i < order.indexOf('cloud-anklet'); i++) await page().keyboard.press('ArrowRight');
+  await expect(anklet).toHaveAttribute('data-cursor', '');
+  await page().keyboard.press('x');
+  await expect(anklet).toHaveAttribute('aria-pressed', 'false');
+  await page().keyboard.press('ArrowLeft');
+  await page().keyboard.press('k');
+  await page().keyboard.press('a');
+  await expect(anklet).toHaveAttribute('aria-pressed', 'true');
+  await page().keyboard.press('ArrowLeft');
+  await page().keyboard.press('x');
   await expect(anklet).toHaveAttribute('aria-pressed', 'false');
   await expect(page().getByTestId('image-batch-accept')).toHaveText('Accept 2');
   await page().getByTestId('image-batch-regenerate').click();

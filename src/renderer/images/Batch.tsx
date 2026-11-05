@@ -69,9 +69,11 @@ function BatchBody({ entities, kind }: { entities: string[]; kind: ImageKind }):
   // pass). Icons: a line per item, laid out as sheets (IMAGES.md §2a), written
   // locally, so the plan follows replace, model and quality.
   const sheets = kind === 'icon';
-  const [sheetCalls, setSheetCalls] = useState<{ calls: number; estimate: ImageEstimate } | null>(
-    null,
-  );
+  const [sheetCalls, setSheetCalls] = useState<{
+    calls: number;
+    estimate: ImageEstimate;
+    grids: string[];
+  } | null>(null);
   const rowsRef = useRef<Row[]>([]);
   useEffect(() => {
     rowsRef.current = rows;
@@ -105,7 +107,12 @@ function BatchBody({ entities, kind }: { entities: string[]; kind: ImageKind }):
               : {}),
           })),
         );
-        if (sheets) setSheetCalls({ calls: plan.calls, estimate: plan.estimate });
+        if (sheets)
+          setSheetCalls({
+            calls: plan.calls,
+            estimate: plan.estimate,
+            grids: (plan.sheets ?? []).map((g) => `${g.cols}×${g.rows}`),
+          });
         setPhase('ready');
       })
       .catch((e: unknown) => {
@@ -143,6 +150,7 @@ function BatchBody({ entities, kind }: { entities: string[]; kind: ImageKind }):
   // Icon sheets: each generated sheet waits for review; accepted cells become icons.
   const [outcomes, setOutcomes] = useState<SheetOutcome[]>([]);
   const [accepted, setAccepted] = useState<Record<string, number[]>>({});
+  const [cellCursor, setCellCursor] = useState(0);
 
   const close = (): void => {
     if (phaseRef.current === 'running') void images.cancel(batchId.current);
@@ -372,12 +380,18 @@ function BatchBody({ entities, kind }: { entities: string[]; kind: ImageKind }):
             outcomes={outcomes}
             accepted={accepted}
             names={Object.fromEntries(rows.map((r) => [r.entityId, r.name]))}
-            onToggle={(sheet, cell) =>
-              setAccepted((a) => {
-                const cur = new Set(a[sheet] ?? []);
-                if (cur.has(cell)) cur.delete(cell);
-                else cur.add(cell);
-                return { ...a, [sheet]: [...cur].sort((x, y) => x - y) };
+            cursor={cellCursor}
+            onCursor={setCellCursor}
+            onSet={(refs, on) =>
+              setAccepted((acc) => {
+                const next = { ...acc };
+                for (const r of refs) {
+                  const cur = new Set(next[r.sheet] ?? []);
+                  if (on) cur.add(r.cell);
+                  else cur.delete(r.cell);
+                  next[r.sheet] = [...cur].sort((x, y) => x - y);
+                }
+                return next;
               })
             }
           />
@@ -506,6 +520,9 @@ function BatchBody({ entities, kind }: { entities: string[]; kind: ImageKind }):
               >
                 {calls} {calls === 1 ? 'call' : 'calls'}
                 {sheets && ` · ${items} icons`}
+                {sheets && sheetCalls && sheetCalls.grids.length > 0 && items > 0 && (
+                  <span data-testid="image-batch-grid">{` · ${sheetCalls.grids.join(', ')}`}</span>
+                )}
               </span>
             </div>
           </div>

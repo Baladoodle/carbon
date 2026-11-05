@@ -316,54 +316,93 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-  max-height: 52vh;
+  max-height: 56vh;
   overflow: auto;
+}
+.img-sheet-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 .img-sheet {
   display: grid;
-  grid-template-columns: 220px minmax(0, 1fr);
+  grid-template-columns: 260px minmax(0, 1fr);
   gap: 12px;
   align-items: start;
 }
 .img-sheet-preview {
-  width: 220px;
-  height: 220px;
-  object-fit: contain;
+  position: relative;
+  width: 260px;
+}
+.img-sheet-preview img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.img-sheet-box {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1px solid color-mix(in srgb, var(--text) 22%, transparent);
+  border-radius: 2px;
+  pointer-events: none;
+}
+.img-sheet-box-cursor {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
 }
 .img-sheet-cells {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
   gap: 6px;
 }
 .img-cell {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  padding: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-height: 64px;
+  padding: 6px 4px;
   border: 1px solid var(--line);
   border-radius: var(--radius-control);
   background: var(--surface-2);
-  opacity: 0.45;
+  color: var(--text-2);
+  opacity: 0.5;
   cursor: pointer;
   transition:
     opacity var(--dur-hover) var(--ease),
     border-color var(--dur-hover) var(--ease);
 }
-.img-cell img {
+.img-cell-pics {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.img-cell-crop {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  border-radius: 4px;
+}
+.img-cell-icon {
   width: 32px;
   height: 32px;
 }
+.img-cell-flags {
+  font-size: var(--text-meta);
+  line-height: 1.2;
+  text-align: center;
+}
 .img-cell-on {
   opacity: 1;
-  border-color: var(--accent);
+  border-color: color-mix(in srgb, var(--ai) 45%, var(--line));
 }
 .img-cell-flagged {
-  border-color: color-mix(in srgb, var(--warn) 60%, var(--line));
+  border-color: color-mix(in srgb, var(--warn) 55%, var(--line));
 }
-.img-cell-on.img-cell-flagged {
+.img-cell-cursor {
+  opacity: 1;
   border-color: var(--accent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--warn) 60%, transparent);
+  box-shadow: var(--glow);
 }
 .img-cell:disabled {
   cursor: default;
@@ -378,5 +417,11 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  grid-template-columns: none;
+}
+.img-cell-name {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-meta);
 }
