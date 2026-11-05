@@ -324,7 +324,12 @@ describe('mergeFile', () => {
 
 describe('applyFileChanges', () => {
   it('property: equals re-reading every file with the changes applied', () => {
-    const w = sampleWorld();
+    const base = sampleWorld();
+    // With intent curves: numbers/curves.json is a root file like the others.
+    const w = {
+      ...base,
+      numbers: { ...base.numbers, curves: [{ id: 'c1', y: 'x', over: { axis: 'tier' as const } }] },
+    };
     const all = worldToFiles(w);
     const paths = [...all.keys()];
     const glide = w.entities.glide as Entity;
@@ -346,6 +351,11 @@ describe('applyFileChanges', () => {
         md({ ...glide, kind: 'item', fields: { subkind: 'tool' } }),
       ] as const),
       fc.constant(['taste/rules.json', '[{"id":"r","text":"no"}]'] as const),
+      fc.constant([
+        'numbers/curves.json',
+        '[{"id":"c2","y":"x * 2","over":{"axis":"tier"},"intent":[{"x":0,"y":1}]}]',
+      ] as const),
+      fc.constant(['carbon.json', '{"format":1,"name":"Renamed"}'] as const),
       fc.constant(['spreads/s1.json', '{"id":"s1","created":"x"}'] as const),
     );
     fc.assert(

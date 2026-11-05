@@ -43,6 +43,7 @@ export async function readWorldFiles(dir: string): Promise<FileMap> {
     PATHS.schema,
     PATHS.variables,
     PATHS.formulas,
+    PATHS.curves,
     PATHS.rules,
     PATHS.reasons,
     PATHS.patterns,
