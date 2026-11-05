@@ -20,7 +20,7 @@ import { requestFieldFocus } from '../../bench/store';
 import { useNotes } from '../../state/notes';
 import { flash, focusEntity, startSpreadAt, uiStore, useUi } from '../../state/ui';
 import { currentWorld, transact, useWorld, whenRev } from '../../state/world';
-import { Kbd } from '../../ui';
+import { Empty, Kbd } from '../../ui';
 import { IconColumn } from '../../ui/icons';
 import { defineView } from '../define';
 import { at, normalize, side, step, type Cursor } from '@core/column/cursor';
@@ -868,9 +868,9 @@ function Column({ world, model }: { world: World; model: ColumnModel }): ReactNo
         />
       )}
       {empty && (
-        <div className="column-empty ui-empty">
+        <Empty className="column-empty">
           No bands yet. <Kbd>n</Kbd> to add one.
-        </div>
+        </Empty>
       )}
       {tip && (
         <div className="ui-tooltip column-tip" style={{ left: tip.x, top: tip.y }} role="tooltip">

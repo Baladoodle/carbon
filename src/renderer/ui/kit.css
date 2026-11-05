@@ -433,12 +433,24 @@
 /* ── Small things ────────────────────────────────────────────────────────── */
 /* An empty state: what's missing and the one key that fixes it (VISUAL §1). Views position it. */
 .ui-empty {
+  flex: 1 1 auto;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 96px;
   margin: 0;
+  padding: 24px 16px;
   color: var(--text-2);
   font-size: var(--text-body);
   line-height: 20px;
+  text-align: center;
 }
 .ui-empty .ui-kbd {
+  margin: 0 2px;
+}
+
+.ui-kbd {
   margin: 0 2px;
 }
 

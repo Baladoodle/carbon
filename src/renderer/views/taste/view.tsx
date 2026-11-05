@@ -15,6 +15,7 @@ import {
   IconClose,
   IconSpark,
   IconTaste,
+  Empty,
   Input,
   Kbd,
   Tooltip,
@@ -341,9 +342,9 @@ function TasteBody({ taste, since }: { taste: Taste; since: number }): ReactNode
             />
           ))}
           {taste.patterns.length === 0 && since === 0 && (
-            <div className="taste-empty ui-empty">
+            <Empty className="taste-empty">
               No judgements yet. <Kbd>5</Kbd> to spread.
-            </div>
+            </Empty>
           )}
         </div>
         {dismissed > 0 && (

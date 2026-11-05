@@ -3,7 +3,7 @@ import type { AiLogEntry } from '@core/ai/gateway';
 import { MOMENTS, type Moment } from '@core/ai/moments';
 import { useActions } from '../actions';
 import { setUi } from '../state/ui';
-import { Table, TBody, TD, TH, THead, TR, Tabs, cx } from '../ui';
+import { Empty, Table, TBody, TD, TH, THead, TR, Tabs, cx } from '../ui';
 import { ai, aiRequest, useAiStatus } from './client';
 import './ai.css';
 
@@ -148,7 +148,7 @@ export function AiLog(): ReactNode {
         onMouseDown={(e) => e.stopPropagation()}
       >
         {entries.length === 0 ? (
-          <p className="ai-log-empty ui-empty">No AI calls this session.</p>
+          <Empty className="ai-log-empty">No AI calls this session.</Empty>
         ) : (
           <>
             <div className="ai-log-head">

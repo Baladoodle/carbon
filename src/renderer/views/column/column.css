@@ -254,12 +254,7 @@
 /* Empty world. */
 .column-empty {
   position: absolute;
-  left: 50%;
-  top: 45%;
-  translate: -50% -50%;
-  display: flex;
-  gap: 6px;
-  align-items: center;
+  inset: 0;
   pointer-events: none;
 }
 

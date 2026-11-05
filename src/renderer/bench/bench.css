@@ -460,3 +460,18 @@
   flex: none;
   gap: 4px;
 }
+
+/* Empty optional fields wait behind one quiet affordance (VISUAL.md §6.7). */
+.bench-add-field {
+  color: var(--text-3);
+}
+.bench-add-field:hover,
+.bench-add-field[data-state='open'] {
+  color: var(--text);
+}
+
+/* Nothing in focus: the shared empty state, centred in the panel (VISUAL.md §7). */
+.bench-empty {
+  display: flex;
+  height: 100%;
+}

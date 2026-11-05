@@ -11,7 +11,7 @@ import { invoke } from '../../bridge';
 import { CHECK_ADAPTERS } from '../../palette/Platform';
 import { focusEntity } from '../../state/ui';
 import { currentWorld, useWorld } from '../../state/world';
-import { Button, cx, Input, Kbd, StateGlyph, Textarea, toast, Tooltip } from '../../ui';
+import { Button, cx, Input, Empty, Kbd, StateGlyph, Textarea, toast, Tooltip } from '../../ui';
 import { IconExport } from '../../ui/icons';
 import { defineView } from '../define';
 import './export.css';
@@ -279,9 +279,9 @@ function ExportView(): ReactNode {
   if (!world) return null;
   if (exportable.length === 0)
     return (
-      <div className="export-empty ui-empty" data-testid="export-empty">
+      <Empty className="export-empty" data-testid="export-empty">
         Nothing decided to export. <Kbd>d</Kbd> decides the entity on the Bench.
-      </div>
+      </Empty>
     );
 
   return (

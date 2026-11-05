@@ -13,7 +13,7 @@
   scrollbar-width: none;
 }
 .climate-none {
-  padding: 24px 16px;
+  height: 100%;
 }
 .climate-stage {
   flex: 1;
@@ -211,8 +211,6 @@
 .climate-hint {
   position: absolute;
   inset: 0;
-  display: grid;
-  place-items: center;
   pointer-events: none;
 }
 

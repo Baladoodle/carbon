@@ -23,6 +23,7 @@ export { Tabs, type TabsProps } from './Tabs';
 export { Table, THead, TBody, TR, TH, TD } from './Table';
 export { StateGlyph, type StateGlyphProps } from './StateGlyph';
 export { Kbd } from './Kbd';
+export { Empty } from './Empty';
 export { cx } from './cx';
 export { TOKENS, depthTint, mix } from './tokens';
 export * from './icons';

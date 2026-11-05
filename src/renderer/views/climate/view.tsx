@@ -16,7 +16,7 @@ import { entitiesInBiome } from '@core/placement';
 import { useActions } from '../../actions';
 import { flash, focusEntity, startSpreadAt, useUi } from '../../state/ui';
 import { currentWorld, dispatch, useWorld, whenRev } from '../../state/world';
-import { Kbd, StateGlyph, Tabs, Tooltip, cx } from '../../ui';
+import { Empty, Kbd, StateGlyph, Tabs, Tooltip, cx } from '../../ui';
 import { IconClimate } from '../../ui/icons';
 import { defineView } from '../define';
 import { Burst } from '../column/burst';
@@ -441,9 +441,9 @@ function ClimateView(): ReactNode {
   if (!world) return <div className="view-empty" />;
   if (bands.length === 0 || !band)
     return (
-      <div className="climate-none ui-empty" data-testid="climate-empty">
+      <Empty className="climate-none" data-testid="climate-empty">
         No bands yet. <Kbd>1</Kbd> to draw one on the Column.
-      </div>
+      </Empty>
     );
 
   return (
@@ -536,9 +536,9 @@ function ClimateView(): ReactNode {
               />
             ))}
             {live.length === 0 && (
-              <div className="climate-hint t-2">
-                No biomes yet. <kbd className="ui-kbd">n</kbd> to add one.
-              </div>
+              <Empty className="climate-hint">
+                No biomes yet. <Kbd>n</Kbd> to add one.
+              </Empty>
             )}
           </div>
           <span className="climate-axis climate-axis-x t-3">cold</span>

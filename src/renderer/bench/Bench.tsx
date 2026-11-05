@@ -11,7 +11,10 @@ import {
   Button,
   IconButton,
   IconClose,
+  IconPlus,
   Input,
+  Empty,
+  Kbd,
   Menu,
   StateGlyph,
   toast,
@@ -29,6 +32,10 @@ import { Relations } from './Relations';
 import { KillDialog, neededStore, stateDialog, transitions, WhyDialog } from './StateControl';
 import { benchStore, fieldId, setBench, useBench } from './store';
 import { attributesFor, COMMON_DEFS, defOf, parseNumber } from '@core/bench/value';
+import type { FieldDef } from '@core/model/fields';
+import { splitFields } from '@core/bench/optional';
+import { requiredFor } from '@core/model/lifecycle';
+import { requestFieldFocus } from './store';
 
 /**
  * The Bench (docs/EXPERIENCE.md §3): the entity in focus, rendered from its
@@ -53,7 +60,14 @@ export function Bench(): ReactNode {
     [],
   );
 
-  if (!entity || !world) return <div data-testid="bench-empty" />;
+  if (!entity || !world)
+    return (
+      <div className="bench-empty" data-testid="bench-empty">
+        <Empty>
+          Nothing in focus. <Kbd>ctrl+k</Kbd> to find an entity.
+        </Empty>
+      </div>
+    );
   return <EntityBench key={entity.id} world={world} entity={entity} />;
 }
 
@@ -83,6 +97,12 @@ function EntityBench({ world, entity }: { world: World; entity: Entity }): React
   const numbers = useNumbers();
   const notes = useNotes(entity.id);
   useFocusRequest(root, entity.id);
+  // A refused state change shows every field the target state needs, not only the first step's.
+  const optional = useOptional(
+    world,
+    entity,
+    needed ? [...needed.keys, ...requiredFor(schemaOf(world), entity, needed.state)] : [],
+  );
 
   // Leaving the Bench for the view counts as finishing the edit.
   const onBlur = (e: FocusEvent): void => {
@@ -266,6 +286,12 @@ function EntityBench({ world, entity }: { world: World; entity: Entity }): React
           if (!x.ok) flash(x.error.message, 'error');
         }),
     })),
+    ...optional.hidden.map((d): Action => ({
+      id: `bench.addField.${d.key}`,
+      label: `Add field: ${d.label}`,
+      group: 'Bench',
+      run: () => optional.reveal(d.key),
+    })),
     {
       id: 'bench.delete',
       label: `Delete ${entity.name}`,
@@ -306,7 +332,6 @@ function EntityBench({ world, entity }: { world: World; entity: Entity }): React
   ];
   const neededFor = (key: string): string | undefined =>
     needed?.keys.includes(key) ? `Needed to be ${needed.state}` : undefined;
-  const kindFields = kind.fields;
   const attrs = attributesFor(kind, entity);
   // Live consequences (EXPERIENCE §3): the formulas that read this entity, evaluated for it.
   const consequences = numbers
@@ -387,16 +412,30 @@ function EntityBench({ world, entity }: { world: World; entity: Entity }): React
       )}
 
       <section className="bench-section">
-        {kindFields.map((f) => (
-          <FieldRow key={f.key} world={world} entity={entity} def={f} needed={neededFor(f.key)} />
-        ))}
-        <FieldRow
-          world={world}
-          entity={entity}
-          def={COMMON_DEFS.description}
-          needed={neededFor('description')}
-        />
-        <FieldRow world={world} entity={entity} def={COMMON_DEFS.tags} />
+        {optional.shown
+          .filter((d) => d.key !== 'why')
+          .map((d) => (
+            <FieldRow key={d.key} world={world} entity={entity} def={d} needed={neededFor(d.key)} />
+          ))}
+        {optional.hidden.length > 0 && (
+          <Menu
+            trigger={
+              <Button
+                size="sm"
+                variant="ghost"
+                className="bench-add bench-add-field"
+                data-testid="bench-add-field"
+              >
+                <IconPlus /> Field
+              </Button>
+            }
+            items={optional.hidden.map((d) => ({
+              label: d.label,
+              onSelect: () => optional.reveal(d.key),
+            }))}
+            returnFocus={false}
+          />
+        )}
       </section>
 
       {(attrs.length > 0 || extraAttrs.length > 0 || consequences.length > 0) && (
@@ -438,16 +477,18 @@ function EntityBench({ world, entity }: { world: World; entity: Entity }): React
         <Relations world={world} entity={entity} />
       </section>
 
-      <section className="bench-section">
-        <h3 className="section-label">Why</h3>
-        <FieldRow
-          world={world}
-          entity={entity}
-          def={COMMON_DEFS.why}
-          bare
-          needed={neededFor('why')}
-        />
-      </section>
+      {optional.shown.some((d) => d.key === 'why') && (
+        <section className="bench-section">
+          <h3 className="section-label">Why</h3>
+          <FieldRow
+            world={world}
+            entity={entity}
+            def={COMMON_DEFS.why}
+            bare
+            needed={neededFor('why')}
+          />
+        </section>
+      )}
 
       {notes.length > 0 && (
         <section className="bench-section">
@@ -489,6 +530,54 @@ function EntityBench({ world, entity }: { world: World; entity: Entity }): React
       <KillDialog world={world} entity={entity} />
     </div>
   );
+}
+
+/**
+ * The fields the Bench shows, and the empty optional ones waiting behind
+ * "+ Field" (core/bench/optional.ts). A field that has shown stays shown until
+ * the entity leaves the Bench, so clearing one never makes it vanish under you.
+ */
+function useOptional(
+  world: World,
+  entity: Entity,
+  needed: readonly string[],
+): { shown: FieldDef[]; hidden: FieldDef[]; reveal: (key: string) => void } {
+  const kind = schemaOf(world).kinds[entity.kind];
+  const defs: FieldDef[] = [
+    ...kind.fields,
+    COMMON_DEFS.description,
+    COMMON_DEFS.tags,
+    COMMON_DEFS.why,
+  ];
+  // Fields with a reason of the moment: focus, a proposal or three waiting, a focus request.
+  const live = useBench((s) => {
+    const keys: string[] = [];
+    if (s.field?.entity === entity.id) keys.push(s.field.key);
+    if (s.three?.entity === entity.id) keys.push(s.three.key);
+    if (s.focusRequest?.entity === entity.id) keys.push(s.focusRequest.key);
+    for (const k of Object.keys(s.pending))
+      if (k.startsWith(`${entity.id}:`)) keys.push(k.slice(entity.id.length + 1));
+    return keys.join('\n');
+  });
+  const [sticky, setSticky] = useState<readonly string[]>([]);
+  const also = new Set([...sticky, ...needed, ...(live ? live.split('\n') : [])]);
+  const split = splitFields(
+    schemaOf(world),
+    entity,
+    defs.map((d) => d.key),
+    also,
+  );
+  // Derived state, set during render (like useSynced below): no extra frame.
+  if (split.shown.some((k) => !sticky.includes(k)))
+    setSticky([...new Set([...sticky, ...split.shown])]);
+  const byKey = new Map(defs.map((d) => [d.key, d]));
+  const pick = (keys: string[]): FieldDef[] =>
+    keys.map((k) => byKey.get(k)).filter((d): d is FieldDef => !!d);
+  return {
+    shown: pick(split.shown),
+    hidden: pick(split.hidden),
+    reveal: (key) => requestFieldFocus(entity.id, key),
+  };
 }
 
 function AttributeRow({

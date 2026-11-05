@@ -17,7 +17,17 @@ import {
 import { useActions } from '../../actions';
 import { flash } from '../../state/ui';
 import { dispatch } from '../../state/world';
-import { cx, IconButton, IconClose, IconIntent, IconPlus, Input, Kbd, Select } from '../../ui';
+import {
+  cx,
+  IconButton,
+  IconClose,
+  IconIntent,
+  IconPlus,
+  Input,
+  Empty,
+  Kbd,
+  Select,
+} from '../../ui';
 import { CurvePlot } from './CurvePlot';
 
 const uniqueId = (curves: Curve[]): string => {
@@ -345,9 +355,9 @@ export function Curves({
         />
       ))}
       {curves.length === 0 ? (
-        <p className="numbers-empty ui-empty">
+        <Empty className="numbers-empty">
           No curves yet. <Kbd>c</Kbd> to add one.
-        </p>
+        </Empty>
       ) : (
         <IconButton
           size="sm"

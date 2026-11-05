@@ -220,7 +220,7 @@
   flex: 1 1 auto;
 }
 .taste-empty {
-  padding: 12px 8px;
+  height: 100%;
 }
 .taste-dismissed {
   margin: 4px 8px 8px;

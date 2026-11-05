@@ -164,8 +164,7 @@
   padding: 0 8px 8px;
 }
 .ai-log-empty {
-  margin: 0;
-  padding: 16px 8px 8px;
+  min-height: 72px;
 }
 
 /* Stand-in Column (W1 replaces). */
