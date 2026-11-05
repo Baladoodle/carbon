@@ -99,9 +99,11 @@ rename: Column model 3.2 → 0.8 ms, geometry 2.0 → 0.6 ms.
   a palette action per biome; the Bench's notes ("Dismiss the notes on X")
   and relations ("Unrelate X (pairs with)") are palette actions. Codex
   widths: `>`, `<`, palette reset.
-- **Tests:** unit and property tests: 566 on the merged main (about 45 of
-  them mine, several property tests); e2e: 103 on the merged main, 15 of
-  them mine, in `column.spec` and `world.spec`.
+- **Tests (on the latest merged main):** unit and property tests 646, all
+  passing in `npm run check` (about 45 of them mine, several property
+  tests); e2e 105, all passing (15 of them mine, in `column.spec` and
+  `world.spec`). Rename round trip in that full run: 9.2 ms median; panning
+  60.7 fps.
 
 ## 5. Outside my folders, and decisions
 
@@ -146,6 +148,11 @@ rename: Column model 3.2 → 0.8 ms, geometry 2.0 → 0.6 ms.
   kept from patches (or memoised per `entities` object) would remove it.
   W4's state-change trigger (`ai/triggers.ts`) also walks every entity per
   patch (~0.4 ms).
+- **A flaky property test in W4's area:** `src/core/prompts/stream.test.ts ›
+  a truncated stream yields only the complete items` failed once on the
+  merged main with counterexample `[[{"{":-0}],1530009722]`: JSON turns `-0`
+  into `0`, so the deep-equal fails. It passes on other seeds. The test (or
+  its arbitrary) should treat `-0` and `0` as equal, or exclude `-0`.
 - **Codex selection survives filtering**: bulk state and spread act on
   selected rows the filter now hides (the count is shown). A design call,
   not changed.
