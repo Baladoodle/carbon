@@ -47,6 +47,28 @@ const isIdentStart = (c: string): boolean =>
   (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c === '_';
 const isIdent = (c: string): boolean => isIdentStart(c) || isDigit(c);
 
+/** Whether a token (or whitespace) can start at this character. */
+const startsToken = (c: string): boolean =>
+  isIdent(c) ||
+  OPS1.has(c) ||
+  c === '"' ||
+  c === '#' ||
+  c === ' ' ||
+  c === '\t' ||
+  c === '\r' ||
+  c === '\n';
+
+const NAME_HINT = 'Names use the letters a–z and A–Z, digits and _';
+
+const CHAR_HINTS: Record<string, string> = {
+  '&': 'Use and',
+  '|': 'Use or',
+  '!': 'Use not, or != to compare',
+  "'": 'Strings use double quotes',
+  '{': 'Group with ( and )',
+  '}': 'Group with ( and )',
+};
+
 export interface LexResult {
   tokens: Token[];
   diagnostics: Diagnostic[];
@@ -171,19 +193,25 @@ export function lex(source: string): LexResult {
           const map: Record<string, string> = { n: '\n', t: '\t', '"': '"', '\\': '\\' };
           const m = map[n];
           if (m === undefined) {
+            // The escaped character, whole (an astral one is two UTF-16 units).
+            const width = (source.codePointAt(i + 1) ?? 0) > 0xffff ? 2 : 1;
+            const ch = source.slice(i + 1, i + 1 + width);
             diagnostics.push(
               diag(
                 'parse',
                 'lex.escape',
-                `"\\${n}" is not an escape`,
-                { start: i, end: i + 2 },
+                `"\\${ch}" is not an escape`,
+                { start: i, end: i + 1 + width },
                 {
                   hint: 'Escapes are \\" \\\\ \\n and \\t',
                 },
               ),
             );
-            value += n;
-          } else value += m;
+            value += ch;
+            i += 1 + width;
+            continue;
+          }
+          value += m;
           i += 2;
           continue;
         }
@@ -218,26 +246,20 @@ export function lex(source: string): LexResult {
       i++;
       continue;
     }
-    const hints: Record<string, string> = {
-      '&': 'Use and',
-      '|': 'Use or',
-      '!': 'Use not, or != to compare',
-      "'": 'Strings use double quotes',
-      '{': 'Group with ( and )',
-      '}': 'Group with ( and )',
-    };
-    // Report a run of unknown characters once.
+    // Anything else isn't part of the language. A run of such characters is
+    // one error, and its span covers whole characters (never half of an
+    // astral one), so the editor can underline it.
     const start = i;
-    i++;
+    while (i < source.length && !startsToken(source.charAt(i)))
+      i += (source.codePointAt(i) ?? 0) > 0xffff ? 2 : 1;
+    const text = source.slice(start, i);
     diagnostics.push(
       diag(
         'parse',
         'lex.char',
-        `"${source.slice(start, i)}" isn't part of the language`,
+        `"${text}" isn't part of the language`,
         { start, end: i },
-        {
-          hint: hints[c],
-        },
+        { hint: CHAR_HINTS[c] ?? (/^\p{L}/u.test(text) ? NAME_HINT : undefined) },
       ),
     );
   }

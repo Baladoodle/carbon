@@ -68,6 +68,8 @@ export async function launchCarbon(opts: LaunchOptions = {}): Promise<CarbonApp>
       CARBON_WORLD_DIR: worldDir,
       CARBON_USER_DATA: userData,
       CARBON_AI: 'fake',
+      // Never read a real key from the developer's keyring in a test run.
+      CARBON_KEYRING: 'off',
       ...opts.env,
     },
   });

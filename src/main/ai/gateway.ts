@@ -30,7 +30,16 @@ import { ResultCache } from './cache';
 import { backoffMs, classifyError, DEFAULT_RETRY, retryAfterMs, type RetryPolicy } from './errors';
 import { AiLogStore, type SentRequest } from './log';
 import { cacheKey, toCountParams, toMessageParams, type MessageParams } from './request';
-import { aiSettings, costOf, effortFor, MODEL, priceFor } from './settings';
+import {
+  aiSettings,
+  costNanos,
+  effortFor,
+  MODEL,
+  nanosToUsd,
+  priceFor,
+  usdToNanos,
+} from './settings';
+import { holdsSecret } from './secrets';
 
 /**
  * The real `AiGateway` (docs/SYSTEM.md §8): every AI request in carbon goes
@@ -106,6 +115,13 @@ const countOf = (result: unknown): number => {
   return 1;
 };
 
+const SECRET_ERROR: AiError = {
+  code: 'bad_request',
+  message:
+    'Not sent: the request would contain an API key (it is somewhere in the world’s text). Remove it, then try again.',
+  retryable: false,
+};
+
 export class ClaudeAiGateway implements AiGateway {
   readonly log$: AiLogStore;
   private readonly registry: PromptRegistry;
@@ -115,8 +131,9 @@ export class ClaudeAiGateway implements AiGateway {
   private readonly inflight = new Map<string, AbortController>();
   private enabled = true;
   private pending = 0;
-  private sessionUsd = 0;
-  private monthBaseUsd = 0;
+  /** Spend in nano-dollars (integers, so the budget pause is exact). */
+  private sessionNanos = 0;
+  private monthBaseNanos = 0;
   private seq = 0;
   private lastStatus = '';
 
@@ -132,7 +149,7 @@ export class ClaudeAiGateway implements AiGateway {
   /** Starts the JSONL log in the world directory and loads this month's spend. */
   async attach(worldDir: string): Promise<void> {
     this.log$.attach(worldDir);
-    this.monthBaseUsd = await this.log$.monthSpend(this.month());
+    this.monthBaseNanos = usdToNanos(await this.log$.monthSpend(this.month()));
     this.emit();
   }
 
@@ -150,14 +167,14 @@ export class ClaudeAiGateway implements AiGateway {
     reason?: string;
   } {
     const { budget } = aiSettings(this.opts.getWorld().settings);
-    const month = this.monthBaseUsd + this.sessionUsd;
-    if (this.sessionUsd >= budget.sessionUsd)
+    const month = this.monthBaseNanos + this.sessionNanos;
+    if (this.sessionNanos >= usdToNanos(budget.sessionUsd))
       return {
         budget,
         paused: true,
         reason: `Session budget of $${budget.sessionUsd.toFixed(2)} reached`,
       };
-    if (month >= budget.monthUsd)
+    if (month >= usdToNanos(budget.monthUsd))
       return {
         budget,
         paused: true,
@@ -174,7 +191,10 @@ export class ClaudeAiGateway implements AiGateway {
       enabled: this.enabled,
       ...(reason ? { reason } : {}),
       model: this.model,
-      spend: { sessionUsd: this.sessionUsd, monthUsd: this.monthBaseUsd + this.sessionUsd },
+      spend: {
+        sessionUsd: nanosToUsd(this.sessionNanos),
+        monthUsd: nanosToUsd(this.monthBaseNanos + this.sessionNanos),
+      },
       budget: b.budget,
       paused: b.paused,
       pending: this.pending,
@@ -287,6 +307,8 @@ export class ClaudeAiGateway implements AiGateway {
     const entity = built.entity ?? entityOf();
     const logBase = { ...base, ...(entity ? { entity } : {}) };
     let params = toMessageParams(built, this.model);
+    if (holdsSecret(params, this.opts.client.apiKey))
+      return this.finish(logBase, { ok: false, error: SECRET_ERROR }, { attempts: 0 });
 
     // One request per entity: a new trigger cancels the stale one.
     const ac = new AbortController();
@@ -310,6 +332,8 @@ export class ClaudeAiGateway implements AiGateway {
           if (again.ok) {
             built = again.value;
             params = toMessageParams(built, this.model);
+            if (holdsSecret(params, this.opts.client.apiKey))
+              return this.finish(logBase, { ok: false, error: SECRET_ERROR }, { attempts: 0 });
             counted = await this.count(params, ac.signal);
           }
         }
@@ -375,17 +399,18 @@ export class ClaudeAiGateway implements AiGateway {
         options,
       );
       const latencyMs = Math.max(0, this.now().getTime() - started);
+      const nanos = costNanos(outcome.usage, priceFor(settings, this.model));
       const meta: AiCallMeta = {
         moment,
         requestHash: key,
         model: this.model,
         usage: outcome.usage,
-        costUsd: costOf(outcome.usage, priceFor(settings, this.model)),
+        costUsd: nanosToUsd(nanos),
         latencyMs,
         cached: false,
         dropped: outcome.ok ? outcome.dropped : 0,
       };
-      this.sessionUsd += meta.costUsd;
+      this.sessionNanos += nanos;
       const extra = {
         attempts,
         estimate: built.estimate,

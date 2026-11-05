@@ -450,3 +450,23 @@ tbody:hover .numbers-when[data-empty],
 .numbers-when[data-empty]:focus-visible {
   opacity: 1;
 }
+
+/* Name completion at the caret (an overlay: fixed, so the editor's scrolling doesn't clip it). */
+.numbers-complete {
+  position: fixed;
+  z-index: 40;
+  margin: 0;
+  list-style: none;
+  max-width: 420px;
+  background: var(--surface-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-overlay);
+  box-shadow: var(--shadow-overlay);
+  backdrop-filter: blur(8px);
+}
+.numbers-complete-detail {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-meta);
+}

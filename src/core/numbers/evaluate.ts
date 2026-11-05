@@ -31,6 +31,13 @@ import {
  */
 export const DEFAULT_STEP_LIMIT = 200_000;
 
+/**
+ * How deeply evaluation may nest (an expression is at most MAX_DEPTH deep, so
+ * this is reached through calls of functions inside functions). Past it, the
+ * definition stops with an error instead of overflowing the stack.
+ */
+export const MAX_EVAL_DEPTH = 1000;
+
 export type DefResult = { ok: true; value: Value } | { ok: false; error: Diagnostic };
 
 export interface EvalWorld {
@@ -58,6 +65,12 @@ export type ReadSet = Set<string>;
 export class Evaluator {
   steps = 0;
   readonly reads: ReadSet = new Set();
+  private depth = 0;
+  /** The outermost call being evaluated, and how many calls are open. */
+  private outerCall: ExprOf<'call'> | undefined;
+  private openCalls = 0;
+  /** Collections built in this evaluation, by kind ('*' for all). */
+  private readonly collections = new Map<string, Value>();
 
   constructor(
     private readonly w: EvalWorld,
@@ -69,6 +82,25 @@ export class Evaluator {
 
   private fail(code: string, message: string, at: Span, hint?: string): never {
     throw new EvalFail(diag('eval', code, message, at, { hint, def: this.defName }));
+  }
+
+  /**
+   * Charges `n` steps for work that isn't a node: building a collection,
+   * scanning a list. Without it the step limit would bound nodes but not time
+   * (a query inside a query over thousands of entities).
+   */
+  private charge(n: number, at: Span): void {
+    this.steps += n;
+    if (this.steps > this.stepLimit) this.stopped(at);
+  }
+
+  private stopped(at: Span): never {
+    this.fail(
+      'eval.steps',
+      `Stopped after ${this.stepLimit.toLocaleString('en-US')} steps`,
+      at,
+      'Narrow the query, or split the formula',
+    );
   }
 
   private num(v: number, at: Span, what: string, hint?: string): number {
@@ -199,14 +231,28 @@ export class Evaluator {
     }
   }
 
-  private collection(kind: EntityKind | null): Value {
+  private collection(kind: EntityKind | null, at: Span): Value {
     const kinds = kind ? [kind] : ENTITY_KINDS;
     for (const k of kinds) this.reads.add(`kind:${k}`);
-    const ids = Object.values(this.w.world.entities)
+    const key = kind ?? '*';
+    const memo = this.collections.get(key);
+    if (memo) return memo;
+    const all = Object.values(this.w.world.entities);
+    this.charge(all.length, at);
+    const ids = all
       .filter((e) => (kind === null || e.kind === kind) && e.state !== 'graveyard')
       .map((e) => e.id)
       .sort();
-    return listValue(ids.map((id) => entityRef(id)));
+    const v = listValue(ids.map((id) => entityRef(id)));
+    this.collections.set(key, v);
+    return v;
+  }
+
+  /** Structural equality, charged by the size of what it compares. */
+  private equals(a: Value, b: Value, at: Span): boolean {
+    if (isList(a)) this.charge(a.items.length, at);
+    if (isList(b)) this.charge(b.items.length, at);
+    return valueEquals(a, b);
   }
 
   private resolution(e: Expr): Resolution {
@@ -251,8 +297,12 @@ export class Evaluator {
     frame: Frame,
     map: (v: Value, at: Span) => T,
     fallback: (v: Value) => T,
+    at: Span,
   ): T[] {
-    if (!fn) return items.map(fallback);
+    if (!fn) {
+      this.charge(items.length, at);
+      return items.map(fallback);
+    }
     return items.map((el) => map(this.evaluate(fn, { element: el, parent: frame }), fn.span));
   }
 
@@ -271,6 +321,7 @@ export class Evaluator {
         frame,
         (v, at) => this.number(v, at, 'Each value'),
         (v) => this.number(v, arg(0).span, 'Each element'),
+        arg(0).span,
       );
     };
     switch (n) {
@@ -300,6 +351,7 @@ export class Evaluator {
           frame,
           (v, at) => this.bool(v, at, 'The condition'),
           () => true,
+          arg(0).span,
         ).filter(Boolean).length;
       }
       case 'min':
@@ -313,6 +365,7 @@ export class Evaluator {
             frame,
             (v, at) => this.number(v, at, 'Each value'),
             (v) => this.number(v, arg(0).span, 'Each element'),
+            arg(0).span,
           );
           if (xs.length === 0)
             this.fail(
@@ -326,7 +379,13 @@ export class Evaluator {
             this.number(first, arg(0).span, `${n}'s argument`),
             ...a.slice(1).map((_, i) => numArg(i + 1)),
           ];
-        return n === 'min' ? Math.min(...xs) : Math.max(...xs);
+        // A loop, not Math.min(...xs): a long list would overflow the argument stack.
+        let best = xs[0] as number;
+        for (const x of xs) {
+          if (Number.isNaN(x)) return out(x);
+          if (n === 'min' ? x < best : x > best) best = x;
+        }
+        return best;
       }
       case 'if': {
         const c = this.bool(this.evaluate(arg(0), frame), arg(0).span, 'The condition');
@@ -339,7 +398,8 @@ export class Evaluator {
           "contains's first argument",
         );
         const x = this.evaluate(arg(1), frame);
-        return items.some((v) => valueEquals(v, x));
+        this.charge(items.length, e.span);
+        return items.some((v) => this.equals(v, x, e.span));
       }
       case 'clamp': {
         const [x, lo, hi] = [numArg(0), numArg(1), numArg(2)];
@@ -420,17 +480,43 @@ export class Evaluator {
     this.reads.add(`def:${r.name}`);
     const params = new Map<string, Value>();
     def.params.forEach((p, i) => params.set(p.name, this.evaluate(e.args[i] as Expr, frame)));
-    return this.evaluate(def.body, { params });
+    const outermost = this.openCalls === 0;
+    if (outermost) this.outerCall = e;
+    this.openCalls++;
+    try {
+      return this.evaluate(def.body, { params });
+    } catch (x) {
+      // A standalone expression (a curve's y) has its own source: an error
+      // inside a function's body is reported at the call in that source, so
+      // its span means something there.
+      if (outermost && this.defName === undefined && x instanceof EvalFail) {
+        throw new EvalFail({ ...x.diagnostic, span: { start: e.span.start, end: e.span.end } });
+      }
+      throw x;
+    } finally {
+      this.openCalls--;
+      if (outermost) this.outerCall = undefined;
+    }
   }
 
   evaluate(e: Expr, frame: Frame): Value {
-    if (++this.steps > this.stepLimit)
+    if (++this.steps > this.stepLimit) this.stopped(e.span);
+    if (this.depth >= MAX_EVAL_DEPTH)
       this.fail(
-        'eval.steps',
-        `Stopped after ${this.stepLimit.toLocaleString('en-US')} steps`,
-        e.span,
-        'Narrow the query, or split the formula',
+        'eval.depth',
+        `Functions call each other more than ${MAX_EVAL_DEPTH.toLocaleString('en-US')} deep`,
+        this.outerCall?.span ?? e.span,
+        'Call fewer functions inside each other',
       );
+    this.depth++;
+    try {
+      return this.node(e, frame);
+    } finally {
+      this.depth--;
+    }
+  }
+
+  private node(e: Expr, frame: Frame): Value {
     switch (e.type) {
       case 'num':
       case 'str':
@@ -470,7 +556,7 @@ export class Evaluator {
             return v;
           }
           case 'collection':
-            return this.collection(r.kind);
+            return this.collection(r.kind, e.span);
         }
         break;
       }
@@ -524,8 +610,8 @@ export class Evaluator {
         }
         const l = this.evaluate(e.left, frame);
         const r = this.evaluate(e.right, frame);
-        if (e.op === '==') return valueEquals(l, r);
-        if (e.op === '!=') return !valueEquals(l, r);
+        if (e.op === '==') return this.equals(l, r, e.span);
+        if (e.op === '!=') return !this.equals(l, r, e.span);
         const x = this.number(l, e.left.span, `The left side of ${e.op}`);
         const y = this.number(r, e.right.span, `The right side of ${e.op}`);
         switch (e.op) {

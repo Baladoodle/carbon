@@ -40,7 +40,9 @@ it('prompt evals', async () => {
     log: (l) => console.log(`  ${l}`),
   });
   const at = new Date().toISOString();
-  const report = buildReport(mode, at, MODEL, world, out.runs);
+  const ran = new Set(out.runs.map((r) => r.case.id));
+  const skipped = cases.filter((c) => !ran.has(c.id)).map((c) => c.id);
+  const report = buildReport(mode, at, MODEL, world, out.runs, skipped);
   await mkdir(REPORTS, { recursive: true });
   const stem = `${at.replace(/[:.]/g, '-')}-${mode}`;
   const md = reportMarkdown(report);

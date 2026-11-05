@@ -1,21 +1,36 @@
 import {
+  useEffect,
   useLayoutEffect,
   useRef,
   useState,
   type KeyboardEvent,
+  type MouseEvent,
   type PointerEvent,
   type ReactNode,
   type RefObject,
 } from 'react';
-import { formatNumber, intentAt, niceTicks, roundNice, type CurveSample } from '@core/numbers';
+import {
+  editIntent,
+  formatNumber,
+  intentAt,
+  nextIntentX,
+  niceTicks,
+  roundNice,
+  type CurveSample,
+  type IntentEdit,
+} from '@core/numbers';
 import type { EntityState } from '@core/model/kinds';
 import { focusEntity } from '../../state/ui';
 
 /**
  * A curve as an instrument (VISUAL.md §6.5): the formula as a 1.5px line, the
- * intent as a dashed line through 6px square control points you drag (or
- * nudge with ↑/↓, shift for more), and entities as dots coloured by state,
- * each with a tooltip of its value.
+ * intent as a dashed line through 6px square control points, and entities as
+ * dots coloured by state, each with a tooltip of its value.
+ *
+ * Intent points: drag one (up and down, and along x: on bands and tiers it
+ * snaps to a tick, and never passes its neighbours); double-click the plot to
+ * add one. On a focused point, ↑/↓ nudge it (shift for more), ←/→ move it
+ * along x, `+` adds a point next to it and delete removes it.
  */
 const H = 200;
 const M = { top: 12, right: 16, bottom: 24, left: 48 };
@@ -23,8 +38,10 @@ const M = { top: 12, right: 16, bottom: 24, left: 48 };
 export interface CurvePlotProps {
   sample: CurveSample;
   states: Record<string, EntityState>;
-  /** Called with all intent points (numeric x) when a drag or nudge ends. */
+  /** Called with all intent points (numeric x) when a drag or nudge ends; [] removes the intent. */
   onIntent?: (points: { x: number; y: number }[]) => void;
+  /** The intent point that has keyboard focus (for the palette's intent actions). */
+  onHandleFocus?: (index: number) => void;
   label: string;
 }
 
@@ -60,8 +77,17 @@ export function yDomain(sample: CurveSample, intent: { y: number }[]): [number, 
   return [lo - pad, hi + pad];
 }
 
-export function CurvePlot({ sample, states, onIntent, label }: CurvePlotProps): ReactNode {
+export function CurvePlot({
+  sample,
+  states,
+  onIntent,
+  onHandleFocus,
+  label,
+}: CurvePlotProps): ReactNode {
   const [box, width] = useWidth();
+  const svg = useRef<SVGSVGElement>(null);
+  /** A handle to focus once the next intent arrives (after a keyboard add or remove). */
+  const refocus = useRef<number | null>(null);
   const [drag, setDrag] = useState<{
     index: number;
     points: { x: number; y: number }[];
@@ -84,6 +110,16 @@ export function CurvePlot({ sample, states, onIntent, label }: CurvePlotProps): 
   const sx = (x: number): number => M.left + ((x - x0) / (x1 - x0 || 1)) * iw;
   const sy = (y: number): number => M.top + (1 - (y - y0) / (y1 - y0 || 1)) * ih;
   const fromPy = (py: number): number => y0 + (1 - (py - M.top) / ih) * (y1 - y0);
+  const fromPx = (px: number): number => x0 + ((px - M.left) / iw) * (x1 - x0);
+
+  useEffect(() => {
+    const want = refocus.current;
+    if (want === null) return;
+    refocus.current = null;
+    const handles = svg.current?.querySelectorAll<SVGRectElement>('[data-testid="intent-handle"]');
+    const n = handles?.length ?? 0;
+    if (n > 0) handles?.[Math.min(want, n - 1)]?.focus();
+  }, [sample.intent]);
 
   // The formula: separate segments where it has no value.
   const segments: string[] = [];
@@ -119,6 +155,7 @@ export function CurvePlot({ sample, states, onIntent, label }: CurvePlotProps): 
 
   const commit = (points: { x: number; y: number }[]): void =>
     onIntent?.(points.map((p) => ({ x: p.x, y: roundNice(p.y) })));
+  const edit = (e: IntentEdit): { x: number; y: number }[] => editIntent(sample.intent, e, sample);
 
   const down =
     (i: number) =>
@@ -131,7 +168,19 @@ export function CurvePlot({ sample, states, onIntent, label }: CurvePlotProps): 
     if (!drag) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const y = fromPy(e.clientY - rect.top);
-    setDrag({ ...drag, points: drag.points.map((p, i) => (i === drag.index ? { ...p, y } : p)) });
+    const x = fromPx(e.clientX - rect.left);
+    setDrag({
+      ...drag,
+      points: editIntent(drag.points, { type: 'move', index: drag.index, x, y }, sample),
+    });
+  };
+  const add = (e: MouseEvent<SVGSVGElement>): void => {
+    if (!onIntent) return;
+    if ((e.target as Element).closest('.plot-dot, .plot-handle')) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    commit(
+      edit({ type: 'add', x: fromPx(e.clientX - rect.left), y: fromPy(e.clientY - rect.top) }),
+    );
   };
   const up = (): void => {
     if (!drag) return;
@@ -141,11 +190,31 @@ export function CurvePlot({ sample, states, onIntent, label }: CurvePlotProps): 
   const nudge =
     (i: number) =>
     (e: KeyboardEvent<SVGRectElement>): void => {
-      if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+      const p = sample.intent[i];
+      if (!p) return;
+      let next: { x: number; y: number }[] | null = null;
+      if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+        const d = (e.key === 'ArrowUp' ? 1 : -1) * (e.shiftKey ? step : step / 10);
+        next = edit({ type: 'move', index: i, y: p.y + d });
+      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        const unit = categorical ? 1 : (x1raw - x0raw) / 20;
+        const d =
+          (e.key === 'ArrowRight' ? 1 : -1) * (e.shiftKey && !categorical ? unit * 5 : unit);
+        next = edit({ type: 'move', index: i, x: p.x + d });
+      } else if (e.key === '+' || e.key === '=') {
+        const x = nextIntentX(sample.intent, i, sample);
+        if (x !== null) {
+          next = edit({ type: 'add', x, y: intentAt(sample.intent, x) ?? p.y });
+          refocus.current = next.findIndex((q) => q.x === x);
+        } else next = sample.intent;
+      } else if (e.key === 'Delete' || e.key === 'Backspace') {
+        next = edit({ type: 'remove', index: i });
+        refocus.current = Math.max(0, i - 1);
+      }
+      if (!next) return;
       e.preventDefault();
       e.stopPropagation();
-      const d = (e.key === 'ArrowUp' ? 1 : -1) * (e.shiftKey ? step : step / 10);
-      commit(sample.intent.map((p, k) => (k === i ? { ...p, y: p.y + d } : p)));
+      if (next !== sample.intent) commit(next);
     };
 
   const tickLabel = (x: number): string => xTicks.find((t) => t.x === x)?.label ?? formatNumber(x);
@@ -157,9 +226,11 @@ export function CurvePlot({ sample, states, onIntent, label }: CurvePlotProps): 
         height={H}
         role="img"
         aria-label={label}
+        ref={svg}
         onPointerMove={move}
         onPointerUp={up}
         onPointerCancel={up}
+        onDoubleClick={add}
         data-testid="curve-plot"
       >
         <g className="plot-grid">
@@ -238,7 +309,10 @@ export function CurvePlot({ sample, states, onIntent, label }: CurvePlotProps): 
               aria-valuemax={roundNice(y1)}
               onPointerDown={down(i)}
               onKeyDown={nudge(i)}
-              onFocus={() => setFocused(i)}
+              onFocus={() => {
+                setFocused(i);
+                onHandleFocus?.(i);
+              }}
               onBlur={() => setFocused(null)}
             />
           );

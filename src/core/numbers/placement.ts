@@ -1,7 +1,8 @@
 import type { Entity } from '../model/entity';
 import { heightValue } from '../model/fields';
 import type { World } from '../model/world';
-import { resolvePlacement } from '../placement';
+import { resolvePlacement, type Placements } from '../placement';
+import { resolveFresh } from '../placement/resolve';
 
 /**
  * The small adapter between the numbers engine and placement
@@ -43,11 +44,20 @@ export function bandTiers(bands: Entity[]): Map<string, number> {
   return new Map(bands.map((b, i) => [b.id, i - zero]));
 }
 
-/** The engine's resolver: `resolvePlacement`, the lowest band each entity sits in. */
-export const resolvedPlacement: PlacementResolver = (world) => {
+/**
+ * The last map built per `resolvePlacement` result, with the band order it
+ * used: `resolvePlacement` reuses its result when a change touches nothing it
+ * reads, and then so does this, as the same Map. The engine skips comparing
+ * placements when the Map is the same one, so an edit that moves nothing costs
+ * no work per entity here.
+ */
+const built = new WeakMap<Placements, { bands: Entity[]; out: Map<string, Placed> }>();
+
+/** The map for one resolution: each entity's lowest band and that band's tier. */
+function build(world: World, placements: Placements): Map<string, Placed> {
   const tiers = bandTiers(bandOrder(world));
   const out = new Map<string, Placed>();
-  for (const p of Object.values(resolvePlacement(world))) {
+  for (const p of Object.values(placements)) {
     const band = p.bands[0] ?? null;
     out.set(p.id, {
       band,
@@ -56,4 +66,20 @@ export const resolvedPlacement: PlacementResolver = (world) => {
     });
   }
   return out;
+}
+
+/** The engine's resolver: `resolvePlacement`, the lowest band each entity sits in. */
+export const resolvedPlacement: PlacementResolver = (world) => {
+  const placements = resolvePlacement(world);
+  const hit = built.get(placements);
+  // The same placements and the very same band objects: nothing a tier reads
+  // changed. (A band's state isn't a placing input, but it moves tiers.)
+  if (hit && hit.bands.every((b) => world.entities[b.id] === b)) return hit.out;
+  const out = build(world, placements);
+  const bands = Object.values(world.entities).filter((e) => e.kind === 'band');
+  built.set(placements, { bands, out });
+  return out;
 };
+
+/** The same, with no memo at all (property tests compare the memo with it). */
+export const freshPlacement: PlacementResolver = (world) => build(world, resolveFresh(world));

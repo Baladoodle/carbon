@@ -4,6 +4,7 @@ import { FakeAiGateway } from '@core/ai/fake';
 import { OffAiGateway } from '@core/ai/off';
 import type { World } from '@core/model/world';
 import { ClaudeAiGateway } from './gateway';
+import { NO_KEY_REASON, resolveApiKey } from './key';
 import { loadRecorded, replayFetch } from './replay';
 
 /**
@@ -13,7 +14,8 @@ import { loadRecorded, replayFetch } from './replay';
  *  - `CARBON_AI=off`   always off
  *  - `CARBON_AI=replay` the real gateway over an offline API (recorded fixtures in
  *                     `CARBON_AI_FIXTURES`, else answers generated from each request's schema)
- *  - otherwise         the Claude API gateway if `ANTHROPIC_API_KEY` is set, else off ("no API key")
+ *  - otherwise         the Claude API gateway if there's a key (the system keyring, then
+ *                     `ANTHROPIC_API_KEY`; see key.ts), else off ("no API key")
  */
 export function createAiGateway(getWorld: () => World): AiGateway {
   const mode = process.env.CARBON_AI;
@@ -44,20 +46,25 @@ export function createAiGateway(getWorld: () => World): AiGateway {
       }),
     });
   }
-  if (!process.env.ANTHROPIC_API_KEY)
-    return new OffAiGateway('No API key: set ANTHROPIC_API_KEY to turn the AI on');
-  return new ClaudeAiGateway({ getWorld, client: createClaudeClient() });
+  const key = resolveApiKey();
+  if (!key) return new OffAiGateway(NO_KEY_REASON);
+  return new ClaudeAiGateway({ getWorld, client: createClaudeClient(key.key) });
 }
 
 /**
  * The SDK client. The official endpoint explicitly: `ANTHROPIC_BASE_URL` may
  * point elsewhere in tooling environments, and carbon only talks to the public
- * API. The SDK reads the key from `ANTHROPIC_API_KEY`; carbon never stores,
- * logs or prints it. Retries are the gateway's own (typed, abortable), so the
- * SDK's are off.
+ * API. The key comes from `resolveApiKey()` (keyring, then environment); carbon
+ * never stores, logs or prints it. Retries are the gateway's own (typed,
+ * abortable), so the SDK's are off.
  */
-export function createClaudeClient(): Anthropic {
-  return new Anthropic({ baseURL: 'https://api.anthropic.com', maxRetries: 0, timeout: 120_000 });
+export function createClaudeClient(apiKey = resolveApiKey()?.key): Anthropic {
+  return new Anthropic({
+    ...(apiKey ? { apiKey } : {}),
+    baseURL: 'https://api.anthropic.com',
+    maxRetries: 0,
+    timeout: 120_000,
+  });
 }
 
 export { ClaudeAiGateway } from './gateway';

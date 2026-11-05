@@ -311,6 +311,10 @@ export interface Report {
   costUsd: number;
   usage: Usage;
   metrics: Metric[];
+  /** Cases that never produced an answer to measure (API, network, refusal, truncation). */
+  unrun: { id: string; error: string }[];
+  /** Cases that never started (the run's spend cap was reached first). */
+  skipped: string[];
   pass: boolean;
   runs: {
     id: string;
@@ -330,6 +334,7 @@ export function buildReport(
   model: string,
   world: World,
   runs: readonly CaseRun[],
+  skipped: readonly string[] = [],
 ): Report {
   const metrics = computeMetrics(world, runs);
   const usage = runs.reduce<Usage>(
@@ -341,6 +346,14 @@ export function buildReport(
     }),
     { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
   );
+  // An answer that fails validation is measured (schema validity); anything
+  // else that failed means the case was never measured, so the run can't pass.
+  const unrun = runs
+    .filter((r) => !r.ok && r.error?.code !== 'invalid_output')
+    .map((r) => ({
+      id: r.case.id,
+      error: r.error ? `${r.error.code}: ${r.error.message}` : 'failed',
+    }));
   return {
     mode,
     at,
@@ -349,7 +362,13 @@ export function buildReport(
     costUsd: runs.reduce((a, r) => a + r.costUsd, 0),
     usage,
     metrics,
-    pass: metrics.every((m) => m.pass !== false),
+    unrun,
+    skipped: [...skipped],
+    pass:
+      runs.length > 0 &&
+      unrun.length === 0 &&
+      skipped.length === 0 &&
+      metrics.every((m) => m.pass !== false),
     runs: runs.map((r) => ({
       id: r.case.id,
       moment: r.case.moment,
@@ -381,6 +400,22 @@ export function reportMarkdown(r: Report): string {
     ...(r.mode === 'dry'
       ? [
           '> Dry run: the answers were generated offline from each request’s schema, not by Claude. The pipeline ran end to end; the quality metrics are not meaningful.',
+          '',
+        ]
+      : []),
+    ...(r.unrun.length > 0
+      ? [
+          `**${r.unrun.length} ${r.unrun.length === 1 ? 'case' : 'cases'} could not run**, so this run can't pass:`,
+          '',
+          ...r.unrun.map((u) => `- ${u.id}: ${u.error}`),
+          '',
+        ]
+      : []),
+    ...(r.skipped.length > 0
+      ? [
+          `**${r.skipped.length} ${r.skipped.length === 1 ? 'case' : 'cases'} did not start**: the spend cap was reached (raise it with \`--max-usd\`).`,
+          '',
+          ...r.skipped.map((id) => `- ${id}`),
           '',
         ]
       : []),

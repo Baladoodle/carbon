@@ -28,15 +28,8 @@ Rules: use only facts from the context; never invent numbers or relations. Write
  */
 export function specNumbers(world: World, ids: readonly string[]): string {
   const a = analyzeNumbers(world);
-  const seen = new Set<string>();
-  const defs: FormulaSummary[] = [];
-  for (const id of ids)
-    for (const f of relevantFormulas(a, world, id))
-      if (!seen.has(f.name)) {
-        seen.add(f.name);
-        defs.push(f);
-      }
-  defs.sort((x, y) => x.line - y.line);
+  // All the entities at once: summarising per entity repeated the work per formula.
+  const defs: FormulaSummary[] = relevantFormulas(a, world, ids);
   const vars = [...new Set(defs.flatMap((d) => a.byName.get(d.name)?.variables ?? []))].sort();
   return [
     ...vars

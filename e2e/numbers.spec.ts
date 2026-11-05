@@ -198,6 +198,118 @@ test('drags an intent point and nudges one with the keyboard; both persist', asy
   await shot('numbers-curves');
 });
 
+test('completes names as you type: definitions, built-ins, properties after a dot', async () => {
+  await carbon.gotoView('numbers', '4');
+  const list = page().getByTestId('numbers-complete');
+  const original = await source().inputValue();
+  await source().click();
+  await page().keyboard.press('Control+End');
+  await page().keyboard.type('probe = tak');
+  await expect(list).toBeVisible();
+  await expect(list.getByRole('option').first()).toContainText('taken');
+  await expect(list.getByRole('option').first()).toContainText('(number, number) → number');
+  await page().keyboard.press('Tab');
+  await expect(list).toHaveCount(0);
+  await page().keyboard.type('20, sum(armor, .def');
+  await expect(list.getByRole('option').first()).toContainText('defense');
+  await page().keyboard.press('Enter');
+  await page().keyboard.type('))');
+  await expect(source()).toHaveValue(`${original}probe = taken(20, sum(armor, .defense))`);
+  // Escape closes the list and keeps typing in the editor; ctrl+space opens it.
+  await page().keyboard.type(' + ba');
+  await expect(list).toBeVisible();
+  await page().keyboard.press('ArrowDown');
+  await expect(list.locator('[aria-selected="true"]')).toHaveCount(1);
+  await page().keyboard.press('Escape');
+  await expect(list).toHaveCount(0);
+  await expect(source()).toBeFocused();
+  await page().keyboard.press('Control+Space');
+  await expect(list).toBeVisible();
+  await shot('numbers-complete');
+  await page().keyboard.press('Escape');
+  // Leave the source as it was.
+  await source().fill(FORMULAS);
+  await page()
+    .locator('body')
+    .click({ position: { x: 5, y: 5 } });
+  await expect
+    .poll(() => readFileSync(path.join(carbon.worldDir, 'numbers/formulas.carbon'), 'utf8'))
+    .toBe(FORMULAS);
+});
+
+test('intent points: add by double-click and +, move along x, delete; palette too', async () => {
+  await carbon.gotoView('numbers', '4');
+  const file = path.join(carbon.worldDir, 'numbers/curves.json');
+  const intentOf = (id: string): { x: string | number; y: number }[] | undefined =>
+    (
+      JSON.parse(readFileSync(file, 'utf8')) as {
+        id: string;
+        intent?: { x: string | number; y: number }[];
+      }[]
+    ).find((c) => c.id === id)?.intent;
+
+  // An attribute curve without an intent: a double-click adds its first point.
+  const card = page().locator('[data-curve="mitigation"]');
+  const handles = card.getByTestId('intent-handle');
+  await expect(handles).toHaveCount(0);
+  const plot = card.getByTestId('curve-plot');
+  const box = await plot.boundingBox();
+  if (!box) throw new Error('no plot');
+  await page().mouse.dblclick(box.x + box.width * 0.3, box.y + box.height * 0.4);
+  await expect(handles).toHaveCount(1);
+  await expect.poll(() => intentOf('mitigation')?.length).toBe(1);
+  const x0 = Number(intentOf('mitigation')?.[0]?.x);
+  expect(x0).toBeGreaterThan(5);
+  expect(x0).toBeLessThan(60);
+
+  // + adds a point next to the focused one, and focus moves to it.
+  await handles.first().focus();
+  await page().keyboard.press('+');
+  await expect(handles).toHaveCount(2);
+  await expect.poll(() => intentOf('mitigation')?.length).toBe(2);
+  await expect(handles.nth(1)).toBeFocused();
+  // → moves it along x; ← back.
+  const xs = (): number[] => (intentOf('mitigation') ?? []).map((p) => Number(p.x));
+  const before = xs()[1] ?? 0;
+  await page().keyboard.press('ArrowRight');
+  await expect.poll(() => xs()[1]).toBe(before + 5);
+  // Delete removes it, and focus stays on the curve.
+  await page().keyboard.press('Delete');
+  await expect.poll(() => intentOf('mitigation')?.length).toBe(1);
+  await expect(handles.first()).toBeFocused();
+  // Deleting the last point removes the intent.
+  await page().keyboard.press('Delete');
+  await expect.poll(() => intentOf('mitigation')).toBeUndefined();
+  await expect(card.getByTestId('intent-line')).toHaveCount(0);
+
+  // On the band axis: delete High Drift's point, then + re-adds it at the free band.
+  const bands = page().locator('[data-curve="defense-budget"]').getByTestId('intent-handle');
+  await bands.nth(4).focus();
+  await page().keyboard.press('Delete');
+  await expect
+    .poll(() => intentOf('defense-budget')?.map((p) => p.x))
+    .toEqual(['undercroft', 'hollows', 'groundline', 'low-sky']);
+  await bands.nth(3).focus();
+  await page().keyboard.press('+');
+  await expect.poll(() => intentOf('defense-budget')?.at(-1)?.x).toBe('high-drift');
+  // A point can't move onto its neighbour's band.
+  await bands.nth(4).focus();
+  await page().keyboard.press('ArrowLeft');
+  await page().waitForTimeout(150);
+  expect(intentOf('defense-budget')?.at(-1)?.x).toBe('high-drift');
+
+  // The palette: the last focused point.
+  await page().locator('body').press('Control+k');
+  const palette = page().getByTestId('palette');
+  await page().keyboard.type('Remove an intent point');
+  await expect(palette.locator('[data-highlighted]')).toContainText('Remove an intent point');
+  await page().keyboard.press('Enter');
+  await expect.poll(() => intentOf('defense-budget')?.length).toBe(4);
+  // Undo brings it back (one command per edit).
+  await page().locator('body').press('Control+z');
+  await expect.poll(() => intentOf('defense-budget')?.length).toBe(5);
+});
+
 test('adds a curve with c, edits its formula, and removes it', async () => {
   await carbon.gotoView('numbers', '4');
   await page().locator('body').press('c');

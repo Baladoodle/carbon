@@ -45,6 +45,12 @@ export function classifyError(e: unknown, aborted: boolean): AiError {
   if (e instanceof Anthropic.APIConnectionError)
     return { code: 'network', message: 'Could not reach the Claude API', retryable: true };
   if (e instanceof Anthropic.APIError) {
+    // An error event inside a stream arrives after a 200, so it has no HTTP
+    // status: classify it by the API's error type instead.
+    if (typeof e.status !== 'number') {
+      const byType = fromErrorType(errorType(e), short(e));
+      if (byType) return byType;
+    }
     const status = typeof e.status === 'number' ? e.status : 0;
     if (status === 413)
       return { code: 'too_large', message: 'The request is too large (413)', retryable: false };
@@ -61,6 +67,40 @@ export function classifyError(e: unknown, aborted: boolean): AiError {
     message: e instanceof Error ? e.message : 'unknown error',
     retryable: false,
   };
+}
+
+/** The API's error type (`overloaded_error`, …) from an error's body, if it has one. */
+function errorType(e: { error?: unknown }): string | undefined {
+  const body = e.error as { type?: unknown; error?: { type?: unknown } } | undefined;
+  const t = body?.error?.type ?? body?.type;
+  return typeof t === 'string' && t !== 'error' ? t : undefined;
+}
+
+/** The API's documented error types, for errors without an HTTP status. */
+function fromErrorType(type: string | undefined, message: string): AiError | undefined {
+  switch (type) {
+    case 'overloaded_error':
+      return { code: 'server', message: 'The Claude API is overloaded', retryable: true };
+    case 'api_error':
+      return { code: 'server', message: `The Claude API failed: ${message}`, retryable: true };
+    case 'rate_limit_error':
+      return { code: 'rate_limited', message: 'Rate limited by the Claude API', retryable: true };
+    case 'invalid_request_error':
+    case 'not_found_error':
+      return {
+        code: 'bad_request',
+        message: `The Claude API rejected the request: ${message}`,
+        retryable: false,
+      };
+    case 'authentication_error':
+      return { code: 'no_key', message: 'The API key was rejected', retryable: false };
+    case 'permission_error':
+      return { code: 'no_key', message: 'The API key may not use this model', retryable: false };
+    case 'request_too_large':
+      return { code: 'too_large', message: 'The request is too large', retryable: false };
+    default:
+      return undefined;
+  }
 }
 
 /** The error's own message, without the request id noise, trimmed for one line. */
