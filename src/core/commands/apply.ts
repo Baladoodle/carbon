@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { schemaProblems } from '../model/schema';
+import type { Entity } from '../model/entity';
+import { schemaProblems, type WorldSchema } from '../model/schema';
 import { problemsOf, validateWorld, type Problem } from '../model/validate';
 import { getEntity, schemaOf, WorldSchemaZ, type World } from '../model/world';
 import { err, ok, type Result } from '../util/result';
@@ -68,9 +69,13 @@ export function checkPatched(before: World, after: World, patch: Patch): Problem
     patch.filter((op) => op.path[0] === 'entities' && op.path[1]).map((op) => op.path[1] as string),
   );
   // A new id may resolve references that were dangling (e.g. after an external
-  // edit): re-check whatever points at it.
+  // edit): re-check whatever points at it. Only an id something already
+  // pointed at can be one, so the scan runs only for those (a transaction of
+  // thousands of creates would otherwise scan every entity for each).
+  const missing = missingTargets(before);
+  noteMissing(after, missing, touched);
   for (const id of [...touched]) {
-    if (getEntity(before, id) || !getEntity(after, id)) continue;
+    if (getEntity(before, id) || !getEntity(after, id) || !missing.has(id)) continue;
     for (const other of Object.values(after.entities))
       if (other.relations.some((r) => r.target === id) || Object.values(other.fields).includes(id))
         touched.add(other.id);
@@ -97,6 +102,54 @@ export function checkPatched(before: World, after: World, patch: Patch): Problem
     }
   }
   return out;
+}
+
+/** The ids an entity's relations and `ref` fields point at (what `referenceProblems` resolves). */
+function targetsOf(schema: WorldSchema, e: Entity): string[] {
+  const out = e.relations.map((r) => r.target);
+  for (const f of schema.kinds[e.kind].fields) {
+    const v = e.fields[f.key];
+    if (f.type === 'ref' && typeof v === 'string') out.push(v);
+  }
+  return out;
+}
+
+/**
+ * Per entities object (and schema), a superset of the ids its entities point
+ * at that don't exist: the only ids whose creation can change another
+ * entity's problems. Kept from world to world as commands apply, so it costs
+ * O(touched) per command instead of O(entities).
+ */
+const missingCache = new WeakMap<
+  World['entities'],
+  { schema: WorldSchema; ids: ReadonlySet<string> }
+>();
+
+function missingTargets(world: World): ReadonlySet<string> {
+  const schema = schemaOf(world);
+  const hit = missingCache.get(world.entities);
+  if (hit?.schema === schema) return hit.ids;
+  const ids = new Set<string>();
+  for (const e of Object.values(world.entities))
+    for (const t of targetsOf(schema, e)) if (!getEntity(world, t)) ids.add(t);
+  missingCache.set(world.entities, { schema, ids });
+  return ids;
+}
+
+/** Derives the set for `after` from `before`'s: the old ids, plus what touched entities now miss. */
+function noteMissing(after: World, before: ReadonlySet<string>, touched: Iterable<string>): void {
+  const schema = schemaOf(after);
+  let ids = before;
+  for (const id of touched) {
+    const e = getEntity(after, id);
+    if (!e) continue;
+    for (const t of targetsOf(schema, e))
+      if (!getEntity(after, t) && !ids.has(t)) {
+        if (ids === before) ids = new Set(before);
+        (ids as Set<string>).add(t);
+      }
+  }
+  missingCache.set(after.entities, { schema, ids });
 }
 
 /** Applies a patch and checks the result. The building block for commands, undo and redo. */
