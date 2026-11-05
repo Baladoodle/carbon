@@ -127,5 +127,5 @@
   border-left: 2px solid var(--ai);
 }
 .export-empty {
-  padding: 24px 16px;
+  height: 100%;
 }

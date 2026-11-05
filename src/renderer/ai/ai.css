@@ -10,8 +10,7 @@
   overflow: hidden;
 }
 .ai-log-empty {
-  margin: 0;
-  padding: 16px 8px 8px;
+  min-height: 72px;
 }
 .ai-log-head {
   display: flex;

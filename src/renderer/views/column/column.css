@@ -63,9 +63,11 @@
 }
 
 /* Ruler. */
-.column-ruler-line,
-.column-tick {
+.column-ruler-line {
   stroke: var(--line-strong);
+}
+.column-tick {
+  stroke: color-mix(in srgb, var(--text-3) 55%, transparent);
 }
 .column-tick-major {
   stroke: var(--text-3);
@@ -170,7 +172,7 @@
 
 /* The cursor: light, not paint. */
 .column-cursor {
-  fill: color-mix(in srgb, var(--accent) 7%, transparent);
+  fill: color-mix(in srgb, var(--accent) 5%, transparent);
   stroke: color-mix(in srgb, var(--accent) 35%, transparent);
   stroke-width: 1;
   filter: drop-shadow(0 0 10px color-mix(in srgb, var(--accent) 12%, transparent));
@@ -254,12 +256,7 @@
 /* Empty world. */
 .column-empty {
   position: absolute;
-  left: 50%;
-  top: 45%;
-  translate: -50% -50%;
-  display: flex;
-  gap: 6px;
-  align-items: center;
+  inset: 0;
   pointer-events: none;
 }
 

@@ -8,7 +8,7 @@ import { schemaOf, type World } from '@core/model/world';
 import { useActions } from '../../actions';
 import { flash } from '../../state/ui';
 import { dispatch } from '../../state/world';
-import { IconButton, IconClose, IconPlus, Input, Kbd, Select } from '../../ui';
+import { IconButton, IconClose, IconPlus, Input, Empty, Kbd, Select } from '../../ui';
 
 type Col = 'min' | 'max' | 'default' | 'when' | 'unit';
 const NUMERIC: Col[] = ['min', 'max', 'default'];
@@ -284,9 +284,9 @@ export function Attributes({ world }: { world: World }): ReactNode {
         </div>
       )}
       {defs.length === 0 && adding === null && (
-        <p className="numbers-empty ui-empty">
+        <Empty className="numbers-empty">
           No attributes yet. <Kbd>a</Kbd> to add one.
-        </p>
+        </Empty>
       )}
     </section>
   );

@@ -26,6 +26,11 @@
   --tint-deep: #1a1614;
   --tint-high: #14171a;
 
+  /* Climate plane endpoints (VISUAL.md §6.4), only ever mixed in at low strength. */
+  --climate-cold: #6f9bd1;
+  --climate-warm: #e09a52;
+  --climate-wet: #63b0aa;
+
   /* Type. */
   --font-ui: 'Inter Variable', Inter, ui-sans-serif, system-ui, sans-serif;
   --font-mono: 'Geist Mono Variable', 'Geist Mono', 'JetBrains Mono', ui-monospace, monospace;

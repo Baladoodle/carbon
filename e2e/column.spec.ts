@@ -416,6 +416,40 @@ test.describe('the Bench', () => {
     await expect(page.getByTestId('ai-marker-gates')).toHaveCount(0);
   });
 
+  test('empty optional fields wait behind + Field; a revealed one takes tab suggestions', async () => {
+    const { page } = carbon;
+    await focusOn(carbon, 'spore-lantern');
+    // Filled and needed fields show; the empty optional slot and description don't.
+    await expect(field(page, 'change')).toBeVisible();
+    await expect(field(page, 'moment')).toBeVisible();
+    await expect(field(page, 'slot')).toHaveCount(0);
+    await expect(field(page, 'description')).toHaveCount(0);
+    await page.getByTestId('bench-add-field').click();
+    await page.getByRole('menuitem', { name: 'Slot' }).click();
+    const slot = field(page, 'slot').locator('input');
+    await expect(slot).toBeFocused();
+    await press(page, 'Tab');
+    await expect(field(page, 'slot').locator('.ui-suggest-ghost')).toBeVisible();
+    await press(page, 'Escape');
+    await expect(field(page, 'slot').locator('.ui-suggest-ghost')).toHaveCount(0);
+    // The palette reveals one too.
+    await page.locator('body').press('Control+k');
+    await page.keyboard.type('Add field: Description');
+    await expect(page.getByTestId('palette').locator('[data-highlighted]')).toContainText(
+      'Description',
+    );
+    await press(page, 'Enter');
+    await expect(field(page, 'description').locator('textarea')).toBeFocused();
+    await press(page, 'Escape');
+    // Still empty when the entity comes back: collapsed again.
+    await focusOn(carbon, 'glide');
+    await focusOn(carbon, 'spore-lantern');
+    await expect(field(page, 'slot')).toHaveCount(0);
+    await expect(page.getByTestId('bench-add-field')).toBeVisible();
+    // The tests after this one carry on with Glide on the Bench.
+    await focusOn(carbon, 'glide');
+  });
+
   test('esc dismisses a suggestion; editing an AI field clears its marker', async () => {
     const { page } = carbon;
     const gates = field(page, 'gates').locator('input');

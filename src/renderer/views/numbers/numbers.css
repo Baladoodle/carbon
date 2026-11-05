@@ -24,7 +24,10 @@
   border-left: 1px solid var(--line);
 }
 .numbers-empty {
-  padding: 4px 0;
+  min-height: 160px;
+}
+.numbers-side .numbers-empty {
+  flex: none;
 }
 
 /* ── The formula editor ─────────────────────────────────────────────────── */
@@ -165,6 +168,7 @@
   flex-direction: column;
   gap: 12px;
   align-items: stretch;
+  flex: 1 0 auto;
 }
 .numbers-curves > .ui-icon-btn {
   align-self: flex-start;

@@ -11,7 +11,7 @@ import { invoke } from '../../bridge';
 import { CHECK_ADAPTERS } from '../../palette/Platform';
 import { focusEntity } from '../../state/ui';
 import { currentWorld, useWorld } from '../../state/world';
-import { Button, cx, Input, Kbd, StateGlyph, Textarea, toast, Tooltip } from '../../ui';
+import { Button, cx, Input, Empty, Kbd, StateGlyph, Textarea, toast, Tooltip } from '../../ui';
 import { IconExport } from '../../ui/icons';
 import { defineView } from '../define';
 import './export.css';
@@ -279,9 +279,9 @@ function ExportView(): ReactNode {
   if (!world) return null;
   if (exportable.length === 0)
     return (
-      <div className="export-empty ui-empty" data-testid="export-empty">
+      <Empty className="export-empty" data-testid="export-empty">
         Nothing decided to export. <Kbd>d</Kbd> decides the entity on the Bench.
-      </div>
+      </Empty>
     );
 
   return (
@@ -364,6 +364,7 @@ function ExportView(): ReactNode {
         <div className="export-bar">
           <Input
             aria-label="Spec name"
+            placeholder="Spec name"
             className="export-name-input"
             data-testid="export-name"
             value={nameTouched ? name : suggested}
@@ -403,6 +404,19 @@ function ExportView(): ReactNode {
             </Button>
           )}
         </div>
+        {!draft && (
+          <Empty className="export-none" data-testid="export-none">
+            {chosen.length === 0 ? (
+              <>
+                Nothing chosen. <Kbd>space</Kbd> on an entity to choose it.
+              </>
+            ) : (
+              <>
+                No draft yet. <Kbd>ctrl+enter</Kbd> to draft the spec.
+              </>
+            )}
+          </Empty>
+        )}
         {draft && (
           <Textarea
             ref={editor}

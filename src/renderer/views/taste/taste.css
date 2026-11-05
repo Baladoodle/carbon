@@ -143,7 +143,8 @@
 }
 
 .taste-reason .taste-text {
-  flex: 0 0 112px;
+  flex: 1 1 112px;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -161,6 +162,10 @@
   display: block;
   height: 100%;
   background: var(--text-3);
+}
+.taste-reason .taste-bar {
+  flex: 0 1 56px;
+  min-width: 12px;
 }
 .taste-count {
   flex: none;
@@ -220,7 +225,7 @@
   flex: 1 1 auto;
 }
 .taste-empty {
-  padding: 12px 8px;
+  height: 100%;
 }
 .taste-dismissed {
   margin: 4px 8px 8px;

@@ -76,7 +76,7 @@
   outline: none;
 }
 .codex-empty {
-  padding: 24px 0;
+  height: 100%;
 }
 .codex-table {
   table-layout: fixed;

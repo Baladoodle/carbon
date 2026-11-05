@@ -119,7 +119,7 @@ export const Ruler = memo(function Ruler({ frame }: { frame: Frame }): ReactNode
         return (
           <g key={t.y}>
             <line
-              x1={right - (t.major ? 7 : 3)}
+              x1={right - (t.major ? 8 : 4)}
               y1={y}
               x2={right}
               y2={y}
