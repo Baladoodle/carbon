@@ -70,6 +70,13 @@ Semantic colours are muted, so they never fight the accent:
 | `--danger` | `#e5675e` | errors, destructive actions |
 | `--warn` | `#d9b45a` | notes that need attention |
 | `--ai` | `#b39ddb` | the AI's marker, suggestions and its log; nothing else |
+| `--agent` | `#cf8fae` | an outside agent's marker (docs/MCP.md): fields it wrote, its name on the status line, its log; nothing else |
+
+**`--agent`** is a dusty rose: as muted as the other semantic colours, warm
+enough to sit apart from the AI's violet beside it, and clear of the accent,
+the states, `--danger` and `--warn`. The AI and an agent are different
+authors, so their marks never share a colour: `--ai` is what carbon's AI
+proposed, `--agent` is what an agent you connected wrote.
 
 **Climate endpoints:** `--climate-cold` `#6f9bd1`, `--climate-warm` `#e09a52`
 and `--climate-wet` `#63b0aa`. They exist only for the Climate plane's

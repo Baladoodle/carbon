@@ -75,7 +75,11 @@ other and with your taste.
    slice of *your* world, your taste and the entity in focus, never from generic
    game knowledge. Each request stays under 100k tokens.
 7. **Separate from Claude Code.** No chat box, no code, no access to Infinite.
-   Carbon shapes things; Claude Code builds them.
+   Carbon shapes things; Claude Code builds them. An agent such as Claude Code may also
+   *connect* to carbon while it's open ([`MCP.md`](MCP.md)), to work on the
+   world with you: it acts only through carbon's commands, every change is
+   marked as its own and undoes with `ctrl+z`, and paid calls need your
+   permission. Carbon still runs no agents itself.
 8. **Keyboard first, native to Omarchy.** Every action has a key. Carbon has its
    own dark, neutral-gray look (`VISUAL.md`), and every piece of text on screen
    has to earn its place.
@@ -93,6 +97,7 @@ other and with your taste.
 | Give me candidates for the Low Sky accessory gap | Carbon (Spread) |
 | Does this material appear in any biome? | Carbon (mechanical check, always visible) |
 | Does this creature feel like it belongs in the Hollows? | Carbon (critique on finishing the edit) |
+| Fill the Low Sky item gaps while I sketch the biomes | An agent connected to carbon (`carbon mcp`), working through carbon's commands while you watch |
 
 What a chat can't do and carbon does: keep a persistent, spatial model of the
 whole world; let you judge many options at once; show consequences instantly;

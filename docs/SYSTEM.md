@@ -31,6 +31,10 @@ flowchart LR
 - **`src/main`:** the store (files, git, watching), the AI gateway (SDK, cache,
   log), IPC.
 - **`src/renderer`:** the UI.
+- **The agent socket** (`src/main/agent`, [`MCP.md`](MCP.md)): a Unix socket
+  in main that an outside agent reaches through `carbon mcp`, a stdio MCP
+  relay. Its tools read the main process's world and write only through
+  commands, as one undo step each, marked as the agent's.
 
 ## 2. Stack
 

@@ -644,6 +644,39 @@ describe('the socket', () => {
     await server.close();
   });
 
+  it('carbon mcp says why and exits 1 when carbon quits under it', async () => {
+    const file = path.join(dir, 'carbon.sock');
+    const { host } = setup();
+    const server = await AgentSocketServer.listen(file, handlers(host));
+    const [a, b] = InMemoryTransport.createLinkedPair();
+    const lines: string[] = [];
+    const done = runRelay({
+      env: { CARBON_SOCKET: file },
+      transport: a,
+      stderr: (l) => lines.push(l),
+    });
+    const client = new Client({ name: 'c', version: '1' });
+    await client.connect(b);
+    expect((await client.listTools()).tools.length).toBe(TOOLS.length);
+    await server.close();
+    expect(await done).toBe(1);
+    expect(lines).toEqual(['carbon mcp: carbon is closing']);
+  });
+
+  it('carbon mcp exits 0 when the agent hangs up', async () => {
+    const file = path.join(dir, 'carbon.sock');
+    const { host } = setup();
+    const server = await AgentSocketServer.listen(file, handlers(host));
+    const [a, b] = InMemoryTransport.createLinkedPair();
+    const done = runRelay({ env: { CARBON_SOCKET: file }, transport: a, stderr: () => undefined });
+    const client = new Client({ name: 'c', version: '1' });
+    await client.connect(b);
+    await client.close();
+    expect(await done).toBe(0);
+    await vi.waitFor(() => expect(server.connections()).toHaveLength(0));
+    await server.close();
+  });
+
   it('carbon mcp with no carbon running exits 1 with one clear line', async () => {
     const lines: string[] = [];
     const code = await runRelay({

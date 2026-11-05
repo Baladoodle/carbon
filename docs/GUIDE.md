@@ -26,7 +26,7 @@ changes nothing):
 | Path | What |
 |---|---|
 | `~/.local/share/carbon/app/` | the app: the unpacked build, preferred because it needs no FUSE |
-| `~/.local/bin/carbon` | the launcher: focuses the running carbon through `hyprctl`, or starts it |
+| `~/.local/bin/carbon` | the launcher: focuses the running carbon through `hyprctl`, or starts it; `carbon mcp` is the MCP server for agents (§5) |
 | `~/.local/share/applications/carbon.desktop` | the desktop entry, so the launcher menu finds it |
 | `~/.config/hypr/carbon.conf` | the window rule: carbon on a workspace of its own, tiled, in the syntax of the Hyprland it finds |
 | `~/.config/hypr/hyprland.conf` | with `--hypr` only: one `source =` line for the rule, marked as the installer's |
@@ -508,6 +508,42 @@ selectable. The full design is in [`IMAGES.md`](IMAGES.md).
 - **Export** copies each chosen entity's selected images beside the spec,
   and the preview shows them.
 
+### Agents (MCP)
+
+An agent you run, such as Claude Code, can work with carbon while it's open:
+read the world, make changes through the same commands as the UI, put an
+entity on the Bench to show you, and use carbon's own suggestions, critique,
+spreads and images as tools. Connect Claude Code once:
+
+```sh
+claude mcp add carbon -- carbon mcp
+```
+
+Start carbon, then the agent. Everything else is in [`MCP.md`](MCP.md); the
+short version:
+
+- **You see it work.** The status line shows the agent's name while it's
+  connected, every view updates as it goes, and what it wrote is marked
+  `agent` in `--agent` (rose) until you edit it. `agent:yes` in the Codex
+  filter finds it.
+- **`ctrl+z` undoes it.** Each tool call is one undo step, labelled
+  `Agent: …`. A field you're typing in isn't overwritten: carbon asks, Keep
+  mine or Use theirs.
+- **It follows the same rules as you.** The Why gate, required fields and
+  every other check refuse it with the same reason they'd give you.
+- **The Agent overlay** (`ctrl+shift+l`, or click the agent's name) lists
+  every call, with Undo on the last write, and holds the settings: **Agent
+  access** (on by default: reads and writes) and **Allow agents to spend**
+  (off by default: Claude and OpenAI calls), with an agent budget ($1 a
+  session, $10 a month by default). They're kept in
+  `~/.config/carbon/agent.json`, outside the world, so an agent can't turn on
+  its own spending.
+- **Paid calls by an agent** are in the AI log marked `· agent`, and count
+  toward the AI's and images' budgets too.
+- **`carbon mcp` without carbon running** says so and exits; nothing waits.
+- **From a checkout** (no install): `npm run build`, then
+  `claude mcp add carbon-dev -- node ~/src/carbon/scripts/carbon-mcp.mjs`.
+
 ## 6. Where your data lives
 
 Everything is plain files in the world directory:
@@ -522,6 +558,7 @@ Everything is plain files in the world directory:
 | `ai-log/<date>.jsonl` | every AI call: moment, usage, cost (no prompts unless `ai.debug` is on) |
 | `carbon.json`, `schema.json` | settings; kinds and fields on top of the built-in ones |
 | `.carbon/` | carbon's bookkeeping: quarantine, backups, note dismissals |
+| `~/.config/carbon/agent.json` | outside the world: agent access, spending, the agent budget and this month's agent spend |
 
 - **Saves** are immediate and atomic (write, fsync, rename): a crash never
   leaves half a file.
