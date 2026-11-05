@@ -1,6 +1,8 @@
 import { cmd } from '@core/commands/registry';
 import { fieldValue } from '@core/model/lifecycle';
-import { getEntity } from '@core/model/world';
+import type { EntityKind } from '@core/model/kinds';
+import { getEntity, schemaOf } from '@core/model/world';
+import { defOf } from '@core/bench/value';
 import { hashValue } from '@core/util/hash';
 import { ai } from '../ai/client';
 import { notesStore, publishNotes } from '../state/notes';
@@ -67,7 +69,7 @@ export async function commitField(
   if (same) return null;
   // What you type replaces what the AI proposed for the field.
   setEntry('pending', fieldId(entityId, key), undefined);
-  const p = transact(`Edit ${key} of ${e.name}`, [
+  const p = transact(`Edit ${fieldWord(key, e.kind)} of ${e.name}`, [
     cmd('entity.setField', { id: entityId, field: key, value, source: 'user' }),
   ]);
   const landed = landedIn(p);
@@ -75,6 +77,13 @@ export async function commitField(
   const r = await landed;
   if (inflight.get(entityId) === landed) inflight.delete(entityId);
   return r.ok ? null : r.error.message;
+}
+
+/** A field as the undo label names it: its label ("bottom"), not its key ("y_bottom"). */
+function fieldWord(key: string, kind: EntityKind): string {
+  const w = currentWorld();
+  const def = w ? defOf(schemaOf(w).kinds[kind], key) : undefined;
+  return def ? def.label.toLowerCase() : key;
 }
 
 /** Writes an attribute (`null` removes it). */
@@ -87,7 +96,8 @@ export async function commitAttribute(
   const e = w ? getEntity(w, entityId) : undefined;
   if (!e) return 'That entity no longer exists';
   if ((e.attributes[key] ?? null) === value) return null;
-  const p = transact(`Set ${key} of ${e.name}`, [
+  const label = schemaOf(w!).kinds[e.kind].attributes.find((a) => a.key === key)?.label;
+  const p = transact(`Set ${label ? label.toLowerCase() : key} of ${e.name}`, [
     cmd('entity.setAttribute', { id: entityId, key, value, source: 'user' }),
   ]);
   const landed = landedIn(p);

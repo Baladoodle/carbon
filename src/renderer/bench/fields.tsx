@@ -230,6 +230,8 @@ function TextControl({ entity, def, suggestion, onError, variant }: ControlProps
     value: draft,
     suggestion,
     mono: def.type === 'number' || def.type === 'height',
+    // The identity line has no label above it: empty, the placeholder is its label.
+    placeholder: variant === 'identity' ? def.label : undefined,
     'aria-label': def.label,
     onFocus: () => {
       rebase();
