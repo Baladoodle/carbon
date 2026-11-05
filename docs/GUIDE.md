@@ -464,8 +464,12 @@ OpenAI's Images 2.6 models (the full design is [`IMAGES.md`](IMAGES.md)).
   bar, or the key), or use the palette's "Generate icons in this cell/lane"
   on the Column. The dialog lists every prompt, each editable, with the model,
   quality, call count and estimated total, and skips entities that already
-  have one unless you choose Replace. It runs two at a time, with progress, a
-  cancel and a result per row.
+  have one unless you choose Replace. Concepts run two at a time, with
+  progress, a cancel and a result per row. **Icons go out as one sheet** (up
+  to 100 icons in a single call), then a review: the sheet and each cell's
+  16×16 result. Unflagged cells start accepted; click a cell to accept or
+  reject it, "Regenerate" makes a smaller sheet of the rejected ones, and
+  "Accept" turns the accepted cells into icons, one undo step.
 
   <img src="screens/images-batch.png" width="720" alt="A batch of icons">
 
