@@ -217,6 +217,7 @@ the view (in Taste, `d` dismisses the pattern), unless focus is in the Bench.
 | `ctrl+shift+z` or `ctrl+y` | Redo |
 | `ctrl+shift+e` | Expand the field |
 | `escape` | Close |
+| `ctrl+shift+l` | Agent access and log |
 
 #### Column
 

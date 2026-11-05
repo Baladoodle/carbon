@@ -175,6 +175,7 @@ function AgentPanel(): ReactNode {
               onChange={(e) => setSession(e.target.value)}
               data-testid="agent-budget-session"
             />
+            <span className="t-3">this session</span>
             <span className="t-2 num">{`· ${usd(s.spend.monthUsd)} of`}</span>
             <Input
               mono
@@ -184,6 +185,7 @@ function AgentPanel(): ReactNode {
               onChange={(e) => setMonth(e.target.value)}
               data-testid="agent-budget-month"
             />
+            <span className="t-3">this month</span>
             {budgetChanged && sessionUsd !== null && monthUsd !== null && (
               <Button size="sm" type="submit" data-testid="agent-budget-save">
                 Save

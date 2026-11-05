@@ -166,9 +166,10 @@ export class AgentHost {
       return errorResult(error);
     }
     const input: unknown = parsed.data;
+    const about = describeArgs(name, input);
     const settings = this.deps.settings();
     const refuse = (error: AgentError): ToolCallResult => {
-      log({ ok: false, error, summary: name });
+      log({ ok: false, error, summary: about });
       return errorResult(error);
     };
     if (!settings.access) return refuse({ code: 'agent.access_off', message: ACCESS_OFF });
@@ -210,12 +211,12 @@ export class AgentHost {
     const cost = out.ok ? out.costUsd : undefined;
     if (cost) this.deps.spend.add(cost);
     if (!out.ok) {
-      log({ ok: false, error: out.error, summary: out.summary ?? name });
+      log({ ok: false, error: out.error, summary: out.summary ?? about });
       return errorResult(out.error);
     }
     log({
       ok: true,
-      summary: out.summary ?? name,
+      summary: out.summary ?? about,
       ...(out.rev !== undefined ? { rev: out.rev } : {}),
       ...(cost ? { costUsd: cost } : {}),
     });
@@ -270,6 +271,29 @@ export const ACCESS_OFF =
   'Agent access is off in carbon. The user can turn it on from the status line (Agent) or the palette ("Agent access").';
 export const SPEND_OFF =
   'Paid calls (Claude and OpenAI) are off for agents. The user can turn on "Allow agents to spend" in carbon (status line → Agent).';
+
+/** A call's arguments in a few words, for the log when the tool gave no summary: `get_entity glide`. */
+export function describeArgs(name: string, input: unknown): string {
+  if (typeof input !== 'object' || input === null) return name;
+  const o = input as Record<string, unknown>;
+  const parts: string[] = [];
+  for (const k of [
+    'id',
+    'entityId',
+    'spread',
+    'key',
+    'field',
+    'name',
+    'query',
+    'expression',
+    'kind',
+    'state',
+    'view',
+  ])
+    if (typeof o[k] === 'string' && o[k] !== '') parts.push(o[k]);
+  const text = parts.join(' ');
+  return text === '' ? name : `${name} ${text.length > 80 ? `${text.slice(0, 79)}…` : text}`;
+}
 
 function errorResult(e: AgentError): ToolCallResult {
   return {

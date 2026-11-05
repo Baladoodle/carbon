@@ -21,6 +21,8 @@ export interface CarbonApp {
   page: Page;
   /** The temporary world directory the app is editing. */
   worldDir: string;
+  /** The agent socket the app listens on (docs/MCP.md): `CARBON_SOCKET`, else in its private userData. Added by mcp. */
+  socket: string;
   /** Calls a main-process channel through the preload bridge. */
   invoke<C extends InvokeChannel>(
     channel: C,
@@ -101,6 +103,7 @@ export async function launchCarbon(opts: LaunchOptions = {}): Promise<CarbonApp>
     app,
     page,
     worldDir,
+    socket: opts.env?.CARBON_SOCKET ?? path.join(userData, 'carbon.sock'),
     invoke,
     dispatch: (...commands) => invoke('world:dispatch', { commands }),
     async gotoView(id, key) {
