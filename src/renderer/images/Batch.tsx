@@ -59,7 +59,9 @@ function BatchBody({ entities, kind }: { entities: string[]; kind: ImageKind }):
   });
   const batchId = useRef(newRequestId('batch'));
   const phaseRef = useRef<Phase>('planning');
-  phaseRef.current = phase;
+  useEffect(() => {
+    phaseRef.current = phase;
+  }, [phase]);
 
   // Claude writes every prompt first (no OpenAI call). Entities that already
   // have one get a prompt too, so ticking "replace" needs no second pass.
@@ -119,12 +121,12 @@ function BatchBody({ entities, kind }: { entities: string[]; kind: ImageKind }):
     closeImageOverlay('batch');
   };
   const over = !!estimate && estimate.totalUsd > estimate.remainingUsd;
-  const canRun =
-    phase === 'ready' && calls > 0 && status.enabled && !status.paused && !over;
+  const canRun = phase === 'ready' && calls > 0 && status.enabled && !status.paused && !over;
 
   const run = async (): Promise<void> => {
     if (!canRun) return;
     setPhase('running');
+    phaseRef.current = 'running';
     setProgress({ done: 0, total: calls, cost: 0 });
     for (const r of runnable) setPending(r.entityId, kind, true);
     let out: BatchResult | null = null;
@@ -352,7 +354,13 @@ function BatchBody({ entities, kind }: { entities: string[]; kind: ImageKind }):
   );
 }
 
-function ResultMark({ res, running }: { res: ImageResult | undefined; running: boolean }): ReactNode {
+function ResultMark({
+  res,
+  running,
+}: {
+  res: ImageResult | undefined;
+  running: boolean;
+}): ReactNode {
   return (
     <span
       className={cx(

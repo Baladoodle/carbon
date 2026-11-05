@@ -33,7 +33,13 @@ import {
   cx,
 } from '../../ui';
 import { IconCodex } from '../../ui/icons';
-import { canHave, imageMenu, KEYS as IMAGE_KEYS, requestBatch, requestImage } from '../../images/actions';
+import {
+  canHave,
+  imageMenu,
+  KEYS as IMAGE_KEYS,
+  requestBatch,
+  requestImage,
+} from '../../images/actions';
 import { selected as selectedImage } from '../../images/model';
 import { usePending } from '../../images/store';
 import { Shimmer, Thumb, describe } from '../../images/Thumb';
@@ -828,180 +834,180 @@ function CodexView(): ReactNode {
         )}
       </div>
       <ContextMenu itemsAt={rowMenu}>
-      <div
-        className="codex-scroll"
-        ref={scrollRef}
-        tabIndex={-1}
-        data-testid="codex-scroll"
-        onScroll={(e) =>
-          setViewport({ top: e.currentTarget.scrollTop, height: e.currentTarget.clientHeight })
-        }
-      >
-        {rows.length === 0 ? (
-          <Empty className="codex-empty" data-testid="codex-empty">
-            {compiled.empty ? (
-              tab === 'all' ? (
-                <>
-                  No entities yet. <Kbd>1</Kbd> to start on the Column.
-                </>
+        <div
+          className="codex-scroll"
+          ref={scrollRef}
+          tabIndex={-1}
+          data-testid="codex-scroll"
+          onScroll={(e) =>
+            setViewport({ top: e.currentTarget.scrollTop, height: e.currentTarget.clientHeight })
+          }
+        >
+          {rows.length === 0 ? (
+            <Empty className="codex-empty" data-testid="codex-empty">
+              {compiled.empty ? (
+                tab === 'all' ? (
+                  <>
+                    No entities yet. <Kbd>1</Kbd> to start on the Column.
+                  </>
+                ) : (
+                  <>
+                    No {schema.kinds[tab].plural.toLowerCase()} yet. <Kbd>n</Kbd> to add one.
+                  </>
+                )
               ) : (
-                <>
-                  No {schema.kinds[tab].plural.toLowerCase()} yet. <Kbd>n</Kbd> to add one.
-                </>
-              )
-            ) : (
-              'Nothing matches.'
-            )}
-          </Empty>
-        ) : (
-          <table
-            className="ui-table codex-table"
-            style={{ width }}
-            data-testid="codex-table"
-            aria-rowcount={rows.length}
-          >
-            <colgroup>
-              <col style={{ width: 28 }} />
-              <col style={{ width: 28 }} />
-              <col style={{ width: IMG_W }} />
-              {columns.map((c) => (
-                <col key={c.id} style={{ width: widthOf(c) }} />
-              ))}
-            </colgroup>
-            <thead>
-              <tr>
-                <th aria-label="selected" />
-                <th aria-label="state" />
-                <th aria-label="image" />
-                {columns.map((c, i) => (
-                  <th
-                    key={c.id}
-                    className={cx(
-                      c.numeric && 'ui-num',
-                      'codex-th',
-                      i === colIdx && 'codex-th-current',
-                    )}
-                    aria-sort={
-                      sort?.col === c.id
-                        ? sort.dir === 'asc'
-                          ? 'ascending'
-                          : 'descending'
-                        : undefined
-                    }
-                    onClick={() => toggleSort(c.id)}
-                    data-col={c.id}
-                  >
-                    {c.label}
-                    {sort?.col === c.id && (
-                      <span className="codex-sort">{sort.dir === 'asc' ? '↑' : '↓'}</span>
-                    )}
-                    {/* Drag to resize; double-click for the default width. */}
-                    <span
-                      className="codex-resize"
-                      data-resizing={resizing?.col === c.id ? '' : undefined}
-                      aria-hidden="true"
-                      onClick={(e) => e.stopPropagation()}
-                      onDoubleClick={(e) => {
-                        e.stopPropagation();
-                        setPrefs((p) => withWidth(p, tab, c.id, null));
-                      }}
-                      onPointerDown={(e) => {
-                        if (e.button !== 0) return;
-                        e.stopPropagation();
-                        e.preventDefault();
-                        e.currentTarget.setPointerCapture(e.pointerId);
-                        const w0 = widthOf(c);
-                        setResizing({ col: c.id, x0: e.clientX, w0, w: w0 });
-                      }}
-                      onPointerMove={(e) => {
-                        const r = resizeRef.current;
-                        if (r?.col !== c.id) return;
-                        const w = clampWidth(r.w0 + e.clientX - r.x0);
-                        if (w !== r.w) setResizing({ ...r, w });
-                      }}
-                      onPointerUp={(e) => {
-                        const r = resizeRef.current;
-                        if (r?.col !== c.id) return;
-                        // Where the pointer let go, not the last move that happened to render.
-                        const w = clampWidth(r.w0 + e.clientX - r.x0);
-                        setResizing(null);
-                        if (w !== r.w0) setPrefs((p) => withWidth(p, tab, c.id, w));
-                      }}
-                      onPointerCancel={() => setResizing(null)}
-                    />
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {first > 0 && <tr aria-hidden="true" style={{ height: first * ROW_H }} />}
-              {rows.slice(first, last).map((e) => {
-                const isSel = selected.has(e.id);
-                const isCur = e.id === curEntity?.id;
-                return (
-                  <tr
-                    key={e.id}
-                    data-entity={e.id}
-                    data-selected={isSel ? '' : undefined}
-                    data-current={isCur ? '' : undefined}
-                    data-focus={e.id === focus ? '' : undefined}
-                    aria-selected={isSel}
-                    className="codex-row"
-                  >
-                    <td className="codex-check" onClick={() => toggle(e.id)}>
-                      <span className={cx('codex-box', isSel && 'codex-box-on')} />
-                    </td>
-                    <td onClick={(ev) => clickRow(e, ev, 0)}>
-                      <StateGlyph state={e.state} />
-                    </td>
-                    <td className="codex-img" onClick={(ev) => clickRow(e, ev, 0)}>
-                      <RowImage world={world} id={e.id} />
-                    </td>
-                    {columns.map((c, i) => {
-                      const isEditing = editing?.id === e.id && editing.col === c.id;
-                      return (
-                        <td
-                          key={c.id}
-                          className={cx(
-                            c.numeric && 'ui-num',
-                            c.mono && 'mono',
-                            c.dim?.(e, ctx) && 't-3',
-                            isCur && i === colIdx && 'codex-cell-current',
-                            isEditing && 'codex-cell-editing',
-                            e.ai_fields.includes(
-                              c.id.replace(/^[fa]:/, (m) => (m === 'a:' ? 'attributes.' : '')),
-                            ) && 'codex-ai',
-                          )}
-                          data-col={c.id}
-                          onClick={(ev) => clickRow(e, ev, i)}
-                          onDoubleClick={() => startEdit(e, c)}
-                        >
-                          {isEditing ? (
-                            <CellEditor
-                              column={c}
-                              entity={e}
-                              editing={editing}
-                              world={world}
-                              onDraft={(d) => setEditing({ ...editing, draft: d, error: null })}
-                              onCommit={(d) => void commit(d)}
-                              onCancel={() => setEditing(null)}
-                            />
-                          ) : (
-                            c.text(e, ctx)
-                          )}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                );
-              })}
-              {last < rows.length && (
-                <tr aria-hidden="true" style={{ height: (rows.length - last) * ROW_H }} />
+                'Nothing matches.'
               )}
-            </tbody>
-          </table>
-        )}
-      </div>
+            </Empty>
+          ) : (
+            <table
+              className="ui-table codex-table"
+              style={{ width }}
+              data-testid="codex-table"
+              aria-rowcount={rows.length}
+            >
+              <colgroup>
+                <col style={{ width: 28 }} />
+                <col style={{ width: 28 }} />
+                <col style={{ width: IMG_W }} />
+                {columns.map((c) => (
+                  <col key={c.id} style={{ width: widthOf(c) }} />
+                ))}
+              </colgroup>
+              <thead>
+                <tr>
+                  <th aria-label="selected" />
+                  <th aria-label="state" />
+                  <th aria-label="image" />
+                  {columns.map((c, i) => (
+                    <th
+                      key={c.id}
+                      className={cx(
+                        c.numeric && 'ui-num',
+                        'codex-th',
+                        i === colIdx && 'codex-th-current',
+                      )}
+                      aria-sort={
+                        sort?.col === c.id
+                          ? sort.dir === 'asc'
+                            ? 'ascending'
+                            : 'descending'
+                          : undefined
+                      }
+                      onClick={() => toggleSort(c.id)}
+                      data-col={c.id}
+                    >
+                      {c.label}
+                      {sort?.col === c.id && (
+                        <span className="codex-sort">{sort.dir === 'asc' ? '↑' : '↓'}</span>
+                      )}
+                      {/* Drag to resize; double-click for the default width. */}
+                      <span
+                        className="codex-resize"
+                        data-resizing={resizing?.col === c.id ? '' : undefined}
+                        aria-hidden="true"
+                        onClick={(e) => e.stopPropagation()}
+                        onDoubleClick={(e) => {
+                          e.stopPropagation();
+                          setPrefs((p) => withWidth(p, tab, c.id, null));
+                        }}
+                        onPointerDown={(e) => {
+                          if (e.button !== 0) return;
+                          e.stopPropagation();
+                          e.preventDefault();
+                          e.currentTarget.setPointerCapture(e.pointerId);
+                          const w0 = widthOf(c);
+                          setResizing({ col: c.id, x0: e.clientX, w0, w: w0 });
+                        }}
+                        onPointerMove={(e) => {
+                          const r = resizeRef.current;
+                          if (r?.col !== c.id) return;
+                          const w = clampWidth(r.w0 + e.clientX - r.x0);
+                          if (w !== r.w) setResizing({ ...r, w });
+                        }}
+                        onPointerUp={(e) => {
+                          const r = resizeRef.current;
+                          if (r?.col !== c.id) return;
+                          // Where the pointer let go, not the last move that happened to render.
+                          const w = clampWidth(r.w0 + e.clientX - r.x0);
+                          setResizing(null);
+                          if (w !== r.w0) setPrefs((p) => withWidth(p, tab, c.id, w));
+                        }}
+                        onPointerCancel={() => setResizing(null)}
+                      />
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {first > 0 && <tr aria-hidden="true" style={{ height: first * ROW_H }} />}
+                {rows.slice(first, last).map((e) => {
+                  const isSel = selected.has(e.id);
+                  const isCur = e.id === curEntity?.id;
+                  return (
+                    <tr
+                      key={e.id}
+                      data-entity={e.id}
+                      data-selected={isSel ? '' : undefined}
+                      data-current={isCur ? '' : undefined}
+                      data-focus={e.id === focus ? '' : undefined}
+                      aria-selected={isSel}
+                      className="codex-row"
+                    >
+                      <td className="codex-check" onClick={() => toggle(e.id)}>
+                        <span className={cx('codex-box', isSel && 'codex-box-on')} />
+                      </td>
+                      <td onClick={(ev) => clickRow(e, ev, 0)}>
+                        <StateGlyph state={e.state} />
+                      </td>
+                      <td className="codex-img" onClick={(ev) => clickRow(e, ev, 0)}>
+                        <RowImage world={world} id={e.id} />
+                      </td>
+                      {columns.map((c, i) => {
+                        const isEditing = editing?.id === e.id && editing.col === c.id;
+                        return (
+                          <td
+                            key={c.id}
+                            className={cx(
+                              c.numeric && 'ui-num',
+                              c.mono && 'mono',
+                              c.dim?.(e, ctx) && 't-3',
+                              isCur && i === colIdx && 'codex-cell-current',
+                              isEditing && 'codex-cell-editing',
+                              e.ai_fields.includes(
+                                c.id.replace(/^[fa]:/, (m) => (m === 'a:' ? 'attributes.' : '')),
+                              ) && 'codex-ai',
+                            )}
+                            data-col={c.id}
+                            onClick={(ev) => clickRow(e, ev, i)}
+                            onDoubleClick={() => startEdit(e, c)}
+                          >
+                            {isEditing ? (
+                              <CellEditor
+                                column={c}
+                                entity={e}
+                                editing={editing}
+                                world={world}
+                                onDraft={(d) => setEditing({ ...editing, draft: d, error: null })}
+                                onCommit={(d) => void commit(d)}
+                                onCancel={() => setEditing(null)}
+                              />
+                            ) : (
+                              c.text(e, ctx)
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
+                {last < rows.length && (
+                  <tr aria-hidden="true" style={{ height: (rows.length - last) * ROW_H }} />
+                )}
+              </tbody>
+            </table>
+          )}
+        </div>
       </ContextMenu>
       {stateDialog && (
         <StateDialog

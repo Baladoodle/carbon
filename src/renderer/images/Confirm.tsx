@@ -12,13 +12,7 @@ import {
 import { flash, useUi } from '../state/ui';
 import { useWorld } from '../state/world';
 import { Button, Dialog, Field, Kbd, Select, Textarea, cx } from '../ui';
-import {
-  estimateText,
-  images,
-  imageStatusStore,
-  newRequestId,
-  useImageStatus,
-} from './client';
+import { estimateText, images, imageStatusStore, newRequestId, useImageStatus } from './client';
 import type { ImageKind } from './model';
 import { closeImageOverlay, imageUi, OVERLAY, setPending, useImageUi } from './store';
 import { Shimmer } from './Thumb';
@@ -164,12 +158,7 @@ function ConfirmBody({ entity, kind }: { entity: string; kind: ImageKind }): Rea
           <Button variant="ghost" onClick={close} data-testid="image-confirm-cancel">
             Cancel <Kbd>esc</Kbd>
           </Button>
-          <Button
-            variant="primary"
-            disabled={!canRun}
-            onClick={go}
-            data-testid="image-confirm-run"
-          >
+          <Button variant="primary" disabled={!canRun} onClick={go} data-testid="image-confirm-run">
             Generate <Kbd>enter</Kbd>
           </Button>
         </>

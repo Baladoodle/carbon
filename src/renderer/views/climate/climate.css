@@ -412,14 +412,13 @@
   opacity: 1;
 }
 .climate-art-scrim {
-  background:
-    linear-gradient(
-      to bottom,
-      color-mix(in srgb, var(--bg) 78%, transparent) 0,
-      color-mix(in srgb, var(--bg) 52%, transparent) 46px,
-      color-mix(in srgb, var(--bg) 30%, transparent) 60%,
-      color-mix(in srgb, var(--bg) 10%, transparent) 100%
-    );
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--bg) 78%, transparent) 0,
+    color-mix(in srgb, var(--bg) 52%, transparent) 46px,
+    color-mix(in srgb, var(--bg) 30%, transparent) 60%,
+    color-mix(in srgb, var(--bg) 10%, transparent) 100%
+  );
 }
 .climate-region-head,
 .climate-region-identity,

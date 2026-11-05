@@ -234,7 +234,8 @@ const Chip = memo(function Chip({
 /** An item's icon on its chip: 16×16, pixelated, before the name (docs/IMAGES.md §6). */
 function ChipIcon({ entity, image }: { entity: string; image: string }): ReactNode {
   const src = useImageSrc({ entity, id: image }, 'png');
-  if (!src) return <rect x={19} y={2} width={16} height={16} rx={2} className="column-chip-icon-wait" />;
+  if (!src)
+    return <rect x={19} y={2} width={16} height={16} rx={2} className="column-chip-icon-wait" />;
   return (
     <image
       href={src}

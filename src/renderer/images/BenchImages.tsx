@@ -2,13 +2,7 @@ import type { ReactNode } from 'react';
 import type { Entity } from '@core/model/entity';
 import type { World } from '@core/model/world';
 import { Button, ContextMenu, IconImage, Tooltip, cx, type MenuEntry } from '../ui';
-import {
-  chooseImage,
-  iconFromConcept,
-  KEYS,
-  removeImage,
-  requestImage,
-} from './actions';
+import { chooseImage, iconFromConcept, KEYS, removeImage, requestImage } from './actions';
 import { selected, takesIcon, versions, type ImageKind, type ImageMeta } from './model';
 import { openImageOverlay, usePending } from './store';
 import { describe, Shimmer, Thumb } from './Thumb';
@@ -189,7 +183,10 @@ export function benchImageMenu(world: World, entity: Entity): MenuEntry[] {
       onSelect: () => void removeImage(id, concept),
     });
   if (icon)
-    out.push({ label: 'Remove icon', destructive: true, onSelect: () => void removeImage(id, icon) });
+    out.push({
+      label: 'Remove icon',
+      destructive: true,
+      onSelect: () => void removeImage(id, icon),
+    });
   return out;
 }
-

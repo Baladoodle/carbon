@@ -30,24 +30,29 @@ function Lightbox(): ReactNode {
   const meta = useWorld((w) =>
     open ? imagesOf(w, open.entity)?.all.find((m) => m.id === open.image) : undefined,
   );
-  const show = !!open && overlay === OVERLAY.lightbox && !!meta;
-  // The full image for a concept (the source for an icon would be the provider's, not the icon).
-  const src = useImageSrc(show ? meta : null, 'png');
-  if (!show || !meta) return null;
+  const show = overlay === OVERLAY.lightbox ? meta : undefined;
+  // The image itself (an icon's source would be the provider's picture, not the icon).
+  const src = useImageSrc(show, 'png');
+  if (!show) return null;
   const close = (): void => {
     imageUi.set((s) => ({ ...s, lightbox: null }));
     closeImageOverlay('lightbox');
   };
   return (
-    <Dialog open onOpenChange={(o) => !o && close()} title={describe(meta)} className="img-lightbox">
+    <Dialog
+      open
+      onOpenChange={(o) => !o && close()}
+      title={describe(show)}
+      className="img-lightbox"
+    >
       {src ? (
         <img
           src={src}
           alt=""
-          title={describe(meta)}
-          className={meta.kind === 'icon' ? 'img-icon' : undefined}
+          title={describe(show)}
+          className={show.kind === 'icon' ? 'img-icon' : undefined}
           data-testid="image-lightbox"
-          data-image={meta.id}
+          data-image={show.id}
           onClick={close}
         />
       ) : (

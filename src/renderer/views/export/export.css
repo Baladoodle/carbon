@@ -129,3 +129,20 @@
 .export-empty {
   height: 100%;
 }
+
+/* The chosen entities' selected images (docs/IMAGES.md §6). */
+.export-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 0 8px;
+}
+.export-image {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+}
+.export-concept {
+  width: 48px;
+  height: 32px;
+}

@@ -551,117 +551,117 @@ function ClimateView(): ReactNode {
           <span className="climate-axis climate-axis-y t-3">wet</span>
           <span className="climate-axis climate-axis-y climate-axis-low t-3">dry</span>
           <ContextMenu itemsAt={regionMenu}>
-          <div
-            className="climate-plane"
-            ref={planeRef}
-            tabIndex={-1}
-            data-testid="climate-plane"
-            onPointerMove={onMove}
-            onPointerUp={endDrag}
-            onPointerCancel={() => setDrag(null)}
-            onPointerDown={(e) => {
-              // The plane or its empty climate (anything but a biome) deselects.
-              if (!(e.target as Element).closest('[data-testid="climate-region"]')) deselect();
-            }}
-          >
-            <div className="climate-grid" aria-hidden="true" />
-            <Crosshair plane={planeRef} />
-            {empty.map((r, i) => (
-              <div
-                key={`e${i}`}
-                className="climate-empty"
-                style={boxStyle(r)}
-                data-testid="climate-empty-area"
-              />
-            ))}
-            {live.map((r) => (
-              <div
-                key={r.id}
-                className={cx(
-                  'climate-region',
-                  r.id === selected && 'climate-region-selected',
-                  overlapping.has(r.id) && 'climate-region-overlap',
-                  drag?.id === r.id && 'climate-region-dragging',
-                  r.concept && 'climate-region-art',
-                )}
-                style={boxStyle(r.rect)}
-                data-entity={r.id}
-                data-testid="climate-region"
-                onPointerDown={(e) => beginDrag(e, r.id, 'move')}
-                onDoubleClick={() => focusEntity(r.id)}
-              >
-                <RegionArt id={r.id} concept={r.concept} />
-                {!r.concept && (
-                  <Tooltip content="Generate concept art" keys={IMAGE_KEYS.concept}>
-                    <button
-                      type="button"
-                      className="climate-region-gen"
-                      aria-label="Generate concept art"
-                      data-testid="climate-generate"
-                      onPointerDown={(e) => e.stopPropagation()}
-                      onDoubleClick={(e) => e.stopPropagation()}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        select(r.id);
-                        requestImage(r.id, 'concept');
-                      }}
-                    >
-                      <IconImage />
-                    </button>
-                  </Tooltip>
-                )}
-                <div className="climate-region-head">
-                  <StateGlyph state={r.state} />
-                  <span className={cx('climate-region-name', r.ai && 't-ai')}>{r.name}</span>
+            <div
+              className="climate-plane"
+              ref={planeRef}
+              tabIndex={-1}
+              data-testid="climate-plane"
+              onPointerMove={onMove}
+              onPointerUp={endDrag}
+              onPointerCancel={() => setDrag(null)}
+              onPointerDown={(e) => {
+                // The plane or its empty climate (anything but a biome) deselects.
+                if (!(e.target as Element).closest('[data-testid="climate-region"]')) deselect();
+              }}
+            >
+              <div className="climate-grid" aria-hidden="true" />
+              <Crosshair plane={planeRef} />
+              {empty.map((r, i) => (
+                <div
+                  key={`e${i}`}
+                  className="climate-empty"
+                  style={boxStyle(r)}
+                  data-testid="climate-empty-area"
+                />
+              ))}
+              {live.map((r) => (
+                <div
+                  key={r.id}
+                  className={cx(
+                    'climate-region',
+                    r.id === selected && 'climate-region-selected',
+                    overlapping.has(r.id) && 'climate-region-overlap',
+                    drag?.id === r.id && 'climate-region-dragging',
+                    r.concept && 'climate-region-art',
+                  )}
+                  style={boxStyle(r.rect)}
+                  data-entity={r.id}
+                  data-testid="climate-region"
+                  onPointerDown={(e) => beginDrag(e, r.id, 'move')}
+                  onDoubleClick={() => focusEntity(r.id)}
+                >
+                  <RegionArt id={r.id} concept={r.concept} />
+                  {!r.concept && (
+                    <Tooltip content="Generate concept art" keys={IMAGE_KEYS.concept}>
+                      <button
+                        type="button"
+                        className="climate-region-gen"
+                        aria-label="Generate concept art"
+                        data-testid="climate-generate"
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onDoubleClick={(e) => e.stopPropagation()}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          select(r.id);
+                          requestImage(r.id, 'concept');
+                        }}
+                      >
+                        <IconImage />
+                      </button>
+                    </Tooltip>
+                  )}
+                  <div className="climate-region-head">
+                    <StateGlyph state={r.state} />
+                    <span className={cx('climate-region-name', r.ai && 't-ai')}>{r.name}</span>
+                  </div>
+                  {r.identity && <div className="climate-region-identity">{r.identity}</div>}
+                  {r.signature.length > 0 && (
+                    <dl className="climate-sig">
+                      {r.signature.map((s) => (
+                        <div key={s.kind} className="climate-sig-row">
+                          <dt>{s.kind}</dt>
+                          <dd>
+                            {s.items.map((x) => (
+                              <span key={x.id} className="climate-sig-item">
+                                <StateGlyph state={x.state} size={8} tooltip={false} />
+                                {x.name}
+                              </span>
+                            ))}
+                          </dd>
+                        </div>
+                      ))}
+                    </dl>
+                  )}
+                  {(r.id === selected || drag?.id === r.id) && (
+                    <span className="climate-region-range num" data-testid="climate-range">
+                      {range(r.rect)}
+                    </span>
+                  )}
+                  {HANDLES.map((h) => (
+                    <span
+                      key={h}
+                      className={`climate-handle climate-handle-${h}`}
+                      data-handle={h}
+                      onPointerDown={(e) => beginDrag(e, r.id, h)}
+                    />
+                  ))}
                 </div>
-                {r.identity && <div className="climate-region-identity">{r.identity}</div>}
-                {r.signature.length > 0 && (
-                  <dl className="climate-sig">
-                    {r.signature.map((s) => (
-                      <div key={s.kind} className="climate-sig-row">
-                        <dt>{s.kind}</dt>
-                        <dd>
-                          {s.items.map((x) => (
-                            <span key={x.id} className="climate-sig-item">
-                              <StateGlyph state={x.state} size={8} tooltip={false} />
-                              {x.name}
-                            </span>
-                          ))}
-                        </dd>
-                      </div>
-                    ))}
-                  </dl>
-                )}
-                {(r.id === selected || drag?.id === r.id) && (
-                  <span className="climate-region-range num" data-testid="climate-range">
-                    {range(r.rect)}
-                  </span>
-                )}
-                {HANDLES.map((h) => (
-                  <span
-                    key={h}
-                    className={`climate-handle climate-handle-${h}`}
-                    data-handle={h}
-                    onPointerDown={(e) => beginDrag(e, r.id, h)}
-                  />
-                ))}
-              </div>
-            ))}
-            {shared.map((o) => (
-              <div
-                key={`${o.a}|${o.b}`}
-                className="climate-overlap"
-                style={boxStyle(o.rect)}
-                data-testid="climate-overlap"
-                data-pair={`${o.a}|${o.b}`}
-              />
-            ))}
-            {live.length === 0 && (
-              <Empty className="climate-hint">
-                No biomes yet. <Kbd>n</Kbd> to add one.
-              </Empty>
-            )}
-          </div>
+              ))}
+              {shared.map((o) => (
+                <div
+                  key={`${o.a}|${o.b}`}
+                  className="climate-overlap"
+                  style={boxStyle(o.rect)}
+                  data-testid="climate-overlap"
+                  data-pair={`${o.a}|${o.b}`}
+                />
+              ))}
+              {live.length === 0 && (
+                <Empty className="climate-hint">
+                  No biomes yet. <Kbd>n</Kbd> to add one.
+                </Empty>
+              )}
+            </div>
           </ContextMenu>
           <span className="climate-axis climate-axis-x t-3">cold</span>
           <span className="climate-axis climate-axis-x climate-axis-high t-3">warm</span>

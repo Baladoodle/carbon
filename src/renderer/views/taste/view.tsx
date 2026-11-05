@@ -234,46 +234,46 @@ function TasteBody({ taste, since }: { taste: Taste; since: number }): ReactNode
   return (
     <div className="taste-view" data-testid="taste-view">
       <div className="taste-stack">
-      <section
-        className={cx('taste-col', cursor.col === 'rules' && 'is-current')}
-        aria-label="Rules"
-        data-testid="taste-rules"
-      >
-        <div className="taste-col-head">
-          <span>Rules</span>
-        </div>
-        <div className="taste-list">
-          {taste.rules.map((r, i) => (
-            <RuleRow
-              key={r.id}
-              r={r}
-              current={cursor.col === 'rules' && row === i}
-              onPick={() => setCursor({ col: 'rules', row: i })}
-            />
-          ))}
-        </div>
-        <form
-          className="taste-add"
-          onSubmit={(e) => {
-            e.preventDefault();
-            const input = newRule.current;
-            const text = input?.value.trim() ?? '';
-            if (!input || text === '') return;
-            void run('Add rule', cmd('taste.addRule', { text })).then((ok) => {
-              if (ok) input.value = '';
-            });
-          }}
+        <section
+          className={cx('taste-col', cursor.col === 'rules' && 'is-current')}
+          aria-label="Rules"
+          data-testid="taste-rules"
         >
-          <Input
-            ref={newRule}
-            aria-label="New rule"
-            placeholder="New rule"
-            data-testid="taste-new-rule"
-            onKeyDown={(e) => e.key === 'Escape' && e.currentTarget.blur()}
-          />
-        </form>
-      </section>
-      <ArtDirectionSection />
+          <div className="taste-col-head">
+            <span>Rules</span>
+          </div>
+          <div className="taste-list">
+            {taste.rules.map((r, i) => (
+              <RuleRow
+                key={r.id}
+                r={r}
+                current={cursor.col === 'rules' && row === i}
+                onPick={() => setCursor({ col: 'rules', row: i })}
+              />
+            ))}
+          </div>
+          <form
+            className="taste-add"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const input = newRule.current;
+              const text = input?.value.trim() ?? '';
+              if (!input || text === '') return;
+              void run('Add rule', cmd('taste.addRule', { text })).then((ok) => {
+                if (ok) input.value = '';
+              });
+            }}
+          >
+            <Input
+              ref={newRule}
+              aria-label="New rule"
+              placeholder="New rule"
+              data-testid="taste-new-rule"
+              onKeyDown={(e) => e.key === 'Escape' && e.currentTarget.blur()}
+            />
+          </form>
+        </section>
+        <ArtDirectionSection />
       </div>
 
       <section

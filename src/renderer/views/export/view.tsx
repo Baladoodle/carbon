@@ -3,7 +3,7 @@ import { bandSpans } from '@core/checks/placement';
 import { buildSpec, changedSinceExport, isExportable, selectForExport } from '@core/export/spec';
 import type { Entity } from '@core/model/entity';
 import { ENTITY_KINDS, type EntityKind } from '@core/model/kinds';
-import { schemaOf } from '@core/model/world';
+import { schemaOf, type World } from '@core/model/world';
 import type { ExportRecord } from '@shared/ipc';
 import { useActions } from '../../actions';
 import { ai } from '../../ai/client';
@@ -14,6 +14,9 @@ import { currentWorld, useWorld } from '../../state/world';
 import { Button, cx, Input, Empty, Kbd, StateGlyph, Textarea, toast, Tooltip } from '../../ui';
 import { IconExport } from '../../ui/icons';
 import { defineView } from '../define';
+import { imagePaths } from '@core/images/model';
+import { selected as selectedImage } from '../../images/model';
+import { Thumb } from '../../images/Thumb';
 import './export.css';
 
 /**
@@ -404,6 +407,7 @@ function ExportView(): ReactNode {
             </Button>
           )}
         </div>
+        <ExportImages world={world} ids={chosen.map((e) => e.id)} />
         {!draft && (
           <Empty className="export-none" data-testid="export-none">
             {chosen.length === 0 ? (
@@ -443,3 +447,44 @@ export default defineView({
   icon: IconExport,
   component: ExportView,
 });
+
+/**
+ * The chosen entities' selected images: what the spec lists and what export
+ * copies to `exports/<spec>/images/` (docs/IMAGES.md §6). Names and paths
+ * are in the tooltips.
+ */
+function ExportImages({ world, ids }: { world: World; ids: string[] }): ReactNode {
+  const withImages = ids
+    .map((id) => ({
+      id,
+      name: world.entities[id]?.name ?? id,
+      concept: selectedImage(world, id, 'concept'),
+      icon: selectedImage(world, id, 'icon'),
+    }))
+    .filter((x) => x.concept || x.icon);
+  if (withImages.length === 0) return null;
+  return (
+    <div className="export-images" data-testid="export-images">
+      {withImages.map((x) => (
+        <div key={x.id} className="export-image" data-entity={x.id}>
+          {x.icon && (
+            <Thumb
+              meta={x.icon}
+              size={32}
+              title={`${x.name} · ${imagePaths(x.id, x.icon.id).png}`}
+              testId="export-icon"
+            />
+          )}
+          {x.concept && (
+            <Thumb
+              meta={x.concept}
+              className="export-concept"
+              title={`${x.name} · ${imagePaths(x.id, x.concept.id).png}`}
+              testId="export-concept"
+            />
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}

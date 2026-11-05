@@ -900,45 +900,45 @@ function Column({ world, model }: { world: World; model: ColumnModel }): ReactNo
           style={{ height: geo.frame.height, width: geo.width }}
         >
           <ContextMenu itemsAt={chipMenu}>
-          <svg
-            className="column-svg"
-            width={geo.width}
-            height={geo.frame.height}
-            onPointerDown={onPointerDown}
-            onPointerMove={onPointerMove}
-            onPointerUp={() => endDrag(true)}
-            onPointerCancel={() => endDrag(false)}
-            onPointerLeave={() => setTip(null)}
-            data-testid="column-svg"
-          >
-            <Defs />
-            <RowsLayer rows={visibleRows} x={RULER_W} width={right - RULER_W} />
-            <Grid
-              rows={geo.rows}
-              laneX={geo.laneX}
-              laneW={geo.laneW}
-              right={right}
-              edges={edges}
-              frame={geo.frame}
-              dragging={edgeDrag?.key ?? null}
-            />
-            <Ruler frame={geo.frame} />
-            <BandLabels rows={visibleRows} />
-            {!rects.inbox && <CursorMark rect={rects.cell} />}
-            {visibleCells.map((c) => (
-              <Cell key={c.key} cell={c} cursorId={c.row === cursor.row ? cursorId : null} />
-            ))}
-            {rects.glyph && <Reveal g={rects.glyph} right={geo.width} />}
-            {draw && (
-              <DrawPreview
+            <svg
+              className="column-svg"
+              width={geo.width}
+              height={geo.frame.height}
+              onPointerDown={onPointerDown}
+              onPointerMove={onPointerMove}
+              onPointerUp={() => endDrag(true)}
+              onPointerCancel={() => endDrag(false)}
+              onPointerLeave={() => setTip(null)}
+              data-testid="column-svg"
+            >
+              <Defs />
+              <RowsLayer rows={visibleRows} x={RULER_W} width={right - RULER_W} />
+              <Grid
+                rows={geo.rows}
+                laneX={geo.laneX}
+                laneW={geo.laneW}
+                right={right}
+                edges={edges}
                 frame={geo.frame}
-                from={draw.from}
-                to={draw.to}
-                x={RULER_W}
-                width={right - RULER_W}
+                dragging={edgeDrag?.key ?? null}
               />
-            )}
-          </svg>
+              <Ruler frame={geo.frame} />
+              <BandLabels rows={visibleRows} />
+              {!rects.inbox && <CursorMark rect={rects.cell} />}
+              {visibleCells.map((c) => (
+                <Cell key={c.key} cell={c} cursorId={c.row === cursor.row ? cursorId : null} />
+              ))}
+              {rects.glyph && <Reveal g={rects.glyph} right={geo.width} />}
+              {draw && (
+                <DrawPreview
+                  frame={geo.frame}
+                  from={draw.from}
+                  to={draw.to}
+                  x={RULER_W}
+                  width={right - RULER_W}
+                />
+              )}
+            </svg>
           </ContextMenu>
           <Margin
             notes={notes}

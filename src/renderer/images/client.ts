@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import type { Command } from '@core/commands/registry';
+import { useEffect } from 'react';
+import { cmd, type Command } from '@core/commands/registry';
 import type {
   BatchPlan,
   BatchPlanRequest,
@@ -102,14 +102,10 @@ export const images = {
 
 // ── Commands (core's image commands; IMAGES.md §3) ─────────────────────────
 
-const command = (type: string, payload: unknown): Command => ({ type, payload }) as Command;
 export const imageCommands = {
-  select: (entity: string, image: string): Command => command('image.select', { entity, image }),
-  unselect: (entity: string, kind: ImageKind): Command =>
-    command('image.unselect', { entity, kind }),
-  remove: (entity: string, image: string): Command => command('image.remove', { entity, image }),
-  art: (p: { direction?: string; kinds?: Record<string, string | null> }): Command =>
-    command('art.set', p),
+  select: (entity: string, image: string): Command => cmd('image.select', { entity, image }),
+  unselect: (entity: string, kind: ImageKind): Command => cmd('image.unselect', { entity, kind }),
+  remove: (entity: string, image: string): Command => cmd('image.remove', { entity, image }),
 };
 
 // ── Pixels ──────────────────────────────────────────────────────────────────
@@ -117,27 +113,30 @@ export const imageCommands = {
 export type ImageVariant = 'png' | 'src' | 'thumb';
 type Loaded = { dataUrl: string; width: number; height: number } | null;
 
-/** Data URLs by `entity/id/variant`. An image file never changes under its id. */
-const cache = new Map<string, Promise<Loaded>>();
-const done = new Map<string, Loaded>();
+/** Data URLs by `entity/id/variant` (null: the file is gone). An image file never changes under its id. */
+const loaded = createStore<Record<string, string | null>>({});
+const inflight = new Map<string, Promise<Loaded>>();
+
+const keyOf = (meta: Pick<ImageMeta, 'entity' | 'id'>, variant: ImageVariant): string =>
+  `${meta.entity}/${meta.id}/${variant}`;
 
 export function loadImage(
   meta: Pick<ImageMeta, 'entity' | 'id'>,
   variant: ImageVariant = 'png',
 ): Promise<Loaded> {
-  const key = `${meta.entity}/${meta.id}/${variant}`;
-  let p = cache.get(key);
+  const key = keyOf(meta, variant);
+  let p = inflight.get(key);
   if (!p) {
     p = invoke('images:file', { entityId: meta.entity, imageId: meta.id, variant })
       .then((r) => {
-        done.set(key, r);
+        loaded.set((m) => ({ ...m, [key]: r?.dataUrl ?? null }));
         return r;
       })
       .catch(() => {
-        cache.delete(key);
+        inflight.delete(key);
         return null;
       });
-    cache.set(key, p);
+    inflight.set(key, p);
   }
   return p;
 }
@@ -147,28 +146,14 @@ export function useImageSrc(
   meta: Pick<ImageMeta, 'entity' | 'id'> | null | undefined,
   variant: ImageVariant = 'png',
 ): string | null {
-  const key = meta ? `${meta.entity}/${meta.id}/${variant}` : null;
-  const [src, setSrc] = useState<{ key: string; url: string | null } | null>(() =>
-    key && done.has(key) ? { key, url: done.get(key)?.dataUrl ?? null } : null,
-  );
+  const key = meta ? keyOf(meta, variant) : null;
+  const src = useStore(loaded, (m) => (key ? (m[key] ?? null) : null));
   useEffect(() => {
-    if (!meta || !key) return;
-    if (done.has(key)) {
-      setSrc({ key, url: done.get(key)?.dataUrl ?? null });
-      return;
-    }
-    let live = true;
-    void loadImage(meta, variant).then((r) => {
-      if (live) setSrc({ key, url: r?.dataUrl ?? null });
-    });
-    return () => {
-      live = false;
-    };
+    if (meta && key && !inflight.has(key)) void loadImage(meta, variant);
+    // The key names the file; `meta` and `variant` are in it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
-  if (!key) return null;
-  if (src?.key === key) return src.url;
-  return done.get(key)?.dataUrl ?? null;
+  return src;
 }
 
 export const usd = (n: number, digits = 2): string => `$${n.toFixed(digits)}`;

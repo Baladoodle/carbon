@@ -112,7 +112,11 @@ export function imageMenu(w: World, id: string): MenuEntry[] {
       onSelect: () => void removeImage(id, concept),
     });
   if (icon)
-    out.push({ label: 'Remove icon', destructive: true, onSelect: () => void removeImage(id, icon) });
+    out.push({
+      label: 'Remove icon',
+      destructive: true,
+      onSelect: () => void removeImage(id, icon),
+    });
   return out;
 }
 
@@ -183,7 +187,7 @@ export function useImageActions(): void {
       id: 'images.icon-from-concept',
       label: info?.name ? `Icon from concept: ${info.name}` : 'Icon from concept',
       group: 'Images',
-      enabled: () => many <= 1 && !!one && !!info?.icons && !!info.concept,
+      enabled: () => many <= 1 && !!one && !!info?.icons && info.concept,
       run: () => one && void iconFromConcept(one),
     },
     {
