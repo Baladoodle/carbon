@@ -353,6 +353,9 @@ files; I checked by diffing two runs.
 - **Pillow and OpenCV are emulated only as far as Genforge uses them:**
   8-bit L and RGBA, BOX, LANCZOS and NEAREST, GaussianBlur, symmetric kernels.
 - `package.json`: `fast-png@8.0.0` (exact), added in the first commit.
+- `.prettierignore` gains one line, `upstream`. The Genforge copy must stay
+  byte-identical to its recorded hashes, and Prettier would reformat its two
+  layout JSON files.
 
 ## Gaps
 

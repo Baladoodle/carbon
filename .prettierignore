@@ -9,3 +9,4 @@ docs
 fixtures
 package-lock.json
 *.md
+upstream

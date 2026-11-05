@@ -11,7 +11,15 @@ import type { RgbaImage } from './types';
  * Two sources: a dense 800-px disc (the worst case for item's hairline morphology)
  * and the bow fixture (a typical transparent icon source).
  */
-describe('performance', () => {
+/** Coverage instrumentation slows these ~200 ms pipelines several-fold; the budget is for plain Node. */
+const instrumented = Boolean(
+  (
+    (globalThis as Record<string, unknown>)['__vitest_worker__'] as
+      { config?: { coverage?: { enabled?: boolean } } } | undefined
+  )?.config?.coverage?.enabled,
+);
+
+describe.skipIf(instrumented)('performance', () => {
   const N = 1024;
   const data = new Uint8ClampedArray(N * N * 4);
   for (let i = 0; i < N * N; i++) {
