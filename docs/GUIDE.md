@@ -67,6 +67,15 @@ the key in the keyring once (`secret-tool` comes with `libsecret`):
 secret-tool store --label='carbon: Anthropic API key' service carbon account anthropic-api-key
 ```
 
+Images use OpenAI, with its own key in the same keyring:
+
+```sh
+secret-tool store --label='carbon: OpenAI API key' service carbon account openai-api-key
+```
+
+`OPENAI_API_KEY` in the environment works too. Without it, image actions are
+off and everything else works.
+
 `ANTHROPIC_API_KEY` in the environment works too. The first real run, what it
 costs and what to check: [`AI-FIRST-RUN.md`](AI-FIRST-RUN.md).
 
