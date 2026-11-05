@@ -1,0 +1,941 @@
+{
+  "note": "the sheet PNG is stored at 1440² (2× box-downscaled); flags from the current crop",
+  "sheet": {
+    "id": "01M6NKMCB827QTQ9C038X57QNT",
+    "entity": "iron-sword",
+    "kind": "sheet",
+    "origin": {
+      "by": "openai",
+      "model": "gpt-image-2.5-flare",
+      "quality": "low",
+      "size": "2880x2880",
+      "prompt": "A sprite sheet of 100 separate game item icons on a 10×10 grid, following the reference image's cell boxes exactly: one item per cell, in reading order (left to right, top to bottom).\nEvery item is centred in its cell with clear space around it, and no item crosses a cell edge. No text, no labels, no numbers, no grid lines in the result. Background: fully transparent, the same everywhere.\nHouse style for every item: A single game item icon, centred, shown whole, three-quarter view, filling about 80% of a square frame. Bold readable silhouette, chunky proportions, simple shapes that survive being shrunk to 16×16 pixels. Flat-shaded with one soft top-left key light and a darker outline; few colours, high contrast.\nPalette: muted earth tones.\n\nThe cells:\nrow 1, col 1: Iron Sword, a weapon: a sword made of iron\nrow 1, col 2: Iron Pickaxe, a tool: a pickaxe made of iron\nrow 1, col 3: Iron Lantern, a tool: a lantern made of iron\nrow 1, col 4: Iron Helmet, a tool: a helmet made of iron\nrow 1, col 5: Iron Ring, a tool: a ring made of iron\nrow 1, col 6: Iron Potion, a tool: a potion made of iron\nrow 1, col 7: Iron Shield, a tool: a shield made of iron\nrow 1, col 8: Iron Bow, a weapon: a bow made of iron\nrow 1, col 9: Iron Boots, a tool: a boots made of iron\nrow 1, col 10: Iron Key, a weapon: a key made of iron\nrow 2, col 1: Copper Sword, a weapon: a sword made of copper\nrow 2, col 2: Copper Pickaxe, a tool: a pickaxe made of copper\nrow 2, col 3: Copper Lantern, a tool: a lantern made of copper\nrow 2, col 4: Copper Helmet, a tool: a helmet made of copper\nrow 2, col 5: Copper Ring, a tool: a ring made of copper\nrow 2, col 6: Copper Potion, a tool: a potion made of copper\nrow 2, col 7: Copper Shield, a tool: a shield made of copper\nrow 2, col 8: Copper Bow, a weapon: a bow made of copper\nrow 2, col 9: Copper Boots, a tool: a boots made of copper\nrow 2, col 10: Copper Key, a weapon: a key made of copper\nrow 3, col 1: Bone Sword, a weapon: a sword made of bone\nrow 3, col 2: Bone Pickaxe, a tool: a pickaxe made of bone\nrow 3, col 3: Bone Lantern, a tool: a lantern made of bone\nrow 3, col 4: Bone Helmet, a tool: a helmet made of bone\nrow 3, col 5: Bone Ring, a tool: a ring made of bone\nrow 3, col 6: Bone Potion, a tool: a potion made of bone\nrow 3, col 7: Bone Shield, a tool: a shield made of bone\nrow 3, col 8: Bone Bow, a weapon: a bow made of bone\nrow 3, col 9: Bone Boots, a tool: a boots made of bone\nrow 3, col 10: Bone Key, a weapon: a key made of bone\nrow 4, col 1: Glass Sword, a weapon: a sword made of glass\nrow 4, col 2: Glass Pickaxe, a tool: a pickaxe made of glass\nrow 4, col 3: Glass Lantern, a tool: a lantern made of glass\nrow 4, col 4: Glass Helmet, a tool: a helmet made of glass\nrow 4, col 5: Glass Ring, a tool: a ring made of glass\nrow 4, col 6: Glass Potion, a tool: a potion made of glass\nrow 4, col 7: Glass Shield, a tool: a shield made of glass\nrow 4, col 8: Glass Bow, a weapon: a bow made of glass\nrow 4, col 9: Glass Boots, a tool: a boots made of glass\nrow 4, col 10: Glass Key, a weapon: a key made of glass\nrow 5, col 1: Moss Sword, a weapon: a sword made of moss\nrow 5, col 2: Moss Pickaxe, a tool: a pickaxe made of moss\nrow 5, col 3: Moss Lantern, a tool: a lantern made of moss\nrow 5, col 4: Moss Helmet, a tool: a helmet made of moss\nrow 5, col 5: Moss Ring, a tool: a ring made of moss\nrow 5, col 6: Moss Potion, a tool: a potion made of moss\nrow 5, col 7: Moss Shield, a tool: a shield made of moss\nrow 5, col 8: Moss Bow, a weapon: a bow made of moss\nrow 5, col 9: Moss Boots, a tool: a boots made of moss\nrow 5, col 10: Moss Key, a weapon: a key made of moss\nrow 6, col 1: Ember Sword, a weapon: a sword made of ember\nrow 6, col 2: Ember Pickaxe, a tool: a pickaxe made of ember\nrow 6, col 3: Ember Lantern, a tool: a lantern made of ember\nrow 6, col 4: Ember Helmet, a tool: a helmet made of ember\nrow 6, col 5: Ember Ring, a tool: a ring made of ember\nrow 6, col 6: Ember Potion, a tool: a potion made of ember\nrow 6, col 7: Ember Shield, a tool: a shield made of ember\nrow 6, col 8: Ember Bow, a weapon: a bow made of ember\nrow 6, col 9: Ember Boots, a tool: a boots made of ember\nrow 6, col 10: Ember Key, a weapon: a key made of ember\nrow 7, col 1: Cloud Sword, a weapon: a sword made of cloud\nrow 7, col 2: Cloud Pickaxe, a tool: a pickaxe made of cloud\nrow 7, col 3: Cloud Lantern, a tool: a lantern made of cloud\nrow 7, col 4: Cloud Helmet, a tool: a helmet made of cloud\nrow 7, col 5: Cloud Ring, a tool: a ring made of cloud\nrow 7, col 6: Cloud Potion, a tool: a potion made of cloud\nrow 7, col 7: Cloud Shield, a tool: a shield made of cloud\nrow 7, col 8: Cloud Bow, a weapon: a bow made of cloud\nrow 7, col 9: Cloud Boots, a tool: a boots made of cloud\nrow 7, col 10: Cloud Key, a weapon: a key made of cloud\nrow 8, col 1: Coral Sword, a weapon: a sword made of coral\nrow 8, col 2: Coral Pickaxe, a tool: a pickaxe made of coral\nrow 8, col 3: Coral Lantern, a tool: a lantern made of coral\nrow 8, col 4: Coral Helmet, a tool: a helmet made of coral\nrow 8, col 5: Coral Ring, a tool: a ring made of coral\nrow 8, col 6: Coral Potion, a tool: a potion made of coral\nrow 8, col 7: Coral Shield, a tool: a shield made of coral\nrow 8, col 8: Coral Bow, a weapon: a bow made of coral\nrow 8, col 9: Coral Boots, a tool: a boots made of coral\nrow 8, col 10: Coral Key, a weapon: a key made of coral\nrow 9, col 1: Brass Sword, a weapon: a sword made of brass\nrow 9, col 2: Brass Pickaxe, a tool: a pickaxe made of brass\nrow 9, col 3: Brass Lantern, a tool: a lantern made of brass\nrow 9, col 4: Brass Helmet, a tool: a helmet made of brass\nrow 9, col 5: Brass Ring, a tool: a ring made of brass\nrow 9, col 6: Brass Potion, a tool: a potion made of brass\nrow 9, col 7: Brass Shield, a tool: a shield made of brass\nrow 9, col 8: Brass Bow, a weapon: a bow made of brass\nrow 9, col 9: Brass Boots, a tool: a boots made of brass\nrow 9, col 10: Brass Key, a weapon: a key made of brass\nrow 10, col 1: Obsidian Sword, a weapon: a sword made of obsidian\nrow 10, col 2: Obsidian Pickaxe, a tool: a pickaxe made of obsidian\nrow 10, col 3: Obsidian Lantern, a tool: a lantern made of obsidian\nrow 10, col 4: Obsidian Helmet, a tool: a helmet made of obsidian\nrow 10, col 5: Obsidian Ring, a tool: a ring made of obsidian\nrow 10, col 6: Obsidian Potion, a tool: a potion made of obsidian\nrow 10, col 7: Obsidian Shield, a tool: a shield made of obsidian\nrow 10, col 8: Obsidian Bow, a weapon: a bow made of obsidian\nrow 10, col 9: Obsidian Boots, a tool: a boots made of obsidian\nrow 10, col 10: Obsidian Key, a weapon: a key made of obsidian",
+      "requestId": "req_f1e9b5e15caf4a0b92a9036f6990e135"
+    },
+    "usage": {
+      "inputTokens": 3758,
+      "outputTokens": 659,
+      "images": 1
+    },
+    "costUsd": 0.043123,
+    "created": "2026-11-05T10:21:20.107Z",
+    "width": 2880,
+    "height": 2880,
+    "hashes": {
+      "output": "57c258b24e8068a125ba52dd15c9527e7f6a914e2dfe6d81208e504e4fd8d9ba"
+    },
+    "sheet": {
+      "cols": 10,
+      "rows": 10,
+      "gutter": 58,
+      "canvas": {
+        "w": 2880,
+        "h": 2880
+      },
+      "cells": [
+        {
+          "index": 0,
+          "entity": "iron-sword"
+        },
+        {
+          "index": 1,
+          "entity": "iron-pickaxe"
+        },
+        {
+          "index": 2,
+          "entity": "iron-lantern"
+        },
+        {
+          "index": 3,
+          "entity": "iron-helmet"
+        },
+        {
+          "index": 4,
+          "entity": "iron-ring"
+        },
+        {
+          "index": 5,
+          "entity": "iron-potion"
+        },
+        {
+          "index": 6,
+          "entity": "iron-shield"
+        },
+        {
+          "index": 7,
+          "entity": "iron-bow"
+        },
+        {
+          "index": 8,
+          "entity": "iron-boots"
+        },
+        {
+          "index": 9,
+          "entity": "iron-key"
+        },
+        {
+          "index": 10,
+          "entity": "copper-sword"
+        },
+        {
+          "index": 11,
+          "entity": "copper-pickaxe"
+        },
+        {
+          "index": 12,
+          "entity": "copper-lantern"
+        },
+        {
+          "index": 13,
+          "entity": "copper-helmet"
+        },
+        {
+          "index": 14,
+          "entity": "copper-ring"
+        },
+        {
+          "index": 15,
+          "entity": "copper-potion"
+        },
+        {
+          "index": 16,
+          "entity": "copper-shield"
+        },
+        {
+          "index": 17,
+          "entity": "copper-bow"
+        },
+        {
+          "index": 18,
+          "entity": "copper-boots"
+        },
+        {
+          "index": 19,
+          "entity": "copper-key"
+        },
+        {
+          "index": 20,
+          "entity": "bone-sword"
+        },
+        {
+          "index": 21,
+          "entity": "bone-pickaxe"
+        },
+        {
+          "index": 22,
+          "entity": "bone-lantern"
+        },
+        {
+          "index": 23,
+          "entity": "bone-helmet"
+        },
+        {
+          "index": 24,
+          "entity": "bone-ring"
+        },
+        {
+          "index": 25,
+          "entity": "bone-potion"
+        },
+        {
+          "index": 26,
+          "entity": "bone-shield"
+        },
+        {
+          "index": 27,
+          "entity": "bone-bow"
+        },
+        {
+          "index": 28,
+          "entity": "bone-boots"
+        },
+        {
+          "index": 29,
+          "entity": "bone-key"
+        },
+        {
+          "index": 30,
+          "entity": "glass-sword"
+        },
+        {
+          "index": 31,
+          "entity": "glass-pickaxe"
+        },
+        {
+          "index": 32,
+          "entity": "glass-lantern"
+        },
+        {
+          "index": 33,
+          "entity": "glass-helmet"
+        },
+        {
+          "index": 34,
+          "entity": "glass-ring"
+        },
+        {
+          "index": 35,
+          "entity": "glass-potion"
+        },
+        {
+          "index": 36,
+          "entity": "glass-shield"
+        },
+        {
+          "index": 37,
+          "entity": "glass-bow"
+        },
+        {
+          "index": 38,
+          "entity": "glass-boots"
+        },
+        {
+          "index": 39,
+          "entity": "glass-key"
+        },
+        {
+          "index": 40,
+          "entity": "moss-sword"
+        },
+        {
+          "index": 41,
+          "entity": "moss-pickaxe"
+        },
+        {
+          "index": 42,
+          "entity": "moss-lantern"
+        },
+        {
+          "index": 43,
+          "entity": "moss-helmet"
+        },
+        {
+          "index": 44,
+          "entity": "moss-ring"
+        },
+        {
+          "index": 45,
+          "entity": "moss-potion"
+        },
+        {
+          "index": 46,
+          "entity": "moss-shield"
+        },
+        {
+          "index": 47,
+          "entity": "moss-bow"
+        },
+        {
+          "index": 48,
+          "entity": "moss-boots"
+        },
+        {
+          "index": 49,
+          "entity": "moss-key"
+        },
+        {
+          "index": 50,
+          "entity": "ember-sword"
+        },
+        {
+          "index": 51,
+          "entity": "ember-pickaxe"
+        },
+        {
+          "index": 52,
+          "entity": "ember-lantern"
+        },
+        {
+          "index": 53,
+          "entity": "ember-helmet"
+        },
+        {
+          "index": 54,
+          "entity": "ember-ring"
+        },
+        {
+          "index": 55,
+          "entity": "ember-potion"
+        },
+        {
+          "index": 56,
+          "entity": "ember-shield"
+        },
+        {
+          "index": 57,
+          "entity": "ember-bow"
+        },
+        {
+          "index": 58,
+          "entity": "ember-boots"
+        },
+        {
+          "index": 59,
+          "entity": "ember-key"
+        },
+        {
+          "index": 60,
+          "entity": "cloud-sword"
+        },
+        {
+          "index": 61,
+          "entity": "cloud-pickaxe"
+        },
+        {
+          "index": 62,
+          "entity": "cloud-lantern"
+        },
+        {
+          "index": 63,
+          "entity": "cloud-helmet"
+        },
+        {
+          "index": 64,
+          "entity": "cloud-ring"
+        },
+        {
+          "index": 65,
+          "entity": "cloud-potion"
+        },
+        {
+          "index": 66,
+          "entity": "cloud-shield"
+        },
+        {
+          "index": 67,
+          "entity": "cloud-bow"
+        },
+        {
+          "index": 68,
+          "entity": "cloud-boots"
+        },
+        {
+          "index": 69,
+          "entity": "cloud-key"
+        },
+        {
+          "index": 70,
+          "entity": "coral-sword"
+        },
+        {
+          "index": 71,
+          "entity": "coral-pickaxe"
+        },
+        {
+          "index": 72,
+          "entity": "coral-lantern"
+        },
+        {
+          "index": 73,
+          "entity": "coral-helmet"
+        },
+        {
+          "index": 74,
+          "entity": "coral-ring"
+        },
+        {
+          "index": 75,
+          "entity": "coral-potion"
+        },
+        {
+          "index": 76,
+          "entity": "coral-shield"
+        },
+        {
+          "index": 77,
+          "entity": "coral-bow"
+        },
+        {
+          "index": 78,
+          "entity": "coral-boots"
+        },
+        {
+          "index": 79,
+          "entity": "coral-key"
+        },
+        {
+          "index": 80,
+          "entity": "brass-sword"
+        },
+        {
+          "index": 81,
+          "entity": "brass-pickaxe"
+        },
+        {
+          "index": 82,
+          "entity": "brass-lantern"
+        },
+        {
+          "index": 83,
+          "entity": "brass-helmet"
+        },
+        {
+          "index": 84,
+          "entity": "brass-ring"
+        },
+        {
+          "index": 85,
+          "entity": "brass-potion"
+        },
+        {
+          "index": 86,
+          "entity": "brass-shield"
+        },
+        {
+          "index": 87,
+          "entity": "brass-bow"
+        },
+        {
+          "index": 88,
+          "entity": "brass-boots"
+        },
+        {
+          "index": 89,
+          "entity": "brass-key"
+        },
+        {
+          "index": 90,
+          "entity": "obsidian-sword"
+        },
+        {
+          "index": 91,
+          "entity": "obsidian-pickaxe"
+        },
+        {
+          "index": 92,
+          "entity": "obsidian-lantern"
+        },
+        {
+          "index": 93,
+          "entity": "obsidian-helmet"
+        },
+        {
+          "index": 94,
+          "entity": "obsidian-ring"
+        },
+        {
+          "index": 95,
+          "entity": "obsidian-potion"
+        },
+        {
+          "index": 96,
+          "entity": "obsidian-shield"
+        },
+        {
+          "index": 97,
+          "entity": "obsidian-bow"
+        },
+        {
+          "index": 98,
+          "entity": "obsidian-boots"
+        },
+        {
+          "index": 99,
+          "entity": "obsidian-key"
+        }
+      ]
+    }
+  },
+  "cells": [
+    {
+      "index": 0,
+      "entity": "iron-sword",
+      "flags": []
+    },
+    {
+      "index": 1,
+      "entity": "iron-pickaxe",
+      "flags": []
+    },
+    {
+      "index": 2,
+      "entity": "iron-lantern",
+      "flags": []
+    },
+    {
+      "index": 3,
+      "entity": "iron-helmet",
+      "flags": []
+    },
+    {
+      "index": 4,
+      "entity": "iron-ring",
+      "flags": []
+    },
+    {
+      "index": 5,
+      "entity": "iron-potion",
+      "flags": []
+    },
+    {
+      "index": 6,
+      "entity": "iron-shield",
+      "flags": []
+    },
+    {
+      "index": 7,
+      "entity": "iron-bow",
+      "flags": []
+    },
+    {
+      "index": 8,
+      "entity": "iron-boots",
+      "flags": []
+    },
+    {
+      "index": 9,
+      "entity": "iron-key",
+      "flags": []
+    },
+    {
+      "index": 10,
+      "entity": "copper-sword",
+      "flags": []
+    },
+    {
+      "index": 11,
+      "entity": "copper-pickaxe",
+      "flags": []
+    },
+    {
+      "index": 12,
+      "entity": "copper-lantern",
+      "flags": []
+    },
+    {
+      "index": 13,
+      "entity": "copper-helmet",
+      "flags": []
+    },
+    {
+      "index": 14,
+      "entity": "copper-ring",
+      "flags": []
+    },
+    {
+      "index": 15,
+      "entity": "copper-potion",
+      "flags": []
+    },
+    {
+      "index": 16,
+      "entity": "copper-shield",
+      "flags": []
+    },
+    {
+      "index": 17,
+      "entity": "copper-bow",
+      "flags": []
+    },
+    {
+      "index": 18,
+      "entity": "copper-boots",
+      "flags": []
+    },
+    {
+      "index": 19,
+      "entity": "copper-key",
+      "flags": []
+    },
+    {
+      "index": 20,
+      "entity": "bone-sword",
+      "flags": []
+    },
+    {
+      "index": 21,
+      "entity": "bone-pickaxe",
+      "flags": []
+    },
+    {
+      "index": 22,
+      "entity": "bone-lantern",
+      "flags": []
+    },
+    {
+      "index": 23,
+      "entity": "bone-helmet",
+      "flags": []
+    },
+    {
+      "index": 24,
+      "entity": "bone-ring",
+      "flags": []
+    },
+    {
+      "index": 25,
+      "entity": "bone-potion",
+      "flags": []
+    },
+    {
+      "index": 26,
+      "entity": "bone-shield",
+      "flags": []
+    },
+    {
+      "index": 27,
+      "entity": "bone-bow",
+      "flags": []
+    },
+    {
+      "index": 28,
+      "entity": "bone-boots",
+      "flags": []
+    },
+    {
+      "index": 29,
+      "entity": "bone-key",
+      "flags": []
+    },
+    {
+      "index": 30,
+      "entity": "glass-sword",
+      "flags": []
+    },
+    {
+      "index": 31,
+      "entity": "glass-pickaxe",
+      "flags": []
+    },
+    {
+      "index": 32,
+      "entity": "glass-lantern",
+      "flags": []
+    },
+    {
+      "index": 33,
+      "entity": "glass-helmet",
+      "flags": []
+    },
+    {
+      "index": 34,
+      "entity": "glass-ring",
+      "flags": []
+    },
+    {
+      "index": 35,
+      "entity": "glass-potion",
+      "flags": []
+    },
+    {
+      "index": 36,
+      "entity": "glass-shield",
+      "flags": []
+    },
+    {
+      "index": 37,
+      "entity": "glass-bow",
+      "flags": []
+    },
+    {
+      "index": 38,
+      "entity": "glass-boots",
+      "flags": []
+    },
+    {
+      "index": 39,
+      "entity": "glass-key",
+      "flags": []
+    },
+    {
+      "index": 40,
+      "entity": "moss-sword",
+      "flags": []
+    },
+    {
+      "index": 41,
+      "entity": "moss-pickaxe",
+      "flags": []
+    },
+    {
+      "index": 42,
+      "entity": "moss-lantern",
+      "flags": []
+    },
+    {
+      "index": 43,
+      "entity": "moss-helmet",
+      "flags": []
+    },
+    {
+      "index": 44,
+      "entity": "moss-ring",
+      "flags": []
+    },
+    {
+      "index": 45,
+      "entity": "moss-potion",
+      "flags": []
+    },
+    {
+      "index": 46,
+      "entity": "moss-shield",
+      "flags": []
+    },
+    {
+      "index": 47,
+      "entity": "moss-bow",
+      "flags": []
+    },
+    {
+      "index": 48,
+      "entity": "moss-boots",
+      "flags": []
+    },
+    {
+      "index": 49,
+      "entity": "moss-key",
+      "flags": []
+    },
+    {
+      "index": 50,
+      "entity": "ember-sword",
+      "flags": []
+    },
+    {
+      "index": 51,
+      "entity": "ember-pickaxe",
+      "flags": []
+    },
+    {
+      "index": 52,
+      "entity": "ember-lantern",
+      "flags": []
+    },
+    {
+      "index": 53,
+      "entity": "ember-helmet",
+      "flags": []
+    },
+    {
+      "index": 54,
+      "entity": "ember-ring",
+      "flags": []
+    },
+    {
+      "index": 55,
+      "entity": "ember-potion",
+      "flags": []
+    },
+    {
+      "index": 56,
+      "entity": "ember-shield",
+      "flags": []
+    },
+    {
+      "index": 57,
+      "entity": "ember-bow",
+      "flags": []
+    },
+    {
+      "index": 58,
+      "entity": "ember-boots",
+      "flags": []
+    },
+    {
+      "index": 59,
+      "entity": "ember-key",
+      "flags": []
+    },
+    {
+      "index": 60,
+      "entity": "cloud-sword",
+      "flags": []
+    },
+    {
+      "index": 61,
+      "entity": "cloud-pickaxe",
+      "flags": []
+    },
+    {
+      "index": 62,
+      "entity": "cloud-lantern",
+      "flags": []
+    },
+    {
+      "index": 63,
+      "entity": "cloud-helmet",
+      "flags": []
+    },
+    {
+      "index": 64,
+      "entity": "cloud-ring",
+      "flags": []
+    },
+    {
+      "index": 65,
+      "entity": "cloud-potion",
+      "flags": []
+    },
+    {
+      "index": 66,
+      "entity": "cloud-shield",
+      "flags": []
+    },
+    {
+      "index": 67,
+      "entity": "cloud-bow",
+      "flags": []
+    },
+    {
+      "index": 68,
+      "entity": "cloud-boots",
+      "flags": []
+    },
+    {
+      "index": 69,
+      "entity": "cloud-key",
+      "flags": []
+    },
+    {
+      "index": 70,
+      "entity": "coral-sword",
+      "flags": []
+    },
+    {
+      "index": 71,
+      "entity": "coral-pickaxe",
+      "flags": []
+    },
+    {
+      "index": 72,
+      "entity": "coral-lantern",
+      "flags": []
+    },
+    {
+      "index": 73,
+      "entity": "coral-helmet",
+      "flags": []
+    },
+    {
+      "index": 74,
+      "entity": "coral-ring",
+      "flags": []
+    },
+    {
+      "index": 75,
+      "entity": "coral-potion",
+      "flags": []
+    },
+    {
+      "index": 76,
+      "entity": "coral-shield",
+      "flags": []
+    },
+    {
+      "index": 77,
+      "entity": "coral-bow",
+      "flags": []
+    },
+    {
+      "index": 78,
+      "entity": "coral-boots",
+      "flags": []
+    },
+    {
+      "index": 79,
+      "entity": "coral-key",
+      "flags": []
+    },
+    {
+      "index": 80,
+      "entity": "brass-sword",
+      "flags": []
+    },
+    {
+      "index": 81,
+      "entity": "brass-pickaxe",
+      "flags": []
+    },
+    {
+      "index": 82,
+      "entity": "brass-lantern",
+      "flags": []
+    },
+    {
+      "index": 83,
+      "entity": "brass-helmet",
+      "flags": []
+    },
+    {
+      "index": 84,
+      "entity": "brass-ring",
+      "flags": []
+    },
+    {
+      "index": 85,
+      "entity": "brass-potion",
+      "flags": []
+    },
+    {
+      "index": 86,
+      "entity": "brass-shield",
+      "flags": []
+    },
+    {
+      "index": 87,
+      "entity": "brass-bow",
+      "flags": []
+    },
+    {
+      "index": 88,
+      "entity": "brass-boots",
+      "flags": []
+    },
+    {
+      "index": 89,
+      "entity": "brass-key",
+      "flags": []
+    },
+    {
+      "index": 90,
+      "entity": "obsidian-sword",
+      "flags": []
+    },
+    {
+      "index": 91,
+      "entity": "obsidian-pickaxe",
+      "flags": []
+    },
+    {
+      "index": 92,
+      "entity": "obsidian-lantern",
+      "flags": []
+    },
+    {
+      "index": 93,
+      "entity": "obsidian-helmet",
+      "flags": []
+    },
+    {
+      "index": 94,
+      "entity": "obsidian-ring",
+      "flags": []
+    },
+    {
+      "index": 95,
+      "entity": "obsidian-potion",
+      "flags": []
+    },
+    {
+      "index": 96,
+      "entity": "obsidian-shield",
+      "flags": []
+    },
+    {
+      "index": 97,
+      "entity": "obsidian-bow",
+      "flags": []
+    },
+    {
+      "index": 98,
+      "entity": "obsidian-boots",
+      "flags": []
+    },
+    {
+      "index": 99,
+      "entity": "obsidian-key",
+      "flags": []
+    }
+  ]
+}
