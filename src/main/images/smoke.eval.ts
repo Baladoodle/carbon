@@ -8,6 +8,7 @@ import { cmd } from '@core/commands/registry';
 import type { ImageKind, ImageModel, ImageSize } from '@core/images/model';
 import { imagePaths } from '@core/images/model';
 import { fakeImagePrompt } from '@core/images/prompt';
+import { sheetItemLine } from '@core/images/sheet';
 import { sampleWorld } from '@core/testing/sample';
 import { resetDiskState } from '../store/disk-state';
 import { writeWorldDir } from '../store/world-dir';
@@ -85,6 +86,33 @@ const PLANS: Plan[] = [
   },
 ];
 
+/** 100 recognisable items for the sheet: ten materials × ten objects. */
+const MATERIALS = [
+  'Iron',
+  'Copper',
+  'Bone',
+  'Glass',
+  'Moss',
+  'Ember',
+  'Cloud',
+  'Coral',
+  'Brass',
+  'Obsidian',
+];
+const OBJECTS = [
+  'Sword',
+  'Pickaxe',
+  'Lantern',
+  'Helmet',
+  'Ring',
+  'Potion',
+  'Shield',
+  'Bow',
+  'Boots',
+  'Key',
+];
+const SHEET_PLAN = 'items-sheet-100-flare';
+
 interface Ledger {
   calls: { at: string; name: string; outcome: string; costUsd: number; requestId?: string }[];
 }
@@ -115,8 +143,29 @@ describe.skipIf(!enabled)('real OpenAI image calls (low quality)', () => {
         `refusing: ${ledger.calls.length} real calls recorded, ${plans.length} more would pass the cap of ${MAX}`,
       );
 
+    const runSheet = !only || only.split(',').includes(SHEET_PLAN);
+    if (ledger.calls.length + plans.length + (runSheet ? 1 : 0) > MAX)
+      throw new Error(`refusing: the sheet would pass the cap of ${MAX} real calls`);
     const dir = await mkdtemp(path.join(os.tmpdir(), 'carbon-image-smoke-'));
-    await writeWorldDir(dir, sampleWorld());
+    const world = sampleWorld();
+    const template = world.entities['spore-lantern'];
+    if (!template) throw new Error('sample world without spore-lantern');
+    const sheetIds: string[] = [];
+    for (const m of MATERIALS)
+      for (const o of OBJECTS) {
+        const id = `${m}-${o}`.toLowerCase();
+        sheetIds.push(id);
+        world.entities[id] = {
+          ...template,
+          id,
+          name: `${m} ${o}`,
+          identity: `A ${o.toLowerCase()} made of ${m.toLowerCase()}.`,
+          fields: { subkind: ['Sword', 'Bow', 'Key'].includes(o) ? 'weapon' : 'tool' },
+          relations: [],
+          state: 'idea',
+        };
+      }
+    await writeWorldDir(dir, world);
     resetDiskState(dir);
     const session = await WorldSession.open(dir);
     session.dispatch([
@@ -201,6 +250,62 @@ describe.skipIf(!enabled)('real OpenAI image calls (low quality)', () => {
         );
         console.log(`  provider image ${src.width}×${src.height}`);
       }
+      if (runSheet) {
+        const t0 = Date.now();
+        const r = await g.sheetRun({
+          batchId: SHEET_PLAN,
+          items: sheetIds.map((entityId) => ({
+            entityId,
+            line: sheetItemLine(session.world, entityId),
+          })),
+          model: 'gpt-image-2.6-flare',
+          quality: 'low',
+        });
+        const out = r.sheets[0];
+        const receipt = out?.receipt;
+        for (const a of receipt?.attempts ?? [])
+          ledger.calls.push({
+            at: a.at,
+            name: SHEET_PLAN,
+            outcome: a.status,
+            costUsd: a.costUsd,
+            ...(a.requestId ? { requestId: a.requestId } : {}),
+          });
+        await writeFile(LEDGER, `${JSON.stringify(ledger, null, 2)}\n`);
+        const a = receipt?.attempts.at(-1);
+        console.log(
+          `${SHEET_PLAN}: ${out?.ok ? 'ok' : `${out?.error.code}: ${out?.error.message}`} · ${a?.model} ${a?.quality} ${a?.size} ${a?.endpoint} · usage ${JSON.stringify(a?.usage ?? null)} · $${(receipt?.costUsd ?? 0).toFixed(5)} (${a?.costFrom}) · ${Date.now() - t0} ms`,
+        );
+        records.push({
+          name: SHEET_PLAN,
+          kind: 'sheet',
+          prompt: receipt?.prompt ?? '',
+          ok: out?.ok ?? false,
+          ...(out && !out.ok ? { error: out.error } : {}),
+          attempts: receipt?.attempts ?? [],
+          costUsd: receipt?.costUsd ?? 0,
+        });
+        if (out?.ok) {
+          const sheet = out.review.sheet;
+          await copyFile(
+            path.join(dir, imagePaths(sheet.entity, sheet.id).png),
+            path.join(OUT, `${SHEET_PLAN}.png`),
+          );
+          const flags = out.review.cells.map((c) => ({
+            index: c.index,
+            entity: c.entityId,
+            flags: c.flags,
+          }));
+          const flagged = flags.filter((f) => f.flags.length > 0);
+          console.log(
+            `  sheet ${sheet.width}×${sheet.height}; ${flags.length - flagged.length} of ${flags.length} cells clean; flagged: ${JSON.stringify(flagged)}`,
+          );
+          await writeFile(
+            path.join(OUT, `${SHEET_PLAN}.review.json`),
+            `${JSON.stringify({ sheet, cells: flags }, null, 2)}\n`,
+          );
+        }
+      }
       const prev = JSON.parse(
         await readFile(path.join(OUT, 'calls.json'), 'utf8').catch(() => '[]'),
       ) as unknown[];
@@ -218,7 +323,7 @@ describe.skipIf(!enabled)('real OpenAI image calls (low quality)', () => {
         expect(text).not.toMatch(/sk-[A-Za-z0-9_-]{16,}/);
         if (found) expect(text.includes(found.key)).toBe(false);
       }
-      expect(records.some((x) => (x as { ok: boolean }).ok)).toBe(true);
+      if (records.length > 0) expect(records.some((x) => (x as { ok: boolean }).ok)).toBe(true);
     } finally {
       await session.flush();
       await g.flush();

@@ -23,6 +23,10 @@ stable. The rest of this file is filled in as the work lands.
 ### 1.2 The world
 
 - `world.images?: Record<EntityId, { concept?: ImageId; icon?: ImageId; all: ImageMeta[] }>`.
+  `ImageMeta.kind` is `'concept' | 'icon' | 'sheet'`. A **sheet** (IMAGES.md
+  §2a) belongs to the entity in its first cell, carries `sheet: { cols, rows,
+  gutter, canvas, cells: [{ index, entity }] }`, and is never selected. An icon
+  accepted from a sheet has `origin: { by: 'sheet', sheet, cell, preset }`.
   **Absent when there are no images**, and an entity's entry is absent when
   it has none. Read it as `world.images?.[id]`. `all` is sorted by id (oldest
   first; ids are ULIDs).
@@ -49,13 +53,21 @@ stable. The rest of this file is filled in as the work lands.
 | `images:estimate` | `{ kind, model?, quality?, size?, calls?, promptChars? }` → `{ model, quality, size, calls, perCallUsd, totalUsd, remainingUsd }` |
 | `images:generate` | `{ requestId, entityId, kind, prompt, model?, quality?, size?, reference?, select? }` → `ImageResult` = `{ ok: true, image: ImageMeta, receipt } \| { ok: false, error, receipt? }`. Files written, `image.add` dispatched (one undo step, selected unless `select: false`) |
 | `images:iconFromConcept` | `{ entityId, from?, select? }` → `ImageResult`. Free: the `item` pixel filter over the concept, no API call |
-| `images:batchPlan` | `{ kind, entityIds, replace?, model?, quality?, size?, requestId? }` → `{ items: [{ entityId, name, prompt?, skip?, error? }], calls, estimate, claudeCostUsd, model, quality, size, kind }`. Writes every prompt; no OpenAI call |
+| `images:batchPlan` | `{ kind, entityIds, replace?, model?, quality?, size?, requestId? }` → `{ items: [{ entityId, name, prompt?, line?, skip?, error? }], calls, estimate, claudeCostUsd, model, quality, size, kind, sheets? }`. No OpenAI call. **Concepts:** Claude writes each prompt (`prompt`); run with `images:batchRun`. **Icons:** `sheets: [{ index, cols, rows, size, items: [{ entityId, name, line }], estimateUsd }]`, each item gets a deterministic `line` (no Claude call), `calls` counts sheets; run with `images:sheetRun` |
 | `images:batchRun` | `{ batchId, kind, items: [{ entityId, prompt }], model?, quality?, size?, select? }` → `{ batchId, items: [{ entityId, result: ImageResult }], costUsd, cancelled }`. Concurrency 2; progress on the `images:progress` event |
+| `images:sheetRun` | `{ batchId, items: [{ entityId, line }], model?, quality? }` → `{ batchId, sheets: [{ ok: true, review, receipt } \| { ok: false, error, receipt?, entityIds }], costUsd, cancelled }`. **Icon batches (IMAGES.md §2a).** Main splits the items into sheets of ≤ 100 (as even as possible), one paid call each (2880×2880, the guide as the reference), one after another. Each sheet is kept in the world (kind `sheet`); **its cells are not icons yet.** Progress on `images:progress` (`total`/`done` count sheets) |
+| `images:sheetCrop` | `{ entityId, imageId }` (the sheet) → `SheetReview \| null`. Re-crops a kept sheet. Free |
+| `images:sheetAccept` | `{ entityId, imageId, cells: number[], select? }` → `{ ok: true, images: ImageMeta[] } \| { ok: false, error }`. Accepted cells become icons, **one undo step** ("Accept N icons"). Free |
 | `images:cancel` | `{ id }` (a generate's `requestId`, a plan's `requestId` or a `batchId`) → `{ ok: true }` |
 | `images:status` | `null` → `ImageStatus` = `{ mode: 'real' \| 'fake' \| 'off', enabled, reason?, model, quality, spend: { sessionUsd, monthUsd }, budget, paused, pending }` |
 | `images:file` | `{ entityId, imageId, variant?: 'png' \| 'src' \| 'thumb' }` → `{ dataUrl, width, height } \| null`. `thumb` is at most 256px. The CSP allows `data:` images |
 | `images:deleteFiles` | `{ entityId? }` → `{ removed, bytes }`. Purges the files of images no longer in the world. Confirm first |
 | `images:log` | `{ limit? }` → `ImageLogEntry[]` (provider, model, size, quality, usage, cost, latency, outcome, image id) |
+
+`SheetReview` = `{ sheet: ImageMeta, preview: { dataUrl, width, height } (≤ 1024px), cells: [{ index, entityId, row, col, flags, crop: {…} \| null (≤ 128px), icon: {…} \| null (16×16) }] }`.
+Flags: `empty`, `background_only`, `touches_edge`, `fragmented`. "Regenerate flagged" is a new
+`images:sheetRun` with just those items. `images:batchRun` still works for icons (one call each), but
+the batch dialog should use sheets.
 
 **Events:** `images:status` (ImageStatus), `images:progress` (`{ batchId, total, done, running, item?, costUsd }`),
 `images:logged` (a new `ImageLogEntry`).

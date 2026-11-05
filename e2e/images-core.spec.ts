@@ -74,17 +74,44 @@ test('images: prompt, estimate, generate, icon from concept, files and undo over
   expect(snap.world.images?.glide?.concept).toBe(g.image.id);
 });
 
-test('images: a batch runs with progress events', async () => {
+test('images: concepts batch one call each; icons batch as a sheet, reviewed then accepted', async () => {
   const plan = await carbon.invoke('images:batchPlan', {
-    kind: 'icon',
+    kind: 'concept',
     entityIds: ['cinder-sting', 'spore-lantern'],
   });
   expect(plan.calls).toBe(2);
   const items = plan.items.flatMap((i) =>
     i.prompt ? [{ entityId: i.entityId, prompt: i.prompt }] : [],
   );
-  const r = await carbon.invoke('images:batchRun', { batchId: 'e2e-b', kind: 'icon', items });
+  const r = await carbon.invoke('images:batchRun', { batchId: 'e2e-b', kind: 'concept', items });
   expect(r.items.every((i) => i.result.ok)).toBe(true);
+
+  const icons = await carbon.invoke('images:batchPlan', {
+    kind: 'icon',
+    entityIds: ['cinder-sting', 'spore-lantern', 'cloud-anklet'],
+  });
+  expect(icons.calls).toBe(1);
+  expect(icons.sheets?.[0]?.items.map((i) => i.entityId)).toEqual([
+    'cinder-sting',
+    'spore-lantern',
+    'cloud-anklet',
+  ]);
+  const run = await carbon.invoke('images:sheetRun', {
+    batchId: 'e2e-s',
+    items: icons.items.flatMap((i) => (i.line ? [{ entityId: i.entityId, line: i.line }] : [])),
+  });
+  const sheet = run.sheets[0];
+  expect(sheet?.ok).toBe(true);
+  if (!sheet?.ok) return;
+  expect(sheet.review.cells.map((c) => c.flags)).toEqual([[], [], []]);
+  const acc = await carbon.invoke('images:sheetAccept', {
+    entityId: sheet.review.sheet.entity,
+    imageId: sheet.review.sheet.id,
+    cells: [0, 2],
+  });
+  expect(acc.ok).toBe(true);
   const snap = await carbon.invoke('world:snapshot', null);
   expect(snap.world.images?.['cinder-sting']?.icon).toBeDefined();
+  expect(snap.world.images?.['spore-lantern']?.icon).toBeUndefined();
+  expect(snap.world.images?.['cloud-anklet']?.icon).toBeDefined();
 });

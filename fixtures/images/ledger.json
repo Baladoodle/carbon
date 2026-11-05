@@ -48,6 +48,13 @@
       "outcome": "ok",
       "costUsd": 0.02532,
       "requestId": "req_211cd02143df4d03ac71311a6be0e9a7"
+    },
+    {
+      "at": "2026-11-05T09:40:21.906Z",
+      "name": "items-sheet-100-flare",
+      "outcome": "ok",
+      "costUsd": 0.106393,
+      "requestId": "req_93df42789a4f4508bd15b0f2ebaf6fb0"
     }
   ]
 }
