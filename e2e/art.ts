@@ -1,4 +1,5 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import type { ImageMeta, WorldImages } from '@core/images/model';
 import { imagePaths } from '@core/images/model';
@@ -6,9 +7,9 @@ import type { World } from '@core/model/world';
 import { encodePng, sha256, type Rgba } from '../src/main/images/png';
 
 /**
- * Stand-in art for the canonical screens (docs/screens/): painted here, not
- * generated, so the screens show what carbon does with real concept art and
- * icons without a paid call. Concepts are layered landscapes per biome;
+ * Art for the canonical screens (docs/screens/): images-core's recorded real
+ * calls where there is one (fixtures/images), else stand-in art painted here,
+ * so the screens need no paid call. Concepts are layered landscapes per biome;
  * icons are 16×16 sprites in Infinite's item style. Everything is
  * deterministic (seeded), so the screens are reproducible.
  */
@@ -127,28 +128,6 @@ const SCENES: Record<string, Scene> = {
       { color: '#e0e6f0', base: 0.9, amp: 0.06 },
     ],
     glow: { color: '#ffffff', count: 30, size: 3, band: [0.1, 0.6] },
-  },
-  'mossed-hollows': {
-    sky: ['#101a14', '#2c4a34', '#6a8a5a'],
-    haze: 0.5,
-    layers: [
-      { color: '#2a4630', base: 0.22, amp: 0.14, top: true, spiky: 0.3 },
-      { color: '#3e6a40', base: 0.66, amp: 0.16 },
-      { color: '#2e5432', base: 0.78, amp: 0.1 },
-      { color: '#1c3a22', base: 0.9, amp: 0.06 },
-    ],
-    glow: { color: '#d8f0a0', count: 40, size: 2.5, band: [0.3, 0.8] },
-  },
-  'painted-plains': {
-    sky: ['#4a3a5a', '#c08a7a', '#f0c890'],
-    haze: 0.5,
-    sun: { x: 0.6, y: 0.5, r: 0.06, color: '#fff0c8' },
-    layers: [
-      { color: '#b07a6a', base: 0.6, amp: 0.08 },
-      { color: '#c89a5a', base: 0.7, amp: 0.05 },
-      { color: '#a8604a', base: 0.8, amp: 0.04 },
-      { color: '#7a4a3a', base: 0.9, amp: 0.03 },
-    ],
   },
   'spore-lantern': {
     sky: ['#0e1a1c', '#163a38', '#0b1617'],
@@ -337,51 +316,6 @@ function sprite(id: string): Rgba | null {
   return { width: 16, height: 16, data };
 }
 
-/** Two more Hollows biomes, so the Climate screen shows a full plane. */
-export function withHollowsBiomes(world: World): World {
-  const base = world.entities['glowmoss-caverns'];
-  if (!base) return world;
-  const biome = (
-    id: string,
-    name: string,
-    identity: string,
-    t: [number, number],
-    m: [number, number],
-  ) => ({
-    ...base,
-    id,
-    name,
-    identity,
-    state: 'idea' as const,
-    ai_fields: [],
-    relations: [],
-    fields: {
-      ...base.fields,
-      climate: { temperature: { min: t[0], max: t[1] }, moisture: { min: m[0], max: m[1] } },
-    },
-  });
-  return {
-    ...world,
-    entities: {
-      ...world.entities,
-      'mossed-hollows': biome(
-        'mossed-hollows',
-        'Mossed Hollows',
-        'Cold hollows where moss drinks the dark.',
-        [0.03, 0.26],
-        [0.32, 0.72],
-      ),
-      'painted-plains': biome(
-        'painted-plains',
-        'Painted Plains',
-        'Warm silt in bands of rust and ochre.',
-        [0.6, 0.97],
-        [0.42, 0.78],
-      ),
-    },
-  };
-}
-
 /** A ULID-shaped id from a counter (Crockford base32, sortable). */
 const ulid = (n: number): string => `01JC${String(n).padStart(22, '0')}`;
 
@@ -393,8 +327,14 @@ const ulid = (n: number): string => `01JC${String(n).padStart(22, '0')}`;
 export function withArt(world: World, dir: string): World {
   const images: WorldImages = {};
   let n = 1;
-  const add = (entity: string, kind: 'concept' | 'icon', img: Rgba, prompt: string): void => {
-    const bytes = encodePng(img);
+  const add = (
+    entity: string,
+    kind: 'concept' | 'icon',
+    img: Rgba | { bytes: Uint8Array; width: number; height: number; model: string },
+    prompt: string,
+  ): void => {
+    const real = 'bytes' in img;
+    const bytes = real ? img.bytes : encodePng(img);
     const id = ulid(n++);
     const file = path.join(dir, imagePaths(entity, id).png);
     mkdirSync(path.dirname(file), { recursive: true });
@@ -403,7 +343,15 @@ export function withArt(world: World, dir: string): World {
       id,
       entity,
       kind,
-      origin: { by: 'fake', prompt, size: kind === 'icon' ? '1024x1024' : '1536x1024' },
+      origin: real
+        ? {
+            by: 'openai',
+            model: img.model,
+            quality: 'low',
+            size: kind === 'icon' || img.width === img.height ? '1024x1024' : '1536x1024',
+            prompt,
+          }
+        : { by: 'fake', prompt, size: kind === 'icon' ? '1024x1024' : '1536x1024' },
       created: '2026-11-05T12:00:00.000Z',
       width: img.width,
       height: img.height,
@@ -450,5 +398,25 @@ export function withArt(world: World, dir: string): World {
     if (s && world.entities[id])
       add(id, 'icon', s, `${world.entities[id].name}, as a game item icon`);
   }
+  // images-core's recorded real calls (fixtures/images, low quality): where an
+  // entity has one, it is the chosen image, and the painted one an earlier version.
+  for (const [entity, kind, file, model] of REAL) {
+    const abs = path.join(FIXTURES, `${file}.png`);
+    if (!world.entities[entity] || !existsSync(abs)) continue;
+    const bytes = new Uint8Array(readFileSync(abs));
+    const dim = { width: bytes[19]! + (bytes[18]! << 8), height: bytes[23]! + (bytes[22]! << 8) };
+    add(entity, kind, { bytes, model, ...dim }, `${world.entities[entity].name} (recorded)`);
+  }
   return { ...world, images };
 }
+
+const FIXTURES = path.join(path.dirname(fileURLToPath(import.meta.url)), '../fixtures/images');
+const REAL: [string, 'concept' | 'icon', string, string][] = [
+  ['spore-lantern', 'icon', 'spore-lantern-icon-flare', 'gpt-image-2.6-flare'],
+  ['glowmoss-caverns', 'concept', 'glowmoss-caverns-concept-sunburst', 'gpt-image-2.6-sunburst'],
+  ['cloud-reef', 'concept', 'cloud-reef-concept-flare', 'gpt-image-2.6-flare'],
+  ['spore-lantern', 'concept', 'spore-lantern-concept-flare', 'gpt-image-2.6-flare'],
+  ['spore-lantern', 'icon', 'spore-lantern-icon-edit-flare', 'gpt-image-2.6-flare'],
+  ['cinder-sting', 'icon', 'cinder-sting-icon-sunburst', 'gpt-image-2.6-sunburst'],
+  ['cloud-anklet', 'icon', 'cloud-anklet-icon-flare', 'gpt-image-2.6-flare'],
+];

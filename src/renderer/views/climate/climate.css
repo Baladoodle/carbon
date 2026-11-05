@@ -510,3 +510,9 @@
 .climate-region-head {
   padding-right: 18px;
 }
+.climate-region-art .climate-region-range {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
+  color: var(--text);
+}

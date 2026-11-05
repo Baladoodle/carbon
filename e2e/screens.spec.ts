@@ -6,7 +6,7 @@ import { cmd } from '@core/commands/registry';
 import { stressWorld } from '../src/core/testing/stress';
 import { writeWorldDir } from '../src/main/store/world-dir';
 import { sampleWorld } from '../src/core/testing/sample';
-import { withArt, withHollowsBiomes } from './art';
+import { withArt } from './art';
 import { launchCarbon, SCREEN_SCALE, type CarbonApp } from './harness';
 
 /**
@@ -224,7 +224,7 @@ test('the Column over 2,000 entities', async () => {
 test('images: Climate panels filled by concept art, the Bench strip, the confirm step, a batch', async () => {
   test.setTimeout(120_000);
   const tmp = mkdtempSync(path.join(os.tmpdir(), 'carbon-screens-art-'));
-  const art = withArt(withHollowsBiomes(sampleWorld()), tmp);
+  const art = withArt(sampleWorld(), tmp);
   await writeWorldDir(tmp, art);
   const c = await launchCarbon({ worldDir: tmp, scale: SCREEN_SCALE });
   const p = c.page;
@@ -238,7 +238,7 @@ test('images: Climate panels filled by concept art, the Bench strip, the confirm
     await c.gotoView('climate', '2');
     await p.getByRole('tab', { name: 'Hollows' }).click();
     const region = (id: string) => p.locator(`[data-testid="climate-region"][data-entity="${id}"]`);
-    for (const id of ['glowmoss-caverns', 'ash-vents', 'mossed-hollows', 'painted-plains'])
+    for (const id of ['glowmoss-caverns', 'ash-vents'])
       await expect(region(id).getByTestId('climate-art')).toHaveAttribute('data-loaded', '');
     await region('glowmoss-caverns').click();
     const plane = (await p.getByTestId('climate-plane').boundingBox())!;
@@ -255,7 +255,7 @@ test('images: Climate panels filled by concept art, the Bench strip, the confirm
     await p.keyboard.press('Enter');
     await expect(p.getByTestId('bench-entity')).toHaveAttribute('data-entity', 'spore-lantern');
     await p.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
-    await expect(p.getByTestId('bench-version')).toHaveCount(3);
+    await expect(p.getByTestId('bench-version')).toHaveCount(6);
     await calm();
     await c.screenshot('bench-images', { docs: true, element: p.getByTestId('bench') });
 
