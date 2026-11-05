@@ -3,9 +3,10 @@ import { fieldValue } from '@core/model/lifecycle';
 import { getEntity } from '@core/model/world';
 import { hashValue } from '@core/util/hash';
 import { ai } from '../ai/client';
-import { publishNotes } from '../state/notes';
+import { notesStore, publishNotes } from '../state/notes';
 import { flash } from '../state/ui';
-import { currentWorld, transact, whenRev } from '../state/world';
+import { currentWorld, transact, whenRev, worldStore } from '../state/world';
+import { staleCritiqueSources } from '@core/bench/critique';
 import { createBenchAi } from './ai';
 import { fieldId, setEntry } from './store';
 
@@ -19,6 +20,22 @@ export const benchAi = createBenchAi({
   dispatch: (label, commands) => transact(label, commands),
   publishNotes,
   say: (text, tone) => flash(text, tone),
+});
+
+/**
+ * Critique notes leave with their entity: when an entity is deleted (from the
+ * Bench, the Codex, an undo, an outside edit), its `ai:<id>` notes are
+ * withdrawn, and a critique still in flight for it is cancelled.
+ */
+let lastEntities: unknown = null;
+worldStore.subscribe(() => {
+  const w = worldStore.get().world;
+  if (!w || w.entities === lastEntities) return;
+  lastEntities = w.entities;
+  for (const source of staleCritiqueSources(Object.keys(notesStore.get().bySource), w)) {
+    if ((notesStore.get().bySource[source]?.length ?? 0) > 0) publishNotes(source, []);
+    benchAi.cancel(source.slice(3));
+  }
 });
 
 /** Commits in flight per entity, so a critique on finishing (ai/triggers.ts) sees your last edit. */

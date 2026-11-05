@@ -148,6 +148,39 @@ describe('bench AI', () => {
     expect(log.map((l) => l.outcome)).toEqual(['cancelled', 'ok']);
   });
 
+  it('drops a critique that lands after its entity was deleted', async () => {
+    const fake = new FakeAiGateway({ getWorld: () => world });
+    let answered: () => void = () => {};
+    const built = new Promise<void>((r) => (answered = r));
+    let release: () => void = () => {};
+    const gate = new Promise<void>((r) => (release = r));
+    // Answers from the world as it was when asked (like the real gateway), then arrives late.
+    const late = {
+      run: async (...args: Parameters<AiGateway['run']>) => {
+        const out = await fake.run(...args);
+        answered();
+        await gate;
+        return out;
+      },
+    } as unknown as AiGateway;
+    const weak = applyCommands(
+      world,
+      [cmd('entity.update', { id: 'glide', set: { identity: 'Fly' } })],
+      ctx,
+    );
+    if (!weak.ok) throw new Error(weak.error.message);
+    world = weak.value.world;
+    const b = make(late);
+    const p = b.critique('glide', 'on_demand');
+    await built;
+    const r = applyCommands(world, [cmd('entity.delete', { id: 'glide' })], ctx);
+    if (!r.ok) throw new Error(r.error.message);
+    world = r.value.world;
+    release();
+    await p;
+    expect(notes['ai:glide'] ?? []).toEqual([]);
+  });
+
   it('says why when the AI is off, and stays quiet for unasked critiques', async () => {
     const off = new FakeAiGateway({ getWorld: () => world });
     off.setEnabled(false);

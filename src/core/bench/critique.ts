@@ -11,6 +11,21 @@ import { hashValue } from '../util/hash';
  */
 export const critiqueSource = (entityId: string): string => `ai:${entityId}`;
 
+/**
+ * The critique sources (of those published) whose entity no longer exists:
+ * their notes would otherwise outlive the entity, in the margin's store and
+ * in the status line's count.
+ */
+export function staleCritiqueSources(sources: Iterable<string>, world: World): string[] {
+  const out: string[] = [];
+  for (const s of sources) {
+    if (!s.startsWith('ai:')) continue;
+    const id = s.slice(3);
+    if (id !== '' && !getEntity(world, id)) out.push(s);
+  }
+  return out;
+}
+
 export function critiqueNotes(
   world: World,
   entityId: string,

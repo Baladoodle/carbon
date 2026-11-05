@@ -5,7 +5,7 @@ import { cmd } from '@core/commands/registry';
 import type { FieldDef } from '@core/model/fields';
 import { schemaOf } from '@core/model/world';
 import { sampleWorld } from '@core/testing/sample';
-import { critiqueNotes, critiqueSource } from './critique';
+import { critiqueNotes, critiqueSource, staleCritiqueSources } from './critique';
 import { incomingTo, refTargets, relationTypesFrom, targetsFor } from './relations';
 import {
   attributesFor,
@@ -208,5 +208,14 @@ describe('critique notes', () => {
       ])[0]!.id,
     ).toBe(notes[0]!.id);
     expect(critiqueSource('glide')).toBe('ai:glide');
+  });
+});
+
+describe('stale critiques', () => {
+  it('names the critique sources of entities that no longer exist', () => {
+    const w = sampleWorld();
+    expect(
+      staleCritiqueSources(['checks', critiqueSource('glide'), critiqueSource('gone'), 'ai:'], w),
+    ).toEqual([critiqueSource('gone')]);
   });
 });

@@ -256,7 +256,8 @@ export function createBenchAi(deps: BenchAiDeps) {
         return;
       }
       const w = deps.getWorld();
-      if (!w) return;
+      // An entity deleted while its critique was out has nothing left to note.
+      if (!w || !getEntity(w, entityId)) return;
       deps.publishNotes(critiqueSource(entityId), critiqueNotes(w, entityId, out.result.notes));
       if (trigger === 'on_demand' && out.result.notes.length === 0) deps.say('No notes', 'info');
     } finally {

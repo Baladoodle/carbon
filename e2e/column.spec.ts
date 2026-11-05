@@ -339,6 +339,34 @@ test.describe('the Bench', () => {
     await expect.poll(() => read(carbon, 'entities/creature/reef-ray.md')).toContain('Mine again.');
   });
 
+  test('deleting an entity takes its critique notes with it', async () => {
+    const { page } = carbon;
+    const count = async (): Promise<number> =>
+      Number(await page.getByTestId('status-notes').getAttribute('data-count'));
+    await carbon.dispatch(
+      cmd('entity.create', {
+        kind: 'structure',
+        name: 'Doomed Arch',
+        id: 'doomed-arch',
+        relations: [{ type: 'in_band', target: 'hollows' }],
+      }),
+    );
+    await focusOn(carbon, 'doomed-arch');
+    const before = await count();
+    await press(page, '?');
+    await expect(page.getByTestId('bench-notes')).toBeVisible();
+    const withNotes = await count();
+    expect(withNotes).toBeGreaterThan(before);
+    await page.getByTestId('bench-menu').click();
+    await page.getByRole('menuitem', { name: 'Delete' }).click();
+    await expect(chip(page, 'doomed-arch')).toHaveCount(0);
+    // Checks run a moment after a change; the critique's own notes must be gone too.
+    await expect.poll(count).toBeLessThanOrEqual(before);
+    await expect(
+      page.locator('[data-testid="column-margin"] [data-note^="ai:doomed-arch:"]'),
+    ).toHaveCount(0);
+  });
+
   test('@smoke tab suggests inline, tab accepts with the ai marker, and it undoes', async () => {
     const { page } = carbon;
     await focusOn(carbon, 'glide');
