@@ -206,6 +206,7 @@ the view (in Taste, `d` dismisses the pattern), unless focus is in the Bench.
 | `ctrl+shift+a` | Turn AI off / on for the session |
 | `ctrl+z` | Undo |
 | `ctrl+shift+z` or `ctrl+y` | Redo |
+| `ctrl+shift+e` | Expand the field |
 | `escape` | Close |
 
 #### Column
