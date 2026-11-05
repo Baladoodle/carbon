@@ -652,6 +652,33 @@ describe('triage', () => {
   });
 });
 
+describe('the fake gateway under Ground and Cost', () => {
+  it('every kept Ground or Cost candidate changes its entity (fields or relations)', async () => {
+    const world = sampleWorld();
+    const fake = new FakeAiGateway({ getWorld: () => world });
+    let checked = 0;
+    for (const id of ['cloud-anklet', 'glide', 'reef-ray', 'sky-coral'].filter(
+      (x) => world.entities[x],
+    ))
+      for (const move of ['ground', 'cost'] as const) {
+        const spot: Spot = { type: 'entity', entity: id };
+        if (!checkSpot(world, spot, move).ok) continue;
+        const out = await fake.run('spread', { spot, move, count: 6 });
+        if (!out.ok) throw new Error(out.error.message);
+        const { world: w, spread } = spreadIn(world, spot, move, out.result.candidates);
+        for (const c of spread.candidates) {
+          const t = must(keepCommands(w, spread, c.key));
+          const changes = t.commands.filter((x) => x.type !== 'spread.judge');
+          expect(changes.length, `${move} ${id} ${c.key}`).toBeGreaterThan(0);
+          const after = apply(w, t.commands).world;
+          expect(after.entities[id]).not.toEqual(w.entities[id]);
+          checked++;
+        }
+      }
+    expect(checked).toBeGreaterThanOrEqual(12);
+  });
+});
+
 describe('kept findings as notes', () => {
   it('turns kept Break findings into notes on the entities involved', async () => {
     const { findingNotes } = await import('./findings');

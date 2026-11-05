@@ -4,6 +4,8 @@ import { ENTITY_KINDS, LANE_OF_KIND, type EntityKind } from '../model/kinds';
 import { fieldValue } from '../model/lifecycle';
 import { isEditableCommonField } from '../model/schema';
 import { getEntity, schemaOf, type World } from '../model/world';
+import type { Entity, Relation } from '../model/entity';
+import { kindAllowed } from '../model/validate';
 import { hashValue, seededRandom } from '../util/hash';
 import {
   cancelled,
@@ -327,6 +329,7 @@ export class FakeAiGateway implements AiGateway {
             ? r.spot.entity
             : undefined;
         const candidates: Candidate[] = [];
+        const target = about ? getEntity(world, about) : undefined;
         const used = new Set(Object.values(world.entities).map((x) => x.name));
         for (let i = 0; i < count; i++) {
           let n = name();
@@ -338,12 +341,20 @@ export class FakeAiGateway implements AiGateway {
             kind: isBreak ? null : kind,
             name: n,
             identity: `It ${phrase()}.`,
-            fields: {},
+            ...(target && r.move !== 'name'
+              ? aboutChange(world, target, r.move, i)
+              : {
+                  fields: {},
+                  relations:
+                    band &&
+                    kind !== 'band' &&
+                    kind !== 'biome' &&
+                    !isBreak &&
+                    getEntity(world, band)
+                      ? [{ type: 'in_band', target: band }]
+                      : [],
+                }),
             attributes: {},
-            relations:
-              band && kind !== 'band' && kind !== 'biome' && !isBreak && getEntity(world, band)
-                ? [{ type: 'in_band', target: band }]
-                : [],
             ...(about ? { about } : {}),
             position: { x: Math.round(rand() * 100) / 100, y: Math.round(rand() * 100) / 100 },
             wildcard: i === count - 1,
@@ -469,4 +480,57 @@ function sampleValue(
       break;
   }
   return v !== null && fieldValueSchema(def).safeParse(v).success ? v : null;
+}
+
+/**
+ * What a fake Ground or Cost candidate proposes for the entity it is about,
+ * so keeping one changes the entity as the real model's would (package W5):
+ *
+ * - Ground: a relation to a band, biome, material or creature the entity
+ *   isn't tied to yet, with its reason as the note
+ * - Cost: a two- or three-step route (when the kind has a steps field), each
+ *   step naming what it needs, or else a `requires` relation
+ *
+ * Candidate `i` takes the i-th option, so a spread proposes different ties.
+ */
+function aboutChange(
+  world: World,
+  e: Entity,
+  move: string,
+  i: number,
+): { fields: Record<string, unknown>; relations: Relation[] } {
+  const schema = schemaOf(world);
+  const options = (targets: readonly EntityKind[], verb: string): Relation[] => {
+    const out: Relation[] = [];
+    for (const [type, def] of Object.entries(schema.relations)) {
+      if (def.symmetric || !kindAllowed(def.from, e.kind)) continue;
+      for (const t of Object.values(world.entities)) {
+        if (t.id === e.id || !targets.includes(t.kind) || !kindAllowed(def.to, t.kind)) continue;
+        if (e.relations.some((x) => x.type === type && x.target === t.id)) continue;
+        out.push({ type, target: t.id, note: `${verb} ${t.name}.` });
+      }
+    }
+    return out.sort((a, b) => `${a.type}:${a.target}`.localeCompare(`${b.type}:${b.target}`));
+  };
+  const nth = <T>(xs: readonly T[], n: number): T[] => (xs.length ? [xs[n % xs.length] as T] : []);
+  if (move === 'ground')
+    return {
+      fields: {},
+      relations: nth(options(['band', 'biome', 'material', 'creature'], 'Grounded in'), i),
+    };
+  const materials = Object.values(world.entities).filter((t) => t.kind === 'material');
+  const steps = schema.kinds[e.kind].fields.find((f) => f.type === 'steps');
+  if (steps && materials.length > 0) {
+    const m = materials[i % materials.length] as Entity;
+    const route = [
+      { text: `Gather ${m.name}`, needs: [m.id] },
+      { text: `Work it into ${e.name}` },
+      ...(i % 2 === 1 ? [{ text: 'Prove it in the band where it matters' }] : []),
+    ];
+    return { fields: { [steps.key]: route }, relations: [] };
+  }
+  return {
+    fields: {},
+    relations: nth(options(['item', 'capability', 'material'], 'Costs'), i),
+  };
 }
