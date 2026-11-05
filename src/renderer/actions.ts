@@ -212,12 +212,35 @@ export function handleKey(e: KeyboardEvent): boolean {
   return false;
 }
 
+/** One keyed action as the guide's key table lists it (docs/GUIDE.md, e2e/keys.spec.ts). */
+export interface KeyRow {
+  id: string;
+  label: string;
+  group: string;
+  keys: string[];
+  hidden: boolean;
+}
+
+/** Every action with keys in the layers mounted now, winning layer first. */
+export const keyRows = (): KeyRow[] =>
+  allActions()
+    .filter((a) => (a.keys?.length ?? 0) > 0)
+    .map((a) => ({
+      id: a.id,
+      label: a.label,
+      group: a.group ?? '',
+      keys: [...(a.keys ?? [])],
+      hidden: a.hidden === true,
+    }));
+
 /** Installs the single window keydown listener. Called once by the shell. */
 export function installKeymap(): () => void {
   const listener = (e: KeyboardEvent): void => {
     if (e.defaultPrevented || e.isComposing) return;
     handleKey(e);
   };
+  // Read-only: the key table in the guide is generated from what's registered.
+  (window as unknown as { carbonKeyRows?: () => KeyRow[] }).carbonKeyRows = keyRows;
   window.addEventListener('keydown', listener);
   return () => window.removeEventListener('keydown', listener);
 }
