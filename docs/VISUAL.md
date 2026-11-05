@@ -71,6 +71,11 @@ Semantic colours are muted, so they never fight the accent:
 | `--warn` | `#d9b45a` | notes that need attention |
 | `--ai` | `#b39ddb` | the AI's marker, suggestions and its log; nothing else |
 
+**Climate endpoints:** `--climate-cold` `#6f9bd1`, `--climate-warm` `#e09a52`
+and `--climate-wet` `#63b0aa`. They exist only for the Climate plane's
+gradient (§6.4) and are never used at more than about 13% strength. Dry is a
+dimming, not a colour.
+
 **Depth tint:** band backgrounds on the Column get a very slight tint by height.
 Deeper bands lean warm (toward `#1a1614`), higher bands lean cool (toward
 `#14171a`), and Y 0 is pure `--bg`. The world's vertical character is felt
@@ -147,14 +152,54 @@ These are the signature details that give carbon its character:
 4. **The Climate plane.** A subtle two-axis gradient (cold to warm,
    horizontally; dry to wet, vertically) at very low contrast. Biome regions
    are glass panels: `--surface-2` at 70%, with blur and a hairline border.
+   - The plane carries a graticule: hairlines at the quarters and a faint dot
+     every tenth, so the climate reads as a measured space, not a blank box.
+   - The pointer shows its climate: two hairlines and a mono reading
+     (`0.62 × 0.58`, temperature then moisture). The selected region shows its
+     own range in its bottom-right corner (`0.30–0.55 × 0.60–0.95`).
+   - A region holds its name, its identity (two lines at most) and its
+     signature: what lives there, one row per kind (`--text-3` kind word, then
+     the entities with their state glyphs).
+   - Climate no biome covers keeps a faint hatch, quieter than the Column's.
 5. **Numbers that look like instruments.** Curves are drawn as 1.5px lines.
    Intent curves are dashed. Control points are 6px squares that turn accent
    when grabbed. Entity dots get a tooltip showing their value.
 6. **The AI has one colour.** Anything the AI produced or proposed carries
    `--ai`, and only that. The user always knows what came from them and what
    came from Claude.
+7. **The Bench is not a form.** An empty optional field is noise. The Bench
+   shows a field when it has a value, when the entity's current or next state
+   needs it (`core/bench/optional.ts`), or while it has a reason: focus, a
+   proposal or three alternatives waiting in it, a refused state change that
+   names it. Every other field waits behind one quiet `+ Field` ghost button at
+   the end of the fields; it opens a menu of their names, and the palette has
+   `Add field: <name>` for each. A field that has shown stays shown while the
+   entity is on the Bench, so clearing one never makes it vanish under you; it
+   collapses again the next time the entity comes to the Bench. The Why section
+   follows the same rule.
+8. **The current view on the rail** glows, and a 2px accent bar marks it on
+   the rail's left edge.
 
-## 7. Removed from the earlier design
+## 7. Empty states
+
+One component (`Empty` in `src/renderer/ui`) and one position everywhere:
+**centred, both ways, in the region the missing content would fill**: the
+Column's strip, the Climate plane, the Spread field, the Codex table body,
+the Numbers curves area, a Taste column, the Export preview, the Bench, the
+AI log. The style is `--text-2` at body size on one line, with the fixing key
+drawn as a key cap. The sentence is "what's missing. `key` to fix it." A
+region that is merely sparse (a list with a few rows) has no empty state.
+
+## 8. Screenshots
+
+`docs/screens/` holds only the canonical screens, made by
+`e2e/screens.spec.ts` (and the AI log by `ai.spec.ts`) with
+`UPDATE_SCREENS=1`, in the 1440×900 window at device scale factor 2: one per
+view, the Bench collapsed (`bench.png`) and expanded (`bench-expanded.png`),
+the palette, the AI log, a spread mid-stream and the 2,000-entity Column.
+Every other spec's screenshot is a test artifact in `test-results/screens/`.
+
+## 9. Removed from the earlier design
 
 - "Colours follow the Omarchy theme." Carbon has one theme of its own.
 - View headers with titles and chips. The rail shows where you are, and a view

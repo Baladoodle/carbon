@@ -1,14 +1,21 @@
 import { expect, test, type Page } from '@playwright/test';
+import { mkdtempSync, rmSync } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { cmd } from '@core/commands/registry';
-import { launchCarbon, type CarbonApp } from './harness';
+import { stressWorld } from '../src/core/testing/stress';
+import { writeWorldDir } from '../src/main/store/world-dir';
+import { launchCarbon, SCREEN_SCALE, type CarbonApp } from './harness';
 
 /**
- * One up-to-date screenshot per view, plus the Bench and the palette:
- * `docs/screens/<view>.png` (run with UPDATE_SCREENS=1). The AI log's is
- * ai.spec.ts's. The sample world,
- * the fake AI, and a little setup so each surface shows real content:
- * formulas and a curve with an intent, a spread on the field, decided
- * entities chosen for an export, a critique on the Bench.
+ * The canonical screens in `docs/screens/` (run with UPDATE_SCREENS=1, which
+ * also takes them at device scale factor 2 in the 1440×900 window): one per
+ * view, the Bench collapsed and expanded, the palette, a spread mid-stream and
+ * the 2,000-entity Column. The AI log's is ai.spec.ts's (the real gateway's
+ * replay, with real usage and costs). The sample world, the fake AI, and a
+ * little setup so each surface shows real content: formulas and a curve with
+ * an intent, a spread on the field, decided entities chosen for an export, a
+ * critique on the Bench.
  */
 
 let carbon: CarbonApp;
@@ -16,7 +23,7 @@ const page = (): Page => carbon.page;
 const body = () => page().locator('body');
 
 test.beforeAll(async () => {
-  carbon = await launchCarbon();
+  carbon = await launchCarbon({ scale: SCREEN_SCALE });
   const r = await carbon.dispatch(
     cmd('numbers.setFormulas', {
       source: `# Damage taken through armor
@@ -82,7 +89,9 @@ async function settle(): Promise<void> {
   await expect(page().locator('.ui-toast')).toHaveCount(0, { timeout: 15000 });
 }
 
-test('screens of every view, the Bench, the palette and the AI log', async () => {
+test('screens of every view, the Bench and the palette', async () => {
+  test.setTimeout(120_000);
+  const docs = { docs: true };
   // Column, with an entity on the Bench and a critique in the margin.
   await carbon.gotoView('column', '1');
   await focus('Vent Glass Visor', 'vent-glass-visor');
@@ -91,11 +100,21 @@ test('screens of every view, the Bench, the palette and the AI log', async () =>
     page().locator('[data-testid="column-margin"] .column-note[data-source="ai"]').first(),
   ).toBeVisible();
   await settle();
-  await carbon.screenshot('column');
+  await carbon.screenshot('column', docs);
 
-  // The Bench on its own: a suggestion waiting inline in a field, the ai markers
-  // of accepted fields, live consequences and the notes.
+  // The Bench as it opens: filled and needed fields, the rest behind + Field.
   await focus('Spore Lantern', 'spore-lantern');
+  await settle();
+  await carbon.screenshot('bench', { ...docs, element: page().getByTestId('bench') });
+
+  // Expanded: every field revealed, a suggestion waiting inline, an accepted
+  // one with its ai marker.
+  for (;;) {
+    const add = page().getByTestId('bench-add-field');
+    if ((await add.count()) === 0) break;
+    await add.click();
+    await page().getByRole('menuitem').first().click();
+  }
   const tradeoff = page().locator('[data-bench-field="tradeoff"] input');
   await tradeoff.click();
   await tradeoff.fill('');
@@ -108,16 +127,18 @@ test('screens of every view, the Bench, the palette and the AI log', async () =>
   await moment.click();
   await page().keyboard.press('Tab');
   await expect(page().locator('[data-bench-field="moment"] .ui-suggest-ghost')).toBeVisible();
-  await page().mouse.move(2, 2);
-  await expect(page().locator('.ui-toast')).toHaveCount(0, { timeout: 15000 });
-  await carbon.screenshot('bench', { element: page().getByTestId('bench') });
+  await settle();
+  await carbon.screenshot('bench-expanded', { ...docs, element: page().getByTestId('bench') });
   await page().keyboard.press('Escape');
   await page().keyboard.press('Escape');
 
   await carbon.gotoView('climate', '2');
   await page().getByRole('tab', { name: 'Hollows' }).click();
-  await settle();
-  await carbon.screenshot('climate');
+  await page().locator('[data-testid="climate-region"][data-entity="glowmoss-caverns"]').click();
+  const plane = (await page().getByTestId('climate-plane').boundingBox())!;
+  await page().mouse.move(plane.x + plane.width * 0.62, plane.y + plane.height * 0.42);
+  await expect(page().locator('.ui-toast')).toHaveCount(0, { timeout: 15000 });
+  await carbon.screenshot('climate', docs);
 
   await carbon.gotoView('codex', '3');
   await body().press('/');
@@ -125,12 +146,12 @@ test('screens of every view, the Bench, the palette and the AI log', async () =>
   await page().getByTestId('codex-filter').press('Enter');
   await body().press('j');
   await settle();
-  await carbon.screenshot('codex');
+  await carbon.screenshot('codex', docs);
 
   await carbon.gotoView('numbers', '4');
   await expect(page().getByTestId('numbers-curve').first()).toBeVisible();
   await settle();
-  await carbon.screenshot('numbers');
+  await carbon.screenshot('numbers', docs);
 
   await carbon.gotoView('spread', '5');
   await body().press('s');
@@ -146,31 +167,60 @@ test('screens of every view, the Bench, the palette and the AI log', async () =>
   await body().press('x');
   await page().keyboard.press('3');
   await settle();
-  await carbon.screenshot('spread');
+  await carbon.screenshot('spread', docs);
 
   await carbon.gotoView('taste', '6');
   await settle();
-  await carbon.screenshot('taste');
+  await carbon.screenshot('taste', docs);
 
   await carbon.gotoView('export', '7');
   await page().getByTestId('export-kind-band').click();
   await page().getByTestId('export-draft').click();
   await expect(page().getByTestId('export-editor')).toBeVisible();
   await settle();
-  await carbon.screenshot('export');
+  await carbon.screenshot('export', docs);
 
   await carbon.gotoView('column', '1');
   await body().press('Control+k');
   await page().keyboard.type('glid');
   await expect(page().getByTestId('palette').locator('[data-highlighted]')).toBeVisible();
-  await carbon.screenshot('palette');
+  await carbon.screenshot('palette', docs);
   await page().keyboard.press('Escape');
+});
 
-  await body().press('Control+l');
-  await expect(page().getByTestId('ai-log')).toBeVisible();
-  await settle();
-  // docs/screens/ai-log.png is ai.spec.ts's, on the real gateway (replay) with real
-  // usage and costs; on the fake AI every number here is zero.
-  await carbon.screenshot('screens-ai-log', { docs: false });
-  await page().keyboard.press('Escape');
+test('a spread mid-stream', async () => {
+  const slow = await launchCarbon({ env: { CARBON_AI_DELAY_MS: '400' }, scale: SCREEN_SCALE });
+  try {
+    await slow.gotoView('spread', '5');
+    await slow.page.locator('body').press('s');
+    const spot = slow.page.getByRole('combobox', { name: 'Spot' });
+    await spot.fill('Hollows · creatures');
+    await spot.press('Enter');
+    await slow.page.locator('body').press('Enter');
+    await expect(slow.page.getByTestId('spread-progress')).toBeVisible();
+    await expect
+      .poll(() => slow.page.locator('[data-testid="spread-card"]').count())
+      .toBeGreaterThan(4);
+    await slow.page.mouse.move(2, 2);
+    await slow.screenshot('spread-streaming', { docs: true });
+    await slow.page.locator('body').press('Escape');
+  } finally {
+    await slow.close();
+  }
+});
+
+test('the Column over 2,000 entities', async () => {
+  const tmp = mkdtempSync(path.join(os.tmpdir(), 'carbon-screens-'));
+  await writeWorldDir(tmp, stressWorld(2000));
+  const big = await launchCarbon({ worldDir: tmp, scale: SCREEN_SCALE });
+  try {
+    await big.gotoView('column', '1');
+    await expect(big.page.getByTestId('status-entities')).toHaveText('2000 entities');
+    await big.page.mouse.move(2, 2);
+    await big.page.waitForTimeout(300);
+    await big.screenshot('column-stress', { docs: true });
+  } finally {
+    await big.close();
+    rmSync(tmp, { recursive: true, force: true });
+  }
 });

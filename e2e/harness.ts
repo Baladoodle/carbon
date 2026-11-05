@@ -30,10 +30,10 @@ export interface CarbonApp {
   dispatch(...commands: Command[]): Promise<DispatchResult>;
   /** Switches view with its rail key and waits for it. */
   gotoView(id: string, key: string): Promise<void>;
-  /** Saves `test-results/screens/<name>.png` (and `docs/screens/<name>.png` with UPDATE_SCREENS=1). */
   /**
-   * Saves `test-results/screens/<name>.png`; with UPDATE_SCREENS=1 also
-   * `docs/screens/<name>.png`, unless `docs: false` (a test artifact only).
+   * Saves `test-results/screens/<name>.png`. With `docs: true` and
+   * UPDATE_SCREENS=1 also `docs/screens/<name>.png`: only the canonical
+   * screens (e2e/screens.spec.ts, the AI log in ai.spec.ts) go there.
    */
   screenshot(name: string, opts?: { docs?: boolean; element?: Locator }): Promise<void>;
   close(): Promise<void>;
@@ -48,7 +48,12 @@ export interface LaunchOptions {
   worldDir?: string;
   /** Extra environment (e.g. `{ CARBON_AI: 'off' }` or `{ CARBON_AI_DELAY_MS: '50' }`). */
   env?: Record<string, string>;
+  /** The device scale factor (the canonical screens are taken at 2). */
+  scale?: number;
 }
+
+/** The scale for the canonical screens: 2 when updating them, as a person will look at them. */
+export const SCREEN_SCALE = process.env.UPDATE_SCREENS === '1' ? 2 : 1;
 
 export async function launchCarbon(opts: LaunchOptions = {}): Promise<CarbonApp> {
   const tmp = mkdtempSync(path.join(os.tmpdir(), 'carbon-e2e-'));
@@ -60,7 +65,11 @@ export async function launchCarbon(opts: LaunchOptions = {}): Promise<CarbonApp>
   mkdirSync(userData, { recursive: true });
 
   const app = await electron.launch({
-    args: ['--no-sandbox', path.join(ROOT, 'out/main/index.js')],
+    args: [
+      '--no-sandbox',
+      ...(opts.scale && opts.scale !== 1 ? [`--force-device-scale-factor=${opts.scale}`] : []),
+      path.join(ROOT, 'out/main/index.js'),
+    ],
     cwd: ROOT,
     env: {
       ...process.env,
@@ -100,7 +109,7 @@ export async function launchCarbon(opts: LaunchOptions = {}): Promise<CarbonApp>
       const file = path.join(ROOT, 'test-results/screens', `${name}.png`);
       if (opts.element) await opts.element.screenshot({ path: file, animations: 'disabled' });
       else await page.screenshot({ path: file, animations: 'disabled' });
-      if (process.env.UPDATE_SCREENS === '1' && opts.docs !== false)
+      if (process.env.UPDATE_SCREENS === '1' && opts.docs === true)
         cpSync(file, path.join(ROOT, 'docs/screens', `${name}.png`));
     },
     async close() {

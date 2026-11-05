@@ -40,7 +40,7 @@ import { requestFieldFocus } from './store';
 /**
  * The Bench (docs/EXPERIENCE.md §3): the entity in focus, rendered from its
  * kind's schema. Every edit is a command (undoable); the AI moments run at
- * their keys; with nothing in focus it shows nothing (VISUAL.md §1).
+ * their keys; with nothing in focus it shows the empty state (VISUAL.md §7).
  */
 export function Bench(): ReactNode {
   useEffect(watchOutside, []);

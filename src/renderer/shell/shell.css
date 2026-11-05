@@ -25,6 +25,20 @@
   background: var(--surface-1);
   border-right: 1px solid var(--line);
 }
+/* The current view: the button's glow, and a short accent bar on the rail's edge. */
+.rail .ui-icon-btn {
+  position: relative;
+}
+.rail .ui-icon-btn[data-active]::before {
+  content: '';
+  position: absolute;
+  left: -8px;
+  top: 8px;
+  bottom: 8px;
+  width: 2px;
+  border-radius: 0 2px 2px 0;
+  background: var(--accent);
+}
 .rail-drag {
   align-self: stretch;
   height: 12px;

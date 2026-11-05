@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
-import { launchCarbon, type CarbonApp } from './harness';
+import { launchCarbon, SCREEN_SCALE, type CarbonApp } from './harness';
 
 /**
  * The AI package (W4) end to end. These run the REAL gateway in the app
@@ -14,7 +14,7 @@ let carbon: CarbonApp;
 const page = (): CarbonApp['page'] => carbon.page;
 
 test.beforeAll(async () => {
-  carbon = await launchCarbon({ env: { CARBON_AI: 'replay' } });
+  carbon = await launchCarbon({ env: { CARBON_AI: 'replay' }, scale: SCREEN_SCALE });
 });
 test.afterAll(async () => {
   await carbon.close();
@@ -169,7 +169,7 @@ test('the AI log shows every moment with costs and cache reads', async () => {
   await expect(page().getByTestId('ai-log')).toBeVisible();
   await expect(logRows().first()).toContainText('not_found');
   await expect(page().getByTestId('ai-log-totals')).toContainText('cache read');
-  await carbon.screenshot('ai-log');
+  await carbon.screenshot('ai-log', { docs: true });
   await page().keyboard.press('j');
   await page().keyboard.press('Enter');
   await expect(page().getByTestId('ai-log-request')).toContainText('# Moment: spec draft');
