@@ -16,6 +16,7 @@ import { entitiesInBiome } from '@core/placement';
 import { useActions } from '../../actions';
 import { flash, focusEntity, startSpreadAt, useUi } from '../../state/ui';
 import { currentWorld, dispatch, useWorld, whenRev } from '../../state/world';
+import { requestFieldFocus } from '../../bench/store';
 import { Empty, Kbd, StateGlyph, Tabs, Tooltip, cx } from '../../ui';
 import { IconClimate } from '../../ui/icons';
 import { defineView } from '../define';
@@ -285,6 +286,8 @@ function ClimateView(): ReactNode {
     if (!r.ok) return flash(r.error.message, 'error');
     await whenRev(r.rev);
     select(id);
+    // As on the Column: the new biome's name is ready to type.
+    requestFieldFocus(id, 'name', true);
   };
 
   const place = async (id: string): Promise<void> => {

@@ -447,3 +447,28 @@ export function stackMargin(items: readonly MarginItem[], gap = 6): number[] {
   }
   return tops;
 }
+
+/**
+ * How many lines `text` takes when wrapped at word boundaries into `width`, as
+ * a browser wraps it: a word that doesn't fit starts a new line, and a word
+ * wider than a line breaks over as many lines as it needs.
+ */
+export function wrappedLines(text: string, width: number, measure: Measure): number {
+  const words = text.split(/\s+/).filter((w) => w !== '');
+  if (words.length === 0 || width <= 0) return 1;
+  const space = measure(' ');
+  let lines = 1;
+  let used = 0;
+  for (const w of words) {
+    const ww = measure(w);
+    if (used === 0) {
+      lines += Math.max(0, Math.ceil(ww / width) - 1);
+      used = ww > width ? ww % width || width : ww;
+    } else if (used + space + ww <= width) used += space + ww;
+    else {
+      lines += Math.ceil(ww / width);
+      used = ww > width ? ww % width || width : ww;
+    }
+  }
+  return lines;
+}

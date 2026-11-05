@@ -56,8 +56,10 @@ import {
   uOfPx,
   rowsOf,
   stackMargin,
+  wrappedLines,
   type BandSpan,
   type CellEntity,
+  type Measure,
 } from './layout';
 import { placementOf, placementsOf } from './placement';
 import { formatY, fromU, LINEAR, snapY, ticks, toU } from './scale';
@@ -1088,5 +1090,34 @@ describe('the remaining paths', () => {
     expect(navContext(m, true).entitiesAt(INBOX_ROW, -1)).toEqual(['high-drift']);
     expect(locate(m, 'high-drift')).toEqual({ row: INBOX_ROW, lane: -1 });
     expect(inboxHasEntities({ ...m, lanes: [] })).toBe(true);
+  });
+});
+
+describe('wrappedLines', () => {
+  const mono: Measure = (t) => t.length * 10;
+  it('wraps at word boundaries, as a browser does', () => {
+    expect(wrappedLines('', 100, mono)).toBe(1);
+    expect(wrappedLines('aaaa bbbb', 100, mono)).toBe(1); // 90
+    expect(wrappedLines('aaaa bbbbb', 100, mono)).toBe(1); // 100 fits exactly
+    expect(wrappedLines('aaaa bbbbbb', 100, mono)).toBe(2);
+    // The area estimate (ceil(120 / 100) = 2) undercounts: each word takes a line.
+    expect(wrappedLines('aaaaaaa bbbbbbb ccccccc', 100, mono)).toBe(3);
+    // A word longer than a line breaks over as many as it needs.
+    expect(wrappedLines('aaaaaaaaaaaaaaaaaaaaaaaaa', 100, mono)).toBe(3);
+  });
+  it('never counts fewer lines than its words’ area needs', () => {
+    fc.assert(
+      fc.property(
+        fc.array(fc.stringMatching(/^[a-z]{1,12}$/), { maxLength: 20 }),
+        fc.integer({ min: 40, max: 200 }),
+        (ws, width) => {
+          const text = ws.join(' ');
+          const lines = wrappedLines(text, width, mono);
+          // Spaces at a line break take no room, so only the words count.
+          const words = mono(ws.join(''));
+          expect(lines).toBeGreaterThanOrEqual(Math.max(1, Math.ceil(words / width)));
+        },
+      ),
+    );
   });
 });

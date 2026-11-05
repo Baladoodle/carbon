@@ -2,16 +2,17 @@ import { memo, useMemo, type ReactNode } from 'react';
 import type { Note } from '@core/model/notes';
 import { dismissNote } from '../../state/notes';
 import { IconButton, IconClose } from '../../ui';
-import { pxOfY, stackMargin, type Measure } from '@core/column/layout';
+import { pxOfY, stackMargin, wrappedLines, type Measure } from '@core/column/layout';
 import { MARGIN_W, type ColumnModel, type Geometry } from '@core/column/model';
 
 const NOTE_LINE = 17;
 const NOTE_PAD = 10;
-const TEXT_W = MARGIN_W - 16 - 2 * 8 - 20;
+/** The text's width in a note (column.css): the margin less the note's insets, its
+ *  left border and padding, and the dismiss button beside the text. */
+const TEXT_W = MARGIN_W - 2 * 8 - (2 + 8 + 2) - (2 + 24);
 
 function estimateHeight(text: string, measure: Measure): number {
-  const lines = Math.max(1, Math.ceil(measure(text) / TEXT_W));
-  return lines * NOTE_LINE + NOTE_PAD;
+  return wrappedLines(text, TEXT_W, measure) * NOTE_LINE + NOTE_PAD;
 }
 
 /** Every note's place in the margin: stacked top to bottom without overlap. */

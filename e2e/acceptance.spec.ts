@@ -34,7 +34,9 @@ async function leaveField(): Promise<void> {
 async function setField(key: string, value: string): Promise<void> {
   if ((await field(key).count()) === 0) {
     await bench().getByRole('button', { name: 'Field' }).click();
-    await page().getByRole('menuitem', { name: new RegExp(`^${key}$`, 'i') }).click();
+    await page()
+      .getByRole('menuitem', { name: new RegExp(`^${key}$`, 'i') })
+      .click();
   }
   const input = field(key).locator('input, textarea').first();
   await input.fill(value);
@@ -118,4 +120,65 @@ test('from an empty world to an exported spec', async () => {
   expect(bands.map((b) => b.name).sort()).toEqual(
     ['Deep', 'High Drift', 'Hollows', 'Low Sky', 'Surface'].sort(),
   );
+
+  // 2. Biomes in Climate, then what lives in them, related.
+  await carbon.gotoView('climate', '2');
+  await shot('05-climate-empty');
+  await page().getByRole('tab', { name: 'Surface' }).click();
+  await press('n');
+  await expect(bench()).toHaveAttribute('data-entity', 'new-biome');
+  await expect(field('name').locator('input')).toBeFocused();
+  await page().keyboard.type('Meadow Steps');
+  await press('Enter');
+  await leaveField();
+  await press('n');
+  await expect(bench()).toHaveAttribute('data-entity', 'new-biome-2');
+  await page().keyboard.type('Salt Flats');
+  await press('Enter');
+  await leaveField();
+  await expect(page().locator('[data-testid="climate-region"]')).toHaveCount(2);
+  // Nudge the selected biome warmer with the arrows, as one undo step.
+  await press('ArrowRight');
+  await press('ArrowRight');
+  await shot('06-climate');
+  await page().getByRole('tab', { name: 'Hollows' }).click();
+  await press('n');
+  await page().keyboard.type('Glowmoss Caverns');
+  await press('Enter');
+  await leaveField();
+  await shot('07-climate-hollows');
+
+  // A material and a creature from their Column cells: click the cell, n, type the name.
+  await carbon.gotoView('column', '1');
+  /** Clicks a cell where its band's row meets its lane's column. */
+  const clickCell = async (band: string, lane: string): Promise<void> => {
+    const row = (await page().locator(`[data-band="${band}"]`).first().boundingBox())!;
+    const head = (await page().getByText(lane, { exact: true }).first().boundingBox())!;
+    await page().mouse.click(head.x + 20, row.y + Math.min(row.height / 2, 40));
+  };
+  await clickCell('new-band', 'Materials');
+  await press('n');
+  await expect(bench()).toHaveAttribute('data-entity', 'new-material');
+  await expect(field('name').locator('input')).toBeFocused();
+  await page().keyboard.type('Salt Glass');
+  await press('Enter');
+  await leaveField();
+  await clickCell('new-band', 'Creatures');
+  await press('n');
+  await expect(bench()).toHaveAttribute('data-entity', 'new-creature');
+  await page().keyboard.type('Brine Strider');
+  await press('Enter');
+  await leaveField();
+  await shot('08-column-entities');
+  // The margin's notes never run into each other.
+  await expect
+    .poll(() =>
+      page()
+        .locator('[data-testid="column-margin"] .column-note')
+        .evaluateAll((els) => {
+          const boxes = els.map((e) => e.getBoundingClientRect()).sort((a, b) => a.top - b.top);
+          return boxes.filter((b, i) => i > 0 && b.top < boxes[i - 1]!.bottom - 0.5).length;
+        }),
+    )
+    .toBe(0);
 });
