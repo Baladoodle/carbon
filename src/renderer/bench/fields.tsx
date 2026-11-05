@@ -78,6 +78,8 @@ export function FieldRow({ world, entity, def, needed, variant, bare }: FieldPro
       className={cx('bench-field', variant && `bench-field-${variant}`)}
       data-bench-field={def.key}
       data-ai={ai ? '' : undefined}
+      // Expanding the field (ctrl+shift+e) takes all of this into the large editor.
+      data-expand-host=""
     >
       {!bare && (
         <div className="bench-field-head">
@@ -110,6 +112,7 @@ export function FieldRow({ world, entity, def, needed, variant, bare }: FieldPro
           className="bench-proposal"
           data-testid={`proposal-${def.key}`}
           data-from={pending.from}
+          data-expand-esc=""
         >
           {!textual && (
             <span className="bench-proposal-value">→ {formatValue(def, pending.value)}</span>
@@ -134,7 +137,7 @@ export function FieldRow({ world, entity, def, needed, variant, bare }: FieldPro
         </div>
       )}
       {three && (
-        <ol className="bench-three" data-testid={`three-${def.key}`}>
+        <ol className="bench-three" data-testid={`three-${def.key}`} data-expand-esc="">
           {three.options.map((o, i) => (
             <li key={i}>
               <button
@@ -240,6 +243,8 @@ function TextControl({ entity, def, suggestion, onError, variant }: ControlProps
     // The identity line has no label above it: empty, the placeholder is its label.
     placeholder: variant === 'identity' ? def.label : undefined,
     'aria-label': def.label,
+    // ctrl+enter in the large editor: the same commit as enter or leaving the field.
+    onCommit: () => void commit(),
     onFocus: () => {
       rebase();
       focus.onFocus();
@@ -431,6 +436,7 @@ function NumberPair({
         <Input
           id={first ? id : undefined}
           mono
+          expandable={false}
           aria-label={labels[0]}
           value={a.draft}
           onChange={(e) => a.setDraft(e.target.value)}
@@ -441,6 +447,7 @@ function NumberPair({
         <span className="t-3">…</span>
         <Input
           mono
+          expandable={false}
           aria-label={labels[1]}
           value={b.draft}
           onChange={(e) => b.setDraft(e.target.value)}

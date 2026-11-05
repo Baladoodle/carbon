@@ -53,13 +53,50 @@ function enqueue(q: Queued, order: readonly string[]): boolean {
   return true;
 }
 
-/** After a judgement: the next open candidate in reading order becomes the focus. */
-function advance(order: readonly string[], from: string, spread: SpreadData | null): void {
-  if (!spread) return;
-  const open = order.filter((k) => !spread.judgements[k] && k !== from);
-  const i = order.indexOf(from);
+/**
+ * A judgement's focus: the next open candidate in reading order (after the
+ * judged ones) becomes the focus AT ONCE, before the transaction is sent.
+ * Otherwise, while it's in flight, the focus sits on a card that is already
+ * judged (animating out), and the next key, `x` right after `k`, has nothing
+ * to act on and is dropped. Returns a function that puts the focus back, for
+ * a judgement the world refused.
+ */
+function advance(
+  order: readonly string[],
+  judged: readonly string[],
+  spread: SpreadData | null,
+): () => void {
+  const before = sessionStore.get().focus;
+  if (!spread) return () => undefined;
+  const open = order.filter((k) => !spread.judgements[k] && !judged.includes(k));
+  const i = order.indexOf(judged[0] ?? '');
   const next = open.find((k) => order.indexOf(k) > i) ?? open[0] ?? null;
   patchSession({ focus: next });
+  return () => {
+    // Only if nothing has moved it since.
+    if (sessionStore.get().focus === next) patchSession({ focus: before });
+  };
+}
+
+/**
+ * The card a triage key (k, x, space) acts on, read from the stores at the
+ * moment of the key, not from the last render: the focused candidate if it's
+ * still open. Never one already judged in the world, queued while streaming,
+ * or animating out, so a key pressed right after another can't land on the
+ * card the first one took.
+ */
+export function triageTarget(): string | null {
+  const s = sessionStore.get();
+  const key = s.focus;
+  if (!key) return null;
+  if (s.live) {
+    const there = s.live.candidates.some((c) => c.key === key);
+    return there && !queuedKeys(s.queued).has(key) ? key : null;
+  }
+  const spread = shown();
+  return spread && !spread.judgements[key] && spread.candidates.some((c) => c.key === key)
+    ? key
+    : null;
 }
 
 /** `k`. Resolves to whether it was kept, and the entity it became or changed. */
@@ -76,14 +113,15 @@ export async function keep(
     flash(t.error.message, 'error');
     return { ok: false };
   }
+  const back = advance(order, [key], s);
   const r = await transact(t.value.label, t.value.commands);
   if (!r.ok) {
+    back();
     flash(r.error.message, 'error');
     return { ok: false };
   }
   if (t.value.entity) setUi({ focus: t.value.entity });
   patchSession({ marked: sessionStore.get().marked.filter((k) => k !== key) });
-  advance(order, key, shown());
   return { ok: true, entity: t.value.entity };
 }
 
@@ -100,10 +138,13 @@ export async function kill(
   const t = killCommands(w, s, key, reason, note);
   patchSession({ prompt: null });
   if (!t.ok) return flash(t.error.message, 'error');
+  const back = advance(order, [key], s);
   const r = await transact(t.value.label, t.value.commands);
-  if (!r.ok) return flash(r.error.message, 'error');
+  if (!r.ok) {
+    back();
+    return flash(r.error.message, 'error');
+  }
   patchSession({ marked: sessionStore.get().marked.filter((k) => k !== key) });
-  advance(order, key, shown());
 }
 
 export async function merge(order: readonly string[]): Promise<void> {
@@ -118,11 +159,14 @@ export async function merge(order: readonly string[]): Promise<void> {
   if (!w || !s) return;
   const t = mergeCommands(w, s, marked);
   if (!t.ok) return flash(t.error.message, 'error');
+  const back = advance(order, marked, s);
   const r = await transact(t.value.label, t.value.commands);
-  if (!r.ok) return flash(r.error.message, 'error');
+  if (!r.ok) {
+    back();
+    return flash(r.error.message, 'error');
+  }
   if (t.value.entity) setUi({ focus: t.value.entity });
   patchSession({ marked: [] });
-  advance(order, marked[0] ?? '', shown());
 }
 
 export function toggleMark(key: string): void {

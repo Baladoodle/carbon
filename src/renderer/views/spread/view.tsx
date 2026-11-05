@@ -27,12 +27,22 @@ import {
   Kbd,
   Menu,
   Popover,
+  ResizablePane,
   Select,
   Tooltip,
 } from '../../ui';
 import { learnIfDue } from '../taste/learn';
 import { defineView } from '../define';
-import { follow, followWith, keep, kill, merge, toggleMark, undoLast } from './actions';
+import {
+  follow,
+  followWith,
+  keep,
+  kill,
+  merge,
+  toggleMark,
+  triageTarget,
+  undoLast,
+} from './actions';
 import { Detail } from './Detail';
 import { clearHandoff, handedSpot, handoffKey } from './handoff';
 import { SpotPicker } from './SpotPicker';
@@ -117,7 +127,7 @@ function SpreadBody({ world, s }: { world: World; s: SpreadSession }): ReactNode
   const order = readingOrder(placed);
   const focusCard = cards.find((c) => c.candidate.key === s.focus && c.state === 'open');
   // Triage works while streaming too: judgements queue until the record is saved.
-  const canTriage = (!!live || !!spread) && !!focusCard;
+  // Its keys read their target when pressed (triageTarget), not from this render.
 
   const moveTo = (key: string | undefined): void => {
     if (key) patchSession({ focus: key });
@@ -141,7 +151,6 @@ function SpreadBody({ world, s }: { world: World; s: SpreadSession }): ReactNode
     direction.current?.blur();
     void runSpread().then((e) => e && flash(e, 'error'));
   };
-  const focusKey = focusCard?.candidate.key;
 
   const actions: Action[] = [
     ...MOVE_LIST.map((m) => ({
@@ -231,24 +240,33 @@ function SpreadBody({ world, s }: { world: World; s: SpreadSession }): ReactNode
       label: 'Keep',
       group: 'Spread',
       keys: ['k'],
-      enabled: () => canTriage,
-      run: () => focusKey && void keep(focusKey, order),
+      enabled: () => triageTarget() !== null,
+      run: () => {
+        const key = triageTarget();
+        if (key) void keep(key, order);
+      },
     },
     {
       id: 'spread.kill',
       label: 'Kill…',
       group: 'Spread',
       keys: ['x'],
-      enabled: () => canTriage,
-      run: () => focusKey && patchSession({ prompt: { type: 'kill', key: focusKey } }),
+      enabled: () => triageTarget() !== null,
+      run: () => {
+        const key = triageTarget();
+        if (key) patchSession({ prompt: { type: 'kill', key } });
+      },
     },
     {
       id: 'spread.mark',
       label: 'Mark for merging',
       group: 'Spread',
       keys: ['space'],
-      enabled: () => canTriage,
-      run: () => focusKey && toggleMark(focusKey),
+      enabled: () => triageTarget() !== null,
+      run: () => {
+        const key = triageTarget();
+        if (key) toggleMark(key);
+      },
     },
     {
       id: 'spread.merge',
@@ -312,11 +330,21 @@ function SpreadBody({ world, s }: { world: World; s: SpreadSession }): ReactNode
           {s.error.message}
         </div>
       )}
-      {focusCard ? (
-        <Detail world={world} spread={spread} candidate={focusCard.candidate} />
-      ) : (
-        <div className="spread-detail spread-detail-empty" />
-      )}
+      <ResizablePane
+        id="spread-detail"
+        axis="y"
+        edge="start"
+        min={64}
+        max={({ parent }) => parent * 0.6}
+        label="Detail height"
+        className="spread-detail-pane"
+      >
+        {focusCard ? (
+          <Detail world={world} spread={spread} candidate={focusCard.candidate} />
+        ) : (
+          <div className="spread-detail spread-detail-empty" />
+        )}
+      </ResizablePane>
     </div>
   );
 }

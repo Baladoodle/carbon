@@ -471,3 +471,173 @@
   vertical-align: -1px;
   border-radius: 50%;
 }
+
+/* ── Expand: a field's large editor (expand.ts) ─────────────────────────── */
+.ui-expandable {
+  anchor-name: var(--ui-anchor);
+}
+/* The affordance sits in its field's top-right corner, shown on hover and focus. */
+.ui-expand-btn.ui-icon-btn {
+  position: fixed;
+  position-anchor: var(--ui-anchor);
+  position-visibility: anchors-visible;
+  top: calc(anchor(top) + 3px);
+  right: calc(anchor(right) + 3px);
+  width: 22px;
+  height: 22px;
+  z-index: 3;
+  background: var(--surface-2);
+  color: var(--text-3);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur-hover) var(--ease);
+}
+.ui-expand-btn svg {
+  width: 13px;
+  height: 13px;
+}
+.ui-expandable:is(:hover, :focus, :focus-within) + .ui-expand-btn,
+.ui-expand-btn:hover,
+.ui-expand-btn[data-state='delayed-open'],
+.ui-expand-btn[data-state='instant-open'] {
+  opacity: 1;
+  pointer-events: auto;
+}
+.ui-expand-btn:hover {
+  color: var(--text);
+}
+/* No overlay over an overlay: fields in the palette, dialogs and popovers stay as they are. */
+:is([role='dialog'], [data-radix-popper-content-wrapper]) .ui-expand-btn {
+  display: none;
+}
+
+/* The editor: the field's host (or the control alone) floats, centred, over a dimmed window. */
+[data-expand-host][data-expanded],
+.ui-expand-panel {
+  position: fixed;
+  z-index: 45;
+  top: 12vh;
+  left: 0;
+  right: 0;
+  margin: 0 auto;
+  width: min(720px, calc(100vw - 32px));
+  max-height: 76vh;
+  overflow: auto;
+  box-sizing: border-box;
+  padding: 16px;
+  background: color-mix(in srgb, var(--surface-3) 96%, transparent);
+  backdrop-filter: var(--blur-overlay);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-overlay);
+  box-shadow:
+    0 0 0 100vmax rgb(0 0 0 / 0.35),
+    var(--shadow-overlay),
+    var(--highlight);
+  animation: ui-fade var(--dur-panel) var(--ease);
+}
+.ui-expand-panel {
+  padding: 12px;
+}
+.ui-expand-spacer {
+  flex: none;
+}
+.ui-expand-area {
+  width: 100%;
+}
+.ui-input.ui-expand-control {
+  display: block;
+  width: 100%;
+  min-height: 40vh;
+  max-height: 60vh;
+  resize: vertical;
+  font-size: var(--text-body);
+  line-height: 1.5;
+  overflow-y: auto;
+}
+
+/* ── Resizable panes (ResizablePane.tsx) ─────────────────────────────────── */
+.ui-pane {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.ui-pane > :not(.ui-pane-edge) {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+}
+.ui-pane[data-collapsing] > :not(.ui-pane-edge) {
+  opacity: 0.5;
+}
+/* A 4px hit area on the inner edge, holding one hairline. */
+.ui-pane-edge {
+  position: absolute;
+  z-index: 4;
+  touch-action: none;
+  outline: none;
+}
+.ui-pane-x > .ui-pane-edge {
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  cursor: col-resize;
+}
+.ui-pane-y > .ui-pane-edge {
+  left: 0;
+  right: 0;
+  height: 4px;
+  cursor: row-resize;
+}
+.ui-pane-x > .ui-pane-edge-start {
+  left: calc(var(--pane-edge-offset, 0px) - 2px);
+}
+.ui-pane-x > .ui-pane-edge-end {
+  right: calc(var(--pane-edge-offset, 0px) - 2px);
+}
+.ui-pane-y > .ui-pane-edge-start {
+  top: calc(var(--pane-edge-offset, 0px) - 2px);
+}
+.ui-pane-y > .ui-pane-edge-end {
+  bottom: calc(var(--pane-edge-offset, 0px) - 2px);
+}
+.ui-pane-edge::after {
+  content: '';
+  position: absolute;
+  background: transparent;
+  transition: background var(--dur-hover) var(--ease);
+}
+.ui-pane-x > .ui-pane-edge::after {
+  top: 0;
+  bottom: 0;
+  left: 1.5px;
+  width: 1px;
+}
+.ui-pane-y > .ui-pane-edge::after {
+  left: 0;
+  right: 0;
+  top: 1.5px;
+  height: 1px;
+}
+.ui-pane-edge:hover::after {
+  background: var(--text-3);
+}
+.ui-pane-edge:focus-visible::after,
+.ui-pane-edge[data-dragging]::after {
+  background: var(--accent);
+}
+.ui-pane-edge:focus-visible::after {
+  box-shadow: 0 0 0 1px var(--accent);
+}
+/* While a drag runs, the cursor holds everywhere and nothing gets selected. */
+:root[data-pane-drag='x'],
+:root[data-pane-drag='x'] * {
+  cursor: col-resize !important;
+  user-select: none;
+}
+:root[data-pane-drag='y'],
+:root[data-pane-drag='y'] * {
+  cursor: row-resize !important;
+  user-select: none;
+}

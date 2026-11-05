@@ -20,7 +20,8 @@ export function Field({ label, error, children, className }: FieldProps): ReactN
     ...(error ? { 'aria-invalid': true, 'aria-describedby': errId } : {}),
   });
   return (
-    <div className={className ? `ui-field ${className}` : 'ui-field'}>
+    // The field grows into the large editor as a whole: its label and error come along.
+    <div className={className ? `ui-field ${className}` : 'ui-field'} data-expand-host="">
       {label !== undefined && (
         <label className="ui-field-label" htmlFor={children.props.id ?? id}>
           {label}

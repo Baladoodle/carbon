@@ -140,6 +140,7 @@ export function Attributes({ world }: { world: World }): ReactNode {
       return (
         <Input
           mono={col !== 'when' && col !== 'unit'}
+          expandable={col === 'when'}
           autoFocus
           aria-label={`${def.key} ${col}`}
           className="numbers-cell-input"
@@ -252,6 +253,7 @@ export function Attributes({ world }: { world: World }): ReactNode {
                 <td colSpan={6}>
                   <Input
                     mono
+                    expandable={false}
                     autoFocus
                     aria-label="New attribute key"
                     value={adding}
