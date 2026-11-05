@@ -4,7 +4,7 @@ import {
   type Locator,
   type Page,
 } from '@playwright/test';
-import { cpSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -105,7 +105,12 @@ export async function launchCarbon(opts: LaunchOptions = {}): Promise<CarbonApp>
     },
     async close() {
       await app.close();
+      // Any unhandled rejection or uncaught exception in main fails the test
+      // that launched it (src/main/unhandled.ts writes them here).
+      const file = path.join(userData, 'unhandled.jsonl');
+      const unhandled = existsSync(file) ? readFileSync(file, 'utf8').trim() : '';
       rmSync(tmp, { recursive: true, force: true });
+      if (unhandled !== '') throw new Error(`unhandled errors in the main process:\n${unhandled}`);
     },
   };
 }
