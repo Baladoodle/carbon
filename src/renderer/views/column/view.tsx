@@ -65,7 +65,6 @@ import { Margin } from './Margin';
 import { measureBand, measureChip, measureNote, resetMeasures } from './measure';
 import {
   columnModel,
-  sameColumnInputs,
   geometry,
   HEAD_H,
   inboxHasEntities,
@@ -202,10 +201,9 @@ function ColumnView(): ReactNode {
   const [memo, setMemo] = useState<{ world: World; model: ColumnModel } | null>(null);
   let model = memo?.model ?? null;
   if (world && memo?.world !== world) {
-    model =
-      memo && sameColumnInputs(memo.world, world)
-        ? memo.model
-        : columnModel(world, memo ?? undefined);
+    // One pass over the entities: the same model when nothing drawn changed, only the touched
+    // cells re-indexed when nothing moved, else a rebuild.
+    model = columnModel(world, memo ?? undefined);
     setMemo({ world, model });
   }
   if (!world || !model) return null;

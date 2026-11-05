@@ -135,6 +135,13 @@ export function columnModel(
   };
 }
 
+const entityCount = new WeakMap<object, number>();
+const countOf = (es: World['entities']): number => {
+  let n = entityCount.get(es);
+  if (n === undefined) entityCount.set(es, (n = Object.keys(es).length));
+  return n;
+};
+
 /** The cells (or the Inbox cell) an entity shows in, for its lane. */
 function cellsOf(
   e: Entity,
@@ -154,19 +161,32 @@ function cellsOf(
  * reused them) and no band changed. Otherwise null (rebuild).
  */
 function reindex(prevWorld: World, prev: ColumnModel, next: World): ColumnModel | null {
+  if (prevWorld === next) return prev;
   if (prevWorld.settings !== next.settings || prevWorld.schema !== next.schema) return null;
-  const placements = placementsOf(next);
-  if (placements !== prev.placements) return null;
   const a = prevWorld.entities;
   const b = next.entities;
+  if (a === b) return prev;
+  // One pass: what changed in what the Column draws (an identity edit changes nothing here).
   const changed: [Entity, Entity][] = [];
+  let count = 0;
+  let bands = false;
   for (const id in b) {
+    count++;
     const x = a[id];
     const y = b[id];
     if (x === y) continue;
-    if (!x || !y || x.kind === 'band' || y.kind === 'band') return null;
+    if (!x || !y) return null;
+    if (sameDrawn(x, y)) continue;
+    if (x.kind === 'band' || y.kind === 'band') bands = true;
     changed.push([x, y]);
   }
+  entityCount.set(b, count);
+  if (count !== countOf(a)) return null;
+  if (changed.length === 0) return prev;
+  if (bands) return null;
+  // Placements are the resolver's: the same object means nothing moved.
+  const placements = placementsOf(next);
+  if (placements !== prev.placements) return null;
   if (changed.length === 0) return prev;
   const graveyard = prev.settings.graveyard;
   const cells = new Map(prev.index.cells);
@@ -259,6 +279,20 @@ export interface GeometryOptions {
   measureHead?: Measure;
 }
 
+/** A cell's widest whole chip, cached by its list: an edit re-measures only the cells it touched. */
+const cellDemandCache = new WeakMap<
+  readonly CellEntity[],
+  { measure: Measure; version: number; w: number }
+>();
+function cellDemand(es: readonly CellEntity[], measure: Measure, version: number): number {
+  const hit = cellDemandCache.get(es);
+  if (hit && hit.measure === measure && hit.version === version) return hit.w;
+  let w = 0;
+  for (const e of es) w = Math.max(w, chipWidth(e.name, measure) + 2 * CELL_PAD);
+  cellDemandCache.set(es, { measure, version, w });
+  return w;
+}
+
 const demandCache = new WeakMap<
   CellIndex,
   { measure: Measure; version: number; byLane: Map<Lane, number> }
@@ -280,9 +314,7 @@ export function laneDemands(
     const byLane = new Map<Lane, number>();
     for (const [key, es] of model.index.cells) {
       const lane = key.slice(key.lastIndexOf('|') + 1) as Lane;
-      let w = byLane.get(lane) ?? 0;
-      for (const e of es) w = Math.max(w, chipWidth(e.name, measure) + 2 * CELL_PAD);
-      byLane.set(lane, w);
+      byLane.set(lane, Math.max(byLane.get(lane) ?? 0, cellDemand(es, measure, version)));
     }
     hit = { measure, version, byLane };
     demandCache.set(model.index, hit);

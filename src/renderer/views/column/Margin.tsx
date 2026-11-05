@@ -36,9 +36,24 @@ function layoutMargin(
   const placed = notes
     .map((n) => ({ n, want: want(n), height: estimateHeight(n.text, measure) }))
     .filter((x): x is { n: Note; want: number; height: number } => x.want !== null);
-  const tops = stackMargin(placed.map((x) => ({ id: x.n.id, want: x.want, height: x.height })));
+  // Most edits move no note (a rename, a state change): reuse the stack, skipping its sort.
+  const same =
+    last !== null &&
+    last.placed.length === placed.length &&
+    placed.every((x, i) => {
+      const y = last?.placed[i];
+      return !!y && y.n === x.n && y.want === x.want && y.height === x.height;
+    });
+  const tops =
+    same && last
+      ? last.tops
+      : stackMargin(placed.map((x) => ({ id: x.n.id, want: x.want, height: x.height })));
+  last = { placed, tops };
   return placed.map((x, i) => ({ n: x.n, top: tops[i] ?? x.want, height: x.height }));
 }
+
+/** The last stack laid out (one Column is mounted at a time). */
+let last: { placed: { n: Note; want: number; height: number }[]; tops: number[] } | null = null;
 
 /**
  * Notes (mechanical checks and AI critique) in the right margin, at the height
