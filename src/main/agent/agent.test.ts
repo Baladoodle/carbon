@@ -9,6 +9,7 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { FakeAiGateway } from '@core/ai/fake';
 import type { AiGateway } from '@core/ai/gateway';
 import { applyCommands } from '@core/commands/apply';
+import { cmd } from '@core/commands/registry';
 import { sampleWorld } from '@core/testing/sample';
 import type { World } from '@core/model/world';
 import { readSpread } from '@core/spreads/record';
@@ -22,6 +23,9 @@ import { AgentSocketServer, prepareSocketPath, SocketInUse } from './server';
 import { AgentSettingsStore } from './settings';
 import { socketPath } from './socket-path';
 import { TOOLS, type AgentImages } from './tools';
+import { asAgent } from './via';
+import { writeWorldDir } from '../store/world-dir';
+import { WorldSession } from '../world-session';
 
 const NOW = '2026-11-05T12:00:00.000Z';
 
@@ -651,5 +655,28 @@ describe('the socket', () => {
       "carbon mcp: carbon isn't running. Start it (`carbon`), then connect the agent again.",
     ]);
     await expect(connectToCarbon(path.join(dir, 'none.sock'))).rejects.toBeInstanceOf(RelayError);
+  });
+});
+
+describe('the session', () => {
+  it('marks a step taken inside an agent’s call as the agent’s, and only that one', async () => {
+    const dir = mkdtempSync(path.join(os.tmpdir(), 'carbon-agent-session-'));
+    try {
+      await writeWorldDir(dir, sampleWorld());
+      const session = await WorldSession.open(dir, () => NOW);
+      const by: (string | undefined)[] = [];
+      session.onPatch((e) => by.push(e.by));
+      await asAgent(() =>
+        Promise.resolve(session.dispatch([cmd('numbers.setVariable', { name: 'k', value: 1 })])),
+      );
+      session.dispatch([cmd('numbers.setVariable', { name: 'k', value: 2 })]);
+      session.dispatch([cmd('numbers.setVariable', { name: 'k', value: 3 })], 'x', undefined, {
+        by: 'agent',
+      });
+      expect(by).toEqual(['agent', undefined, 'agent']);
+      await session.flush();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

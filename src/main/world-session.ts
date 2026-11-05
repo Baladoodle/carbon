@@ -19,6 +19,7 @@ import type {
   SaveStatus,
   WorldSnapshot,
 } from '@shared/ipc';
+import { currentVia } from './agent/via';
 import { diskState } from './store/disk-state';
 import { loadWorldDir, writeChanges } from './store/world-dir';
 
@@ -109,7 +110,8 @@ export class WorldSession {
     });
     const entry = this.history.past[this.history.past.length - 1];
     if (effect && entry) this.effects.set(entry, effect);
-    this.commit(r.value.world, r.value.patch, 'command', name, meta?.by);
+    // A step taken inside an agent's tool call (the image gateway adding an icon, say) is the agent's too.
+    this.commit(r.value.world, r.value.patch, 'command', name, meta?.by ?? currentVia());
     return { ok: true, rev: this.rev };
   }
 
