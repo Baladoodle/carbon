@@ -2,8 +2,22 @@ import type { ReactNode } from 'react';
 import type { Entity } from '@core/model/entity';
 import type { World } from '@core/model/world';
 import { Button, ContextMenu, IconImage, Tooltip, cx, type MenuEntry } from '../ui';
-import { chooseImage, iconFromConcept, KEYS, removeImage, requestImage } from './actions';
-import { selected, takesIcon, versions, type ImageKind, type ImageMeta } from './model';
+import {
+  chooseImage,
+  iconFromConcept,
+  KEYS,
+  removeImage,
+  requestImage,
+  reviewSheet,
+} from './actions';
+import {
+  selected,
+  sheetOfIcon,
+  takesIcon,
+  versions,
+  type ImageKind,
+  type ImageMeta,
+} from './model';
 import { openImageOverlay, usePending } from './store';
 import { describe, Shimmer, Thumb } from './Thumb';
 
@@ -20,6 +34,7 @@ export function BenchImages({ world, entity }: { world: World; entity: Entity })
   const icon = selected(world, id, 'icon');
   const conceptPending = usePending(id, 'concept');
   const iconPending = usePending(id, 'icon');
+  const fromSheet = icons && !!sheetOfIcon(world, id);
   const older = [
     ...versions(world, id, 'concept').filter((m) => m.id !== concept?.id),
     ...(icons ? versions(world, id, 'icon').filter((m) => m.id !== icon?.id) : []),
@@ -34,6 +49,9 @@ export function BenchImages({ world, entity }: { world: World; entity: Entity })
   ];
   const chosenMenu = (m: ImageMeta): MenuEntry[] => [
     { label: 'Enlarge', onSelect: () => openImageOverlay('lightbox', { entity: id, image: m.id }) },
+    ...(m.origin.by === 'sheet'
+      ? [{ label: 'Review sheet', onSelect: () => reviewSheet(id) } as MenuEntry]
+      : []),
     {
       label: m.kind === 'concept' ? 'New concept' : 'New icon',
       keys: m.kind === 'concept' ? KEYS.concept : KEYS.icon,
@@ -74,6 +92,18 @@ export function BenchImages({ world, entity }: { world: World; entity: Entity })
             data-testid="bench-image-icon"
           >
             Icon
+          </Button>
+        </Tooltip>
+      )}
+      {icons && fromSheet && (
+        <Tooltip content="Review the sheet this icon came from, free">
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => reviewSheet(id)}
+            data-testid="bench-image-review-sheet"
+          >
+            Sheet
           </Button>
         </Tooltip>
       )}
@@ -166,6 +196,8 @@ export function benchImageMenu(world: World, entity: Entity): MenuEntry[] {
   if (icons) out.push({ label: 'Icon', keys: KEYS.icon, onSelect: () => requestImage(id, 'icon') });
   if (icons && concept)
     out.push({ label: 'Icon from concept', onSelect: () => void iconFromConcept(id) });
+  if (icons && sheetOfIcon(world, id))
+    out.push({ label: 'Review sheet', onSelect: () => reviewSheet(id) });
   const choices = (kind: ImageKind, cur: ImageMeta | undefined): MenuEntry[] =>
     versions(world, id, kind)
       .filter((m) => m.id !== cur?.id)

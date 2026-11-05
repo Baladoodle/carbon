@@ -4,7 +4,7 @@ import { flash, uiStore, useUi } from '../state/ui';
 import { currentWorld, dispatch, transact, useWorld } from '../state/world';
 import type { MenuEntry } from '../ui';
 import { imageCommands, images, imageStatusStore } from './client';
-import { selected, takesIcon, type ImageKind, type ImageMeta } from './model';
+import { sheetOfIcon, selected, takesIcon, type ImageKind, type ImageMeta } from './model';
 import { openImageOverlay, setPending } from './store';
 
 /**
@@ -69,6 +69,14 @@ export async function iconFromConcept(entity: string): Promise<void> {
   }
 }
 
+/** Opens the review of the sheet an entity's icon came from (free: no call). */
+export function reviewSheet(entity: string): void {
+  const w = currentWorld();
+  const sheet = w ? sheetOfIcon(w, entity) : undefined;
+  if (!sheet) return flash('No sheet for this icon');
+  openImageOverlay('review', { entity: sheet.entity, image: sheet.id });
+}
+
 /** Chooses an image as the entity's concept or icon (undoable). */
 export async function chooseImage(entity: string, image: string): Promise<void> {
   const r = await dispatch(imageCommands.select(entity, image));
@@ -104,6 +112,7 @@ export function imageMenu(w: World, id: string): MenuEntry[] {
       onSelect: () => requestImage(id, 'icon'),
     });
     if (concept) out.push({ label: 'Icon from concept', onSelect: () => void iconFromConcept(id) });
+    if (sheetOfIcon(w, id)) out.push({ label: 'Review sheet', onSelect: () => reviewSheet(id) });
   }
   if (concept)
     out.push({
@@ -150,6 +159,7 @@ export function useImageActions(): void {
       name: e?.name ?? null,
       icons: e ? takesIcon(w, e.kind) : false,
       concept: id ? !!selected(w, id, 'concept') : false,
+      sheet: id ? !!sheetOfIcon(w, id) : false,
       many: selection.length > 1 ? selection.length : 0,
       manyIcons: selection.filter((x) => canHave(w, x, 'icon')).length,
     };
@@ -189,6 +199,13 @@ export function useImageActions(): void {
       group: 'Images',
       enabled: () => many <= 1 && !!one && !!info?.icons && info.concept,
       run: () => one && void iconFromConcept(one),
+    },
+    {
+      id: 'images.review-sheet',
+      label: info?.name ? `Review sheet: ${info.name}` : 'Review sheet',
+      group: 'Images',
+      enabled: () => many <= 1 && !!one && !!info?.sheet,
+      run: () => one && reviewSheet(one),
     },
     {
       id: 'images.delete-files',

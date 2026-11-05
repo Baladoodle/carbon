@@ -111,11 +111,17 @@ test('screens of every view, the Bench and the palette', async () => {
 
   // Expanded: every field revealed, a suggestion waiting inline, an accepted
   // one with its ai marker.
+  // Each pick must settle (the menu closed, one more field shown) before the
+  // next check: `+ Field` leaves asynchronously after the last reveal.
+  const shownFields = page().locator('[data-testid="bench-entity"] [data-bench-field]');
   for (;;) {
     const add = page().getByTestId('bench-add-field');
     if ((await add.count()) === 0) break;
+    const before = await shownFields.count();
     await add.click();
     await page().getByRole('menuitem').first().click();
+    await expect(page().getByRole('menu')).toHaveCount(0);
+    await expect(shownFields).toHaveCount(before + 1);
   }
   const tradeoff = page().locator('[data-bench-field="tradeoff"] input');
   await tradeoff.click();

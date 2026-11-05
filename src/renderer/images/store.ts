@@ -11,6 +11,8 @@ export interface ImageUi {
   confirm: { entity: string; kind: ImageKind } | null;
   batch: { entities: string[]; kind: ImageKind } | null;
   lightbox: { entity: string; image: string } | null;
+  /** A kept icon sheet, reviewed again (free: re-cropped from its file). */
+  review: { entity: string; image: string } | null;
   /** The "Delete image files" confirm. */
   purge: Record<string, never> | null;
   /** `entity:kind` → true while a call for it runs. */
@@ -22,6 +24,7 @@ export const imageUi = createStore<ImageUi>({
   batch: null,
   lightbox: null,
   purge: null,
+  review: null,
   pending: {},
 });
 
@@ -46,6 +49,7 @@ export const OVERLAY = {
   batch: 'image-batch',
   lightbox: 'image-lightbox',
   purge: 'image-purge',
+  review: 'image-sheet-review',
 } as const;
 
 /** Opens one of the image overlays (escape closes it, like every overlay). */

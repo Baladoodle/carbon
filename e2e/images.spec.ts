@@ -266,6 +266,55 @@ test('codex: the image column, the row menu, and a batch from the bulk bar (skip
   await body().press('Escape');
 });
 
+test('review sheet: a kept sheet re-cropped for free from the Bench and the palette; accepting a cell is undoable', async () => {
+  // After the Codex batch: Cinder Sting and Vent Glass Visor came from the first
+  // sheet, Cloud Anklet from the regenerated one.
+  await carbon.gotoView('column', '1');
+  await page().locator('[data-testid="column-inbox"] [data-id="cinder-sting"]').click();
+  const bench = page().getByTestId('bench-entity');
+  await expect(bench).toHaveAttribute('data-entity', 'cinder-sting');
+  const before = (await imageLog()).length;
+  const w0 = await world();
+  const ankletIcon = w0.images?.['cloud-anklet']?.icon;
+
+  await bench.getByTestId('bench-image-review-sheet').click();
+  const again = page().getByTestId('image-sheet-again');
+  await expect(again.getByTestId('image-cell')).toHaveCount(3);
+  await expect(again.getByTestId('image-sheet-box')).toHaveCount(3);
+  // The cells already in use start accepted; the rejected anklet doesn't.
+  const anklet = again.locator('[data-testid="image-cell"][data-entity="cloud-anklet"]');
+  await expect(anklet).toHaveAttribute('aria-pressed', 'false');
+  await expect(page().getByTestId('image-review-accept')).toHaveText('Done');
+  const order = await again
+    .getByTestId('image-cell')
+    .evaluateAll((els) => els.map((e) => e.getAttribute('data-entity')));
+  for (let i = 0; i < order.indexOf('cloud-anklet'); i++) await page().keyboard.press('ArrowRight');
+  await page().keyboard.press('k');
+  await expect(anklet).toHaveAttribute('aria-pressed', 'true');
+  await page().getByTestId('image-review-accept').click();
+  await expect(again).toHaveCount(0);
+  const w1 = await world();
+  const im = w1.images?.['cloud-anklet'];
+  const now = im?.all.find((m) => m.id === im.icon);
+  expect(now?.id).not.toBe(ankletIcon);
+  expect(now?.origin.by).toBe('sheet');
+  // Free: no paid call.
+  expect((await imageLog()).length).toBe(before);
+  await body().press('Control+z');
+  await expect.poll(async () => (await world()).images?.['cloud-anklet']?.icon).toBe(ankletIcon);
+
+  // From the palette, on the entity in focus.
+  await body().press('Control+k');
+  await page().keyboard.type('Review sheet');
+  await expect(page().getByTestId('palette').locator('[data-highlighted]')).toContainText(
+    'Review sheet: Cinder Sting',
+  );
+  await page().keyboard.press('Enter');
+  await expect(page().getByTestId('image-sheet-again').getByTestId('image-cell')).toHaveCount(3);
+  await page().keyboard.press('Escape');
+  await expect(page().getByTestId('image-sheet-again')).toHaveCount(0);
+});
+
 test('budget: when the image budget is reached, the confirm step says so and enter sends nothing; raising it resumes', async () => {
   await carbon.dispatch({
     type: 'settings.set',

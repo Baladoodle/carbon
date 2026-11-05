@@ -45,3 +45,19 @@ export const artOf = (w: World): ArtDirection => w.settings.art ?? EMPTY_ART;
 
 /** Whether an image came from a paid (or fake-paid) call, rather than a free filter. */
 export const generated = (m: ImageMeta): boolean => m.origin.by !== 'filter';
+
+/** A sheet image (kind `sheet`) by id, wherever it is kept (it belongs to its first cell's entity). */
+export function sheetById(w: World, id: string): ImageMeta | undefined {
+  for (const e of Object.values(w.images ?? {})) {
+    const m = e.all.find((x) => x.id === id && x.kind === 'sheet');
+    if (m) return m;
+  }
+  return undefined;
+}
+
+/** The sheet an entity's icon (chosen, else newest) was cropped from, if any. */
+export function sheetOfIcon(w: World, id: string): ImageMeta | undefined {
+  const icon = selected(w, id, 'icon');
+  const from = [icon, ...versions(w, id, 'icon')].find((m) => m?.origin.by === 'sheet');
+  return from?.origin.by === 'sheet' ? sheetById(w, from.origin.sheet) : undefined;
+}
