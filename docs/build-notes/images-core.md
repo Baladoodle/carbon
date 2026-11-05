@@ -6,8 +6,8 @@ budget and pricing, the `image_prompt` moment, art direction and export.
 
 `npm run check` passes; the full `npm run test:e2e` passes 123 of 124, the
 one failure being a Bench screenshot test that fails on the base too (§8), on the
-merged base (with critique). **Real OpenAI calls: 9 of the 12 allowed, all low quality,
-$0.3246 in total** (§5).
+merged base (with critique). **Real OpenAI calls: 10 of the 12 allowed, all low quality,
+$0.3742 in total** (§5).
 
 - **The contract for images-ui:** §1
 - **What was built:** §2
@@ -121,9 +121,9 @@ review. `calls.json` holds each call's prompt, usage, cost and latency.
 | **Provider** (§4): `ImageProvider`, `OpenAiImageProvider` (official `openai` SDK 7.51: `images.generate`, `images.edit` with the reference; PNG; transparent background for icons and sheets; SDK retries off), typed errors, `FakeImageProvider` | `src/main/images/provider.ts` |
 | **The key**: keyring (`secret-tool`, service `carbon`, account `openai-api-key`), then `OPENAI_API_KEY`; `CARBON_KEYRING=off` skips the keyring. Never logged or written | `src/main/images/key.ts` |
 | **Gateway**: prompt, estimate, generate, icon from concept (free), batch plan and run (concurrency 2, cancellable, progress), sheets (run, crop, accept), files as data URLs (thumbnails cached), "Delete image files", the log, the budget and status | `src/main/images/gateway.ts`, `module.ts` (IPC), `index.ts` (mode) |
-| **Icon sheets** (§2a): deterministic item lines, splitting into sheets of ≤ 100, the sheet prompt; one call per sheet with the guide as the reference; crop, flags, filter, review; accept as one undo step | `src/core/images/sheet.ts`, gateway, `src/main/images/pixel.ts` (adapter) |
-| **Pixel adapter**: `filterImage`, `sheetLayout`, `drawGuide`, `cropSheet` with pixel's exact names and shapes | `src/main/images/pixel.ts` |
-| **`image_prompt`** (Haiku, through the existing gateway and registry): builder, schema, parse, fake answer. It carries critique's shared quality bar (`qualityConstraints`) with an exception line: only `rule_clash` and `contradicts_relation` apply to an image | `src/core/images/prompt.ts`, one line each in `core/ai/moments.ts`, `core/prompts/registry.ts`, `core/ai/fake.ts` |
+| **Icon sheets** (§2a): pixel's `sheetLayout`, `drawGuide` (grey cells on a dark-grey gutter) and `sheetPrompt`, with each cell's line editable (`sheetLines`, `sheetPromptWithLines`); splitting into sheets of ≤ 100; one call per sheet with the guide as the reference; pixel's `cropSheet` and `filterImage('item')`; review; accept as one undo step | `src/core/images/sheet.ts`, gateway |
+| **Pixel**: the real port, `@core/pixel` (`filterImage`, `sheetLayout`, `drawGuide`, `cropSheet`, `sheetPrompt`, `iconPrompt`, the PNG codec). The adapter I used until it merged is deleted | `src/core/pixel/` (pixel's) |
+| **`image_prompt`** (Haiku, through the existing gateway and registry): builder, schema, parse, fake answer. Icons start from pixel's `iconPrompt` (Genforge's house style), which Claude keeps the structure and closing of; the fake returns it as is. It carries critique's shared quality bar (`qualityConstraints`) with an exception line: only `rule_clash` and `contradicts_relation` apply to an image | `src/core/images/prompt.ts`, one line each in `core/ai/moments.ts`, `core/prompts/registry.ts`, `core/ai/fake.ts` |
 | **Export** (§6): the spec gets an "Images" section listing each entity's icon and concept paths; the files are copied to `exports/<spec>/images/<entity>.<kind>.png`; undo removes them, redo copies them again | `src/core/images/export.ts`, `main/store/exports.ts` |
 | **Budget**: an OpenAI meter separate from Claude's (session and month, month read back from the log), exact in nano-dollars, pauses at the limit, resumes when `settings.images.budget` is raised | gateway |
 | **The log**: `ai-log/images-<date>.jsonl`, one line per attempt: provider, model, size, quality, usage, cost (and whether from usage or estimated), latency, outcome, request id, image id, batch id | `src/main/images/log.ts` |
@@ -156,9 +156,10 @@ review. `calls.json` holds each call's prompt, usage, cost and latency.
    `input_tokens_details.{text_tokens,image_tokens}` and `output_tokens` for
    the 2.6 models; the estimate is used only when no usage comes back. Spend is
    summed in integer nano-dollars, as review-b did for Claude.
-7. **Sheet lines are written by carbon, not Claude.** A 100-icon sheet would
-   otherwise need 100 Haiku calls before anything is shown. The line is the
-   name, the subkind and materials, and the identity; the dialog can edit it.
+7. **Sheet lines are pixel's, not Claude's.** A 100-icon sheet would
+   otherwise need 100 Haiku calls before anything is shown. Each cell's line
+   is the text pixel's `sheetPrompt` writes after `row R, column C:`; the
+   dialog can edit it, and an edited line replaces pixel's in its prompt.
    Concepts still get Claude's prompt per entity.
 8. **Sheets run one at a time.** Each is already up to 100 icons, and a second
    concurrent 2880² call buys little.
@@ -170,18 +171,16 @@ review. `calls.json` holds each call's prompt, usage, cost and latency.
     don't say it per model, so it was verified with one real sheet on each:
     2.6-flare and 2.5-flare (the default) both accepted it as an edit with the
     guide and returned 2880×2880 (§5).
-11. **The crop registers the model's grid.** The models keep their own even
-    grid, which drifts from the layout's: up to about 28 px on the 2.6 sheet
-    and **64 px** on the 2.5 sheet, more than a gutter (58). Cutting fixed
-    cells flagged 54 of 100 perfect sprites on 2.6, and on 2.5 it also
-    **clipped** sprites in rows 5–8. The adapter's `cropSheet` now labels the
-    connected parts of the whole sheet, gives each part to the cell whose
-    centre is nearest its centroid, measures each row's and column's median
-    offset, and flags `touches_edge` only past the offset cell plus half a
-    gutter. Both real sheets: 100 whole sprites, 0 flags at full size, about
-    0.4 s for 2880². **For pixel:** the same rule would help its `cropSheet`;
-    the regression tests are in `sheet.test.ts` ("the recorded real sheet",
-    for both models, including a no-clipping check).
+11. **The crop assigns sprites by their centre.** The models keep their own
+    even grid, which drifts from the layout's: up to about 28 px on the 2.6
+    sheet and 64 px on the 2.5 sheet, more than a gutter (58). Cutting fixed
+    cells flagged 54 of 100 perfect sprites on 2.6, and on 2.5 it also clipped
+    sprites. I fixed it twice in my adapter, test first each time. Pixel's
+    `cropSheet` adopted the rule (each part to the cell its centre falls in),
+    and the gateway now uses it. **All three real sheets give 0 flags** at the
+    stored size, and the regression tests (`sheet.test.ts`, "the recorded real
+    sheet", including a no-clipping check at pixel's foreground threshold,
+    alpha ≥ 128) now run against `@core/pixel`.
 12. **Files cross IPC as data URLs.** The CSP already allows `data:` images,
     and a custom protocol would mean editing foundation's bootstrap.
     Thumbnails (≤ 256 px) are cached in main.
@@ -273,7 +272,8 @@ through the real gateway and `OpenAiImageProvider`.
 | 7 | Cinder Sting icon | sunburst | 1024² | generate | 120 / 824 | $0.025320 | 19.9 s |
 | 8 | 100-icon sheet (10×10) | flare | 2880² | edit (guide) | 2,237 text + 1,521 image / 2,768 | $0.106393 | 30.0 s |
 | 9 | 100-icon sheet (10×10), the default model | **2.5-flare** | 2880² | edit (guide) | 2,237 text + 1,521 image / 659 | $0.043123 | 29.2 s |
-| | **Total: 9 calls, all low quality, all succeeded** | | | | | **$0.324598** | |
+| 10 | 100-icon sheet, **pixel's grey guide and `sheetPrompt`** | **2.5-flare** | 2880² | edit (guide) | 3,523 text + 1,521 image / 659 | $0.049549 | 27.9 s |
+| | **Total: 10 calls, all low quality, all succeeded** | | | | | **$0.374147** | |
 
 What they showed:
 
@@ -288,10 +288,14 @@ What they showed:
   per cell, with real transparency (`background: 'transparent'` sent), for
   $0.043. That's 659 output tokens; the input (the prompt and the guide) is
   now more than half the cost.
+- **The whole chain on the default model** (call 10: 2.5-flare, pixel's guide
+  and prompt, pixel's crop and `item` filter): 100 of 100 cells clean, 0
+  flags, and the 16×16 icons are crisp and readable. Recorded as
+  `fixtures/images/items-sheet-100-flare25-pixel.png`.
 
-The ledger is `fixtures/images/ledger.json` (9 of 12; the script refuses to go
+The ledger is `fixtures/images/ledger.json` (10 of 12; the script refuses to go
 past 12). A plain `npm run smoke:images` now runs the default model's plans
-(a 2.5-flare concept, icon and sheet); the 2.6 ones run with `-- --only=<name>`.
+(a 2.5-flare concept, icon and sheet, the sheet with pixel's guide and prompt); the 2.6 ones run with `-- --only=<name>`.
 
 ## 6. Tests
 
@@ -324,8 +328,9 @@ past 12). A plain `npm run smoke:images` now runs the default model's plans
 - **Sheets** (`sheet.test.ts`, 9): splitting, lines, the prompt, plan → run
   (one edit call with a 2880² guide) → review → accept as one undo step →
   reload → undo → free re-crop; two sheets and cancel; refusals; the budget;
-  and **both real 100-icon sheets** (2.6 and 2.5) crop to 100 whole,
-  centred sprites with ≤ 5 flags. The first fix failed the 2.6 sheet's test
+  and **all three real 100-icon sheets** (2.6, 2.5, and 2.5 with pixel's
+  guide and prompt) crop to 100 whole, centred sprites with ≤ 5 flags (0 in
+  fact), through `@core/pixel`. The first fix failed the 2.6 sheet's test
   with 53 flags before it; the second failed the 2.5 sheet's with 26 before it.
 - **Export** (`export.test.ts`, 2): copied images, the spec's section, undo
   and redo.
@@ -355,7 +360,7 @@ above the threshold: `src/core/images` is 98.8% of lines.
 | `src/renderer/ai/AiLog.tsx` | One label for the new moment (the `Record<Moment, string>` needed it) |
 | `src/shared/ipc.ts` | The `images:*` channels and events |
 | `e2e/harness.ts`, `scripts/dev-sample.mjs` | `CARBON_IMAGES=fake` |
-| `package.json` | `openai`, `pngjs`, `@types/pngjs`; `smoke:images` |
+| `package.json` | `openai`; `smoke:images`. (`pngjs` is gone: main uses pixel's PNG codec) |
 | `.gitattributes` | `*.png binary` (the repo's fixtures) |
 
 ## 8. Gaps
@@ -366,15 +371,6 @@ above the threshold: `src/core/images` is 98.8% of lines.
   (`f1d9c4c`, full run: 1 failed, 121 passed); alone it passes on both. The
   coordinator has it with images-ui. Apart from it, the full suite passes
   (123 of 124).
-- **The pixel filters are an adapter** (`src/main/images/pixel.ts`) until the
-  pixel branch merges. The 16×16 icons from it are recognisable but mushy:
-  box averaging with no outline or palette work. Swapping in `@core/pixel` is
-  one file; the gateway uses only `filterImage`, `sheetLayout`, `drawGuide`
-  and `cropSheet`. Pixel's `iconPrompt` and `sheetPrompt` aren't used yet: the
-  icon conventions and the sheet prompt are in `src/core/images/prompt.ts`
-  and `sheet.ts`, with the same house style. Merging should move to pixel's
-  prompts, but keep this branch's centred-in-cell crop rule (§3.11) or its
-  test will fail.
 - **Medium and high quality are unmeasured** (§4); their estimates are
   extrapolated. The first medium call will show the real number, and the cost
   will come from its usage either way.

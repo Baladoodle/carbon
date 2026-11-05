@@ -1,5 +1,5 @@
 {
-  "note": "the sheet PNG is stored at 1440² (2× box-downscaled); flags from the current crop",
+  "note": "the sheet PNG is stored at 1440² (2× box-downscaled); flags from @core/pixel's cropSheet at that size",
   "sheet": {
     "id": "01M6NKMCB827QTQ9C038X57QNT",
     "entity": "iron-sword",

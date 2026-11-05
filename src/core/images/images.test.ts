@@ -13,7 +13,7 @@ import { entityImageFiles, imageFilesOf, imagesFromFiles } from './files';
 import { ImageMetaSchema, type ImageMeta } from './model';
 import { exportImages, imagesSection } from './export';
 import { costNanos, estimateNanos, imageSettings, OUTPUT_TOKENS } from './pricing';
-import { imagePromptAsk, paletteWords } from './prompt';
+import { fakeImagePrompt, imagePromptAsk } from './prompt';
 
 const ctx = { now: '2026-11-05T01:00:00.000Z' };
 const ENTITIES = ['glide', 'cinder-sting'] as const;
@@ -297,15 +297,17 @@ describe('the image prompt', () => {
     const e = w.entities['cinder-sting'];
     if (!e) throw new Error('sample');
     const icon = imagePromptAsk(w, e, 'icon');
-    expect(icon).toContain('Fully transparent background');
-    expect(icon).toContain('Palette, from the art direction: muted earth tones');
-    expect(icon).toContain('chunky brass fittings');
+    // Pixel's iconPrompt (Genforge's house style) is the starting point, with the palette words and the kind note.
+    expect(icon).toContain('A single Cinder Sting inventory icon');
+    expect(icon).toContain('Transparent background.');
+    expect(icon).toContain('muted earth tones');
+    expect(icon).toContain('Chunky brass fittings');
     expect(icon).not.toContain('painterly');
+    expect(fakeImagePrompt(w, 'cinder-sting', 'icon')).toMatch(
+      /^A single Cinder Sting inventory icon/,
+    );
     const concept = imagePromptAsk(w, e, 'concept');
     expect(concept).toContain('Art direction: painterly, muted earth tones, soft rim light');
-    expect(paletteWords('ink and gold, soft light. Cool palette')).toBe(
-      'ink and gold, Cool palette',
-    );
   });
 });
 

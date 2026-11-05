@@ -5,7 +5,9 @@ import { assemble } from '../prompts/common';
 import { qualityConstraints } from '../prompts/quality';
 import { obj, str } from '../prompts/schema';
 import type { PromptBuilder } from '../prompts/types';
+import { iconPrompt } from '../pixel';
 import { ArtDirectionSchema, EMPTY_ART, type ArtDirection, type ImageKind } from './model';
+import { iconArt } from './sheet';
 
 /**
  * The `image_prompt` moment (docs/IMAGES.md §4–§5): Claude (Haiku) writes the
@@ -13,34 +15,15 @@ import { ArtDirectionSchema, EMPTY_ART, type ArtDirection, type ImageKind } from
  * packed context), and the world's art direction. The designer sees and can
  * edit it before anything is spent.
  *
- * Icons follow Genforge's item prompt conventions (`ICON_CONVENTIONS`):
- * ADAPTER until the pixel package's `iconPrompt` merges; the conventions
- * here are the same house style (subject, presentation, proportions, light,
- * transparent background, no text or border).
+ * Icons start from pixel's `iconPrompt` (Genforge's item house style: the
+ * opening, the pose by object type, the materials, and the fixed closing),
+ * which Claude adapts to the entity without changing its structure or closing.
  */
-
-export const ICON_CONVENTIONS = [
-  'A single game item icon, centred, shown whole, three-quarter view, filling about 80% of a square frame.',
-  'Bold readable silhouette, chunky proportions, simple shapes that survive being shrunk to 16×16 pixels.',
-  'Flat-shaded with one soft top-left key light and a darker outline; few colours, high contrast.',
-  'Fully transparent background. No text, no letters, no border, no frame, no shadow on the ground, no scene.',
-];
 
 export const CONCEPT_CONVENTIONS = [
   'Concept art for a game: one clear subject or place, readable at thumbnail size.',
   'No text, no letters, no logos, no UI, no border, no watermark.',
 ];
-
-/** Palette and material words from the art direction, for icons ("muted earth tones", "brass"). */
-export function paletteWords(direction: string): string {
-  const parts = direction
-    .split(/[,.;\n]/)
-    .map((s) => s.trim())
-    .filter((s) =>
-      /colou?r|tone|palette|hue|warm|cool|muted|saturat|pastel|earth|neon|gold|brass|ink/i.test(s),
-    );
-  return parts.join(', ');
-}
 
 export function artOf(world: World): ArtDirection {
   const r = ArtDirectionSchema.safeParse(world.settings.art ?? EMPTY_ART);
@@ -69,10 +52,11 @@ export function imagePromptAsk(world: World, entity: Entity, kind: ImageKind): s
   const kindNote = art.kinds[entity.kind];
   const lines = [focusLine(entity), ''];
   if (kind === 'icon') {
-    lines.push('Image kind: an item icon. Conventions:');
-    lines.push(...ICON_CONVENTIONS.map((c) => `- ${c}`));
-    const palette = paletteWords(art.direction);
-    if (palette) lines.push(`- Palette, from the art direction: ${palette}.`);
+    lines.push(
+      'Image kind: an item icon. Start from this house-style prompt (Genforge item conventions). Keep its structure, its pose and its closing sentences verbatim; only sharpen the subject and detail from the context:',
+      '',
+      iconPrompt(entity, world, iconArt(world)),
+    );
   } else {
     lines.push('Image kind: concept art. Conventions:');
     lines.push(...CONCEPT_CONVENTIONS.map((c) => `- ${c}`));
@@ -80,7 +64,7 @@ export function imagePromptAsk(world: World, entity: Entity, kind: ImageKind): s
       lines.push('- A wide establishing view of the place, no characters in the foreground.');
     if (art.direction) lines.push(`- Art direction: ${art.direction}`);
   }
-  if (kindNote) lines.push(`- For every ${entity.kind}: ${kindNote}`);
+  if (kindNote && kind !== 'icon') lines.push(`- For every ${entity.kind}: ${kindNote}`);
   lines.push('', 'Write the prompt.');
   return lines.join('\n');
 }
@@ -122,9 +106,7 @@ export function fakeImagePrompt(world: World, entityId: string, kind: ImageKind)
   const name = e?.name ?? entityId;
   const what = e?.identity ? ` ${e.identity}` : '';
   const art = artOf(world);
-  if (kind === 'icon') {
-    const palette = paletteWords(art.direction);
-    return `${name}, as a game item icon.${what} ${ICON_CONVENTIONS.join(' ')}${palette ? ` Palette: ${palette}.` : ''}`;
-  }
+  if (kind === 'icon')
+    return e ? iconPrompt(e, world, iconArt(world)) : `A single ${name} inventory icon.`;
   return `Concept art of ${name}.${what} ${CONCEPT_CONVENTIONS.join(' ')}${art.direction ? ` ${art.direction}` : ''}`;
 }

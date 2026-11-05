@@ -13,7 +13,8 @@ import {
 } from '@core/images/model';
 import { imagePaths } from '@core/images/model';
 import { fakeImagePrompt } from '@core/images/prompt';
-import { sheetItemLine } from '@core/images/sheet';
+import { sheetLines } from '@core/images/sheet';
+import { sheetLayout } from '@core/pixel';
 import { sampleWorld } from '@core/testing/sample';
 import { resetDiskState } from '../store/disk-state';
 import { writeWorldDir } from '../store/world-dir';
@@ -135,8 +136,10 @@ const OBJECTS = [
 const SHEETS: Record<string, ImageModel> = {
   'items-sheet-100-flare': 'gpt-image-2.6-flare',
   'items-sheet-100-flare25': 'gpt-image-2.5-flare',
+  // With pixel's grey guide and sheetPrompt (the whole chain on the default model).
+  'items-sheet-100-flare25-pixel': 'gpt-image-2.5-flare',
 };
-const DEFAULT_SHEET = 'items-sheet-100-flare25';
+const DEFAULT_SHEET = 'items-sheet-100-flare25-pixel';
 
 interface Ledger {
   calls: { at: string; name: string; outcome: string; costUsd: number; requestId?: string }[];
@@ -280,12 +283,14 @@ describe.skipIf(!enabled)('real OpenAI image calls (low quality)', () => {
       }
       if (sheetName !== undefined) {
         const t0 = Date.now();
+        const lines = sheetLines(
+          session.world,
+          sheetIds,
+          sheetLayout(sheetIds.length, { w: 2880, h: 2880 }),
+        );
         const r = await g.sheetRun({
           batchId: sheetName,
-          items: sheetIds.map((entityId) => ({
-            entityId,
-            line: sheetItemLine(session.world, entityId),
-          })),
+          items: sheetIds.map((entityId, i) => ({ entityId, line: lines[i] ?? entityId })),
           model: SHEETS[sheetName] ?? DEFAULT_IMAGE_MODEL,
           quality: 'low',
         });
