@@ -32,7 +32,14 @@ import {
 } from '../../ui';
 import { IconCodex } from '../../ui/icons';
 import { defineView } from '../define';
-import { columnsFor, commandForEdit, draftOf, sortEntities, type Column } from './columns';
+import {
+  columnsFor,
+  commandForEdit,
+  draftOf,
+  sortEntities,
+  visibleSelection,
+  type Column,
+} from './columns';
 import { compileQuery, type QueryError } from './query';
 import { StateDialog } from './StateDialog';
 import {
@@ -371,8 +378,9 @@ function CodexView(): ReactNode {
     setUi({ selection: [...s] });
   };
 
-  const targets = (): string[] =>
-    selection.length > 0 ? selection : curEntity ? [curEntity.id] : [];
+  // Bulk actions reach the selected rows on screen; the filter's hidden ones wait.
+  const { acting, hidden } = visibleSelection(selection, index);
+  const targets = (): string[] => (acting.length > 0 ? acting : curEntity ? [curEntity.id] : []);
 
   const startEdit = (e: Entity | undefined, col: Column | undefined): void => {
     if (!e || !col?.edit) {
@@ -701,12 +709,23 @@ function CodexView(): ReactNode {
         />
         {selection.length > 0 && (
           <div className="codex-selection" data-testid="codex-selection">
-            <span className="num">{selection.length}</span>
-            <Tooltip content="Set state" keys="s">
-              <Button variant="ghost" size="sm" onClick={() => setStateDialog({ ids: selection })}>
-                State…
-              </Button>
-            </Tooltip>
+            {acting.length > 0 && (
+              <>
+                <span className="num">{acting.length}</span>
+                <Tooltip content="Set state" keys="s">
+                  <Button variant="ghost" size="sm" onClick={() => setStateDialog({ ids: acting })}>
+                    State…
+                  </Button>
+                </Tooltip>
+              </>
+            )}
+            {hidden > 0 && (
+              <Tooltip content="Selected, but not shown: bulk actions skip them">
+                <span className="codex-selection-hidden num" data-testid="codex-selection-hidden">
+                  {hidden} hidden
+                </span>
+              </Tooltip>
+            )}
             <Tooltip content="Clear selection" keys="esc">
               <Button variant="ghost" size="sm" onClick={() => setUi({ selection: [] })}>
                 Clear

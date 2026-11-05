@@ -64,6 +64,10 @@
   font-size: var(--text-dense);
   color: var(--accent);
 }
+.codex-selection-hidden {
+  color: var(--text-3);
+  padding: 0 4px;
+}
 .codex-top {
   position: relative;
 }

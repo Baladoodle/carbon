@@ -86,6 +86,42 @@ test('codex multi-selects and changes state in bulk in one undo step', async () 
   await filter('');
 });
 
+test('codex bulk actions reach only the selected rows the filter shows, and say how many it hides', async () => {
+  await carbon.gotoView('codex', '3');
+  await filter('kind:material state:idea');
+  expect(await rowIds()).toEqual(['sky-coral', 'vent-glass']);
+  await body().press('Control+a');
+  await expect(page().getByTestId('codex-selection')).toContainText('2');
+  // Narrow the filter: vent-glass stays selected but hidden, and bulk state leaves it alone.
+  await filter('kind:material state:idea sky');
+  expect(await rowIds()).toEqual(['sky-coral']);
+  await expect(page().getByTestId('codex-selection')).toContainText('1');
+  await expect(page().getByTestId('codex-selection-hidden')).toHaveText('1 hidden');
+  await body().press('s');
+  await expect(page().getByTestId('codex-state-dialog')).toBeVisible();
+  await body().press('g');
+  await body().press('2');
+  await expect(page().getByTestId('codex-state-dialog')).toHaveCount(0);
+  const stateOf = (id: string): string =>
+    /state: (\w+)/.exec(
+      readFileSync(path.join(carbon.worldDir, `entities/material/${id}.md`), 'utf8'),
+    )?.[1] ?? '';
+  await expect.poll(() => stateOf('sky-coral')).toBe('graveyard');
+  expect(stateOf('vent-glass')).toBe('idea');
+  // Clearing the filter brings the hidden row back, still selected.
+  await body().press('Control+z');
+  await expect.poll(() => stateOf('sky-coral')).toBe('idea');
+  await filter('kind:material state:idea');
+  await expect(page().getByTestId('codex-selection')).toContainText('2');
+  await expect(page().getByTestId('codex-selection-hidden')).toHaveCount(0);
+  // With every selected row hidden, the keys act on the cursor row, as with no selection.
+  await filter('kind:band');
+  await expect(page().getByTestId('codex-selection-hidden')).toHaveText('2 hidden');
+  await body().press('Escape');
+  await expect(page().getByTestId('codex-selection')).toHaveCount(0);
+  await filter('');
+});
+
 test('codex space aims a spread at the selection', async () => {
   await carbon.gotoView('codex', '3');
   await filter('lane:items');

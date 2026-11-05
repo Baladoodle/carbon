@@ -12,6 +12,7 @@ import {
   planBulkState,
   sortEntities,
   type CellEdit,
+  visibleSelection,
 } from './columns';
 
 const world = sampleWorld();
@@ -328,5 +329,17 @@ describe('planBulkState', () => {
     const r = applyCommands(world, plan.commands, { now: '2026-11-04T10:00:00.000Z' });
     if (!r.ok) throw new Error(r.error.message);
     expect(r.value.world.entities['vent-glass']?.state).toBe('decided');
+  });
+});
+
+describe('visibleSelection', () => {
+  it('acts on the shown rows only and counts the rest as hidden', () => {
+    const shown = new Set(['a', 'c']);
+    expect(visibleSelection(['a', 'b', 'c', 'd'], shown)).toEqual({
+      acting: ['a', 'c'],
+      hidden: 2,
+    });
+    expect(visibleSelection([], shown)).toEqual({ acting: [], hidden: 0 });
+    expect(visibleSelection(['b'], shown)).toEqual({ acting: [], hidden: 1 });
   });
 });

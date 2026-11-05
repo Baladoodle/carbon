@@ -475,3 +475,16 @@ export const needsWhy = (world: World, ids: readonly string[]): boolean =>
     const e = world.entities[id];
     return !!e && e.why.trim() === '' && canMove(e.state, 'decided');
   });
+
+/**
+ * The selection a bulk action reaches: only the selected rows the filter and tab show.
+ * The rest stay selected (clearing the filter brings them back) and are counted as hidden,
+ * so a key never changes a row you can't see.
+ */
+export function visibleSelection(
+  selection: readonly string[],
+  shown: { has(id: string): boolean },
+): { acting: string[]; hidden: number } {
+  const acting = selection.filter((id) => shown.has(id));
+  return { acting, hidden: selection.length - acting.length };
+}
