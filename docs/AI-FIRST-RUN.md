@@ -117,6 +117,17 @@ carbon filters anything:
 | Critique precision on clean entities | ≥ 0.8 | Critique raised notes on sound entities |
 | Spread diversity | name overlap < 0.15, identity/verb overlap < 0.3 | A spread's candidates are too alike |
 | Largest request | < 100,000 tokens | It never comes close: the packer stays under 95k |
+| Self-consistency | ≤ 10% | The critic raised notes on fields the fill had just written: the writer and the critic disagree about the quality bar (SYSTEM §8a) |
+
+**Self-consistency** is a separate set of three cases (`consistency-*`): fill
+an entity, accept every proposal, then critique it. The metric is the share
+of the critique's notes that land on fields the fill just wrote. Live, both
+calls go through the real gateway (6 more calls, well under $0.01). With
+`--replay` or `--dry` it runs from the fixtures in
+`evals/fixtures/consistency/`, through the real prompt builders and parsers.
+One of those fixtures reproduces the conflict the critique fix addressed: a
+pure-number identity that the critic flags. The report's Details line names
+each note that landed on a just-filled field.
 
 The report also gives the cache read rate, each case's tokens, cost and
 latency, and the total spend.
@@ -135,7 +146,8 @@ latency, and the total spend.
   real model. Note which cases missed. The prompts are in
   `src/core/prompts/*.ts` and `src/core/spreads/prompt.ts`.
 
-**Expected cost:** about $0.02–0.05 for all 21 cases. The two spreads and the
+**Expected cost:** about $0.02–0.05 for all 21 cases, plus the
+self-consistency cases. The two spreads and the
 spec draft are most of it. It's capped at $1 by default; change the cap with
 `--max-usd`, e.g. `npm run eval -- --max-usd 0.25`. Once the spend passes the
 cap, no further cases start.

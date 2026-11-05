@@ -16,7 +16,7 @@ import {
   writableJsonSchema,
   type WritableField,
 } from './schema';
-import type { PromptBuilder } from './types';
+import type { ParseOutcome, PromptBuilder } from './types';
 
 /** Fill entity (`ctrl+enter`): one proposal for every empty field. */
 
@@ -78,48 +78,60 @@ export const fillBuilder: PromptBuilder<'fill_entity'> = {
       }),
     );
   },
-  parse(raw, world, req) {
-    const e = getEntity(world, req.entityId);
-    if (!e) return err('not_found', `no entity "${req.entityId}"`);
-    const map =
-      raw && typeof raw === 'object' ? (raw as { proposals?: unknown }).proposals : undefined;
-    if (!map || typeof map !== 'object' || Array.isArray(map))
-      return err('invalid_output', 'no proposals object');
-    const fields = emptyFields(world, e);
-    const proposals: { field: string; value: unknown; note?: string }[] = [];
-    let dropped = 0;
-    let withProposals = e;
-    for (const [key, p] of Object.entries(map as Record<string, unknown>)) {
-      if (p === null) continue;
-      const f = fields.find((x) => x.key === key);
-      const item = p && typeof p === 'object' ? (p as { value?: unknown; note?: unknown }) : {};
-      const value = f ? validFieldValue(world, f, item.value) : undefined;
-      if (
-        !f ||
-        value === undefined ||
-        (key === 'name' && typeof value === 'string' && duplicatesName(world, value, e.id)) ||
-        // The quality bar's deterministic half: what the critic would flag at once.
-        selfCheck(world, key, value, e.id) !== null ||
-        // Each proposal is accepted on its own, so it must fit the entity alone and
-        // with the proposals before it: of a bottom and a top that cross, the top goes.
-        !edgesFit(e, key, value) ||
-        !edgesFit(withProposals, key, value)
-      ) {
-        dropped++;
-        continue;
-      }
-      if (f.def)
-        withProposals = { ...withProposals, fields: { ...withProposals.fields, [key]: value } };
-      proposals.push({
-        field: key,
-        value,
-        ...(typeof item.note === 'string' && item.note.trim() ? { note: item.note.trim() } : {}),
-      });
-    }
-    proposals.sort(
-      (a, b) =>
-        fields.findIndex((f) => f.key === a.field) - fields.findIndex((f) => f.key === b.field),
-    );
-    return ok({ result: { proposals }, dropped });
-  },
+  parse: (raw, world, req) => parseFill(raw, world, req),
 };
+
+/**
+ * Fill's parse. `selfCheck: false` skips the quality bar's deterministic half
+ * (what the parse did before it): only the self-consistency eval uses it, to
+ * reproduce the conflict it guards against.
+ */
+export function parseFill(
+  raw: unknown,
+  world: World,
+  req: { entityId: string },
+  opts: { selfCheck?: boolean } = {},
+): ParseOutcome<'fill_entity'> {
+  const e = getEntity(world, req.entityId);
+  if (!e) return err('not_found', `no entity "${req.entityId}"`);
+  const map =
+    raw && typeof raw === 'object' ? (raw as { proposals?: unknown }).proposals : undefined;
+  if (!map || typeof map !== 'object' || Array.isArray(map))
+    return err('invalid_output', 'no proposals object');
+  const fields = emptyFields(world, e);
+  const proposals: { field: string; value: unknown; note?: string }[] = [];
+  let dropped = 0;
+  let withProposals = e;
+  for (const [key, p] of Object.entries(map as Record<string, unknown>)) {
+    if (p === null) continue;
+    const f = fields.find((x) => x.key === key);
+    const item = p && typeof p === 'object' ? (p as { value?: unknown; note?: unknown }) : {};
+    const value = f ? validFieldValue(world, f, item.value) : undefined;
+    if (
+      !f ||
+      value === undefined ||
+      (key === 'name' && typeof value === 'string' && duplicatesName(world, value, e.id)) ||
+      // The quality bar's deterministic half: what the critic would flag at once.
+      (opts.selfCheck !== false && selfCheck(world, key, value, e.id) !== null) ||
+      // Each proposal is accepted on its own, so it must fit the entity alone and
+      // with the proposals before it: of a bottom and a top that cross, the top goes.
+      !edgesFit(e, key, value) ||
+      !edgesFit(withProposals, key, value)
+    ) {
+      dropped++;
+      continue;
+    }
+    if (f.def)
+      withProposals = { ...withProposals, fields: { ...withProposals.fields, [key]: value } };
+    proposals.push({
+      field: key,
+      value,
+      ...(typeof item.note === 'string' && item.note.trim() ? { note: item.note.trim() } : {}),
+    });
+  }
+  proposals.sort(
+    (a, b) =>
+      fields.findIndex((f) => f.key === a.field) - fields.findIndex((f) => f.key === b.field),
+  );
+  return ok({ result: { proposals }, dropped });
+}
