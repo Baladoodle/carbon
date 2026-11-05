@@ -96,7 +96,9 @@ export async function commitAttribute(
   const e = w ? getEntity(w, entityId) : undefined;
   if (!e) return 'That entity no longer exists';
   if ((e.attributes[key] ?? null) === value) return null;
-  const label = schemaOf(w!).kinds[e.kind].attributes.find((a) => a.key === key)?.label;
+  const label = w
+    ? schemaOf(w).kinds[e.kind].attributes.find((a) => a.key === key)?.label
+    : undefined;
   const p = transact(`Set ${label ? label.toLowerCase() : key} of ${e.name}`, [
     cmd('entity.setAttribute', { id: entityId, key, value, source: 'user' }),
   ]);

@@ -56,9 +56,9 @@ export function takeTypeahead(): string {
 export function typeInto(el: Element | null, text: string, replace: boolean): void {
   if (text === '' || !(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)) return;
   const proto = el instanceof HTMLInputElement ? HTMLInputElement : HTMLTextAreaElement;
-  const set = Object.getOwnPropertyDescriptor(proto.prototype, 'value')?.set;
   const next = replace ? text : el.value + text;
-  set?.call(el, next);
+  // The prototype's setter, not el.value =: React tracks the value and would drop the event.
+  Object.getOwnPropertyDescriptor(proto.prototype, 'value')?.set?.call(el, next);
   el.dispatchEvent(new Event('input', { bubbles: true }));
   el.setSelectionRange(next.length, next.length);
 }

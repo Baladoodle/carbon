@@ -399,6 +399,49 @@ test('from an empty world to an exported spec', async () => {
   await press('Control+Enter');
   await expect(bench()).toHaveAttribute('data-state', 'decided');
   await shot('20-decided');
+  // 7. Export a spec: the decided entities of Low Sky, drafted, edited, written.
+  await carbon.gotoView('export', '7');
+  await shot('21-export-empty');
+  await page().getByTestId('export-band-new-band-2').click();
+  await expect(page().getByTestId('export-count')).toHaveText('2 entities');
+  // The AI draft (the fake gateway's is a stub), then the deterministic template, which
+  // is what a world without a key gets: fields, route, relations, why, formulas.
+  await page().getByTestId('export-draft').click();
+  const editor = page().getByTestId('export-editor');
+  await expect(editor).toBeVisible();
+  await expect(editor).toHaveAttribute('data-ai', '');
+  await body().press('Control+k');
+  await page().keyboard.type('Use the spec template');
+  await press('Enter');
+  await expect(editor).not.toHaveAttribute('data-ai', '');
+  await expect(editor).toHaveValue(/## Kite Cloak/);
+  await expect(editor).toHaveValue(/## Glide/);
+  await editor.press('Control+End');
+  await editor.pressSequentially('\nBuild Glide first.');
+  await shot('22-export-draft');
+  await editor.press('Control+s');
+  await expect(editor).toHaveCount(0);
+  const exportsDir = path.join(carbon.worldDir, 'exports');
+  const specs = (): string[] =>
+    existsSync(exportsDir) ? readdirSync(exportsDir).filter((f) => f.endsWith('.md')) : [];
+  await expect.poll(specs).toHaveLength(1);
+  const spec = readFileSync(path.join(exportsDir, specs()[0]!), 'utf8');
+  expect(spec).toContain('Build Glide first.');
+  expect(spec).toContain('Weave updraft silk at a Salt Kiln');
+  expect((await byName('Kite Cloak'))?.state).toBe('exported');
+  expect((await byName('Glide'))?.state).toBe('exported');
+
+  // 8. Undo and redo the export: the file and the marking go and come back together.
+  await body().press('Control+z');
+  await expect.poll(specs).toEqual([]);
+  await expect.poll(async () => (await byName('Kite Cloak'))?.state).toBe('decided');
+  await body().press('Control+Shift+z');
+  await expect.poll(specs).toHaveLength(1);
+  await expect.poll(async () => (await byName('Kite Cloak'))?.state).toBe('exported');
+  // Editing an exported entity flags it as changed since the export.
+  await open('Kite Cloak');
+  await setField('tradeoff', 'Heavy rain or strong wind grounds you.');
+  await shot('23-after-export');
   // The margin's notes never run into each other.
   await expect
     .poll(() =>
