@@ -99,9 +99,48 @@ describe('JsonArrayStreamer under arbitrary JSON and arbitrary chunking', () => 
         const text = JSON.stringify({ candidates: items });
         const cut = text.slice(0, cutAt % (text.length + 1));
         const got = new JsonArrayStreamer('candidates').push(cut);
-        expect(got).toEqual(items.slice(0, got.length));
+        // Compare with what the text says, not with the values before
+        // stringify: JSON writes -0 as "0" (the old flake: `[{"{":-0}]`).
+        const said = (JSON.parse(text) as { candidates: unknown[] }).candidates;
+        expect(got).toEqual(said.slice(0, got.length));
       }),
       { numRuns: 500 },
     );
+  });
+
+  it('keeps the sign of zero exactly as the text writes it (-0 stays -0, 0 stays 0)', () => {
+    // JSON.stringify never writes "-0", so write numbers by hand: every spelling
+    // of zero, and arbitrary doubles, signed as the text says.
+    const zero = fc.constantFrom('0', '-0', '0.0', '-0.0', '0e5', '-0e-3', '-0E+2', '0.000');
+    const num = fc.oneof(
+      zero,
+      fc
+        .double({ noNaN: true, noDefaultInfinity: true })
+        .map((d) => (Object.is(d, -0) ? '-0' : String(d))),
+    );
+    fc.assert(
+      fc.property(
+        fc.array(fc.array(num, { minLength: 1, maxLength: 4 }), { minLength: 1, maxLength: 4 }),
+        fc.array(fc.integer({ min: 1, max: 7 }), { minLength: 1, maxLength: 10 }),
+        (rows, cuts) => {
+          const text = `{"candidates":[${rows.map((r) => `{"v":[${r.join(',')}]}`).join(',')}]}`;
+          const s = new JsonArrayStreamer('candidates');
+          const got: unknown[] = [];
+          for (const c of chunks(text, cuts)) got.push(...s.push(c));
+          const values = got.map((g) => (g as { v: number[] }).v);
+          expect(values).toHaveLength(rows.length);
+          values.forEach((v, i) =>
+            v.forEach((x, j) => {
+              const src = rows[i]?.[j] ?? '';
+              expect(Object.is(x, JSON.parse(src))).toBe(true);
+            }),
+          );
+        },
+      ),
+      { numRuns: 500 },
+    );
+    const [neg, pos] = new JsonArrayStreamer('c').push('{"c":[[-0],[0]]}') as [[number], [number]];
+    expect(Object.is(neg[0], -0)).toBe(true);
+    expect(Object.is(pos[0], 0)).toBe(true);
   });
 });
