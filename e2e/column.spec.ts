@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { cmd } from '@core/commands/registry';
 import { writeWorldDir } from '../src/main/store/world-dir';
+import { nudge } from '../src/core/column/edges';
 import { stressWorld } from '../src/core/testing/stress';
 import { launchCarbon, type CarbonApp } from './harness';
 
@@ -134,6 +135,24 @@ test.describe('the Column', () => {
     await press(page, 'Control+z');
     await expect.poll(() => read(carbon, 'entities/band/groundline.md')).toContain('y_top: 96');
     expect(read(carbon, 'entities/band/groundline.md')).toContain('y_bottom: -64');
+  });
+
+  test('a burst of alt+k moves the edge by every press, as one undo step', async () => {
+    const { page } = carbon;
+    await focusOn(carbon, 'meadow-steps');
+    await press(page, 'h');
+    await expect(bench(page)).toHaveAttribute('data-entity', 'groundline');
+    for (let i = 0; i < 3; i++) await press(page, 'Alt+k');
+    const want = nudge(nudge(nudge(96, 1), 1), 1);
+    await expect
+      .poll(() => read(carbon, 'entities/band/groundline.md'))
+      .toContain(`y_top: ${want}`);
+    await expect
+      .poll(() => read(carbon, 'entities/band/low-sky.md'))
+      .toContain(`y_bottom: ${want}`);
+    await press(page, 'Control+z');
+    await expect.poll(() => read(carbon, 'entities/band/groundline.md')).toContain('y_top: 96');
+    await expect.poll(() => read(carbon, 'entities/band/low-sky.md')).toContain('y_bottom: 96');
   });
 
   test('a band is drawn on the ruler in unwritten heights, and n fills a gap', async () => {

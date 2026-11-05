@@ -5,6 +5,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
   type WheelEvent as ReactWheelEvent,
@@ -18,7 +19,7 @@ import { useActions, type Action } from '../../actions';
 import { requestFieldFocus } from '../../bench/store';
 import { useNotes } from '../../state/notes';
 import { flash, focusEntity, startSpreadAt, uiStore, useUi } from '../../state/ui';
-import { currentWorld, transact, useWorld } from '../../state/world';
+import { currentWorld, transact, useWorld, whenRev } from '../../state/world';
 import { Kbd } from '../../ui';
 import { IconColumn } from '../../ui/icons';
 import { defineView } from '../define';
@@ -33,7 +34,9 @@ import {
   moveEdgeCommands,
   newBandSpan,
   nudge,
+  type Edge,
 } from '@core/column/edges';
+import { Burst } from './burst';
 import {
   BandLabels,
   Cell,
@@ -233,7 +236,25 @@ function Column({ world, model }: { world: World; model: ColumnModel }): ReactNo
     };
   }, []);
 
-  const dragBands = useMemo(() => draggedBands(model.bands, edgeDrag), [model.bands, edgeDrag]);
+  // Keyboard nudges of an edge (alt+k / alt+j): a live draft per burst, one undo step once the keys rest.
+  const [edgeBurst] = useState(
+    () =>
+      new Burst<{ edge: Edge; y: number; name: string }>(async (_key, { edge, y, name }) => {
+        const r = await transact(`Move edge of ${name}`, moveEdgeCommands(edge, y));
+        if (!r.ok) return flash(r.error.message, 'error');
+        await whenRev(r.rev);
+      }),
+  );
+  const nudging = useSyncExternalStore(
+    (fn) => edgeBurst.subscribe(fn),
+    () => edgeBurst.current,
+  );
+  useEffect(() => () => edgeBurst.flush(), [edgeBurst]);
+  const liveEdge = useMemo(
+    () => edgeDrag ?? (nudging ? { key: nudging.key, y: nudging.value.y } : null),
+    [edgeDrag, nudging],
+  );
+  const dragBands = useMemo(() => draggedBands(model.bands, liveEdge), [model.bands, liveEdge]);
   const geo = useMemo(
     () =>
       geometry(model, {
@@ -395,13 +416,14 @@ function Column({ world, model }: { world: World; model: ColumnModel }): ReactNo
         which === 'top' ? e.below === band.id : e.above === band.id,
       );
       if (!edge) return flash(`${band.name} is endless ${which === 'top' ? 'upward' : 'downward'}`);
-      const y = clampEdge(edgeLimits(model.bands, edge), nudge(edge.y, dir));
-      if (y === edge.y) return;
-      void transact(`Move edge of ${band.name}`, moveEdgeCommands(edge, y)).then((r) => {
-        if (!r.ok) flash(r.error.message, 'error');
-      });
+      // Build on the burst's draft: a press can come before the last one lands.
+      const key = edgeKey(edge);
+      const from = edgeBurst.get(key)?.y ?? edge.y;
+      const y = clampEdge(edgeLimits(model.bands, edge), nudge(from, dir));
+      if (y === from) return;
+      edgeBurst.push(key, { edge, y, name: band.name });
     },
-    [model.bands],
+    [model.bands, edgeBurst],
   );
 
   function canMoveLane(): boolean {
@@ -565,6 +587,15 @@ function Column({ world, model }: { world: World; model: ColumnModel }): ReactNo
       run: () => moveEdge('bottom', -1),
     },
     {
+      id: 'column.undo-nudge',
+      label: 'Undo',
+      keys: ['ctrl+z'],
+      hidden: true,
+      // Undo before a burst of edge nudges was sent drops the burst.
+      enabled: () => edgeBurst.waiting,
+      run: () => void edgeBurst.cancel(),
+    },
+    {
       id: 'column.lane.left',
       label: 'Move this lane left',
       group: 'Column',
@@ -610,6 +641,7 @@ function Column({ world, model }: { world: World; model: ColumnModel }): ReactNo
       const key = edgeEl.getAttribute('data-edge') ?? '';
       const edge = edgesOf(model.bands).find((x) => edgeKey(x) === key);
       if (!edge) return;
+      edgeBurst.flush();
       e.currentTarget.setPointerCapture(e.pointerId);
       dragRef.current = { kind: 'edge', key, pointer: e.pointerId };
       setColumn({ edgeDrag: { key, y: edge.y } });

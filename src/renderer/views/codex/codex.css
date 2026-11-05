@@ -136,6 +136,21 @@
   height: 26px;
   font-size: var(--text-dense);
 }
+/* Long text opens downward over the rows below, so the fixed row height holds. */
+.codex-cell-editing {
+  position: relative;
+}
+.codex-editor.codex-editor-long {
+  position: absolute;
+  top: 3px;
+  left: 4px;
+  right: 4px;
+  z-index: 2;
+  width: auto;
+  height: auto;
+  resize: none;
+  box-shadow: var(--shadow-overlay);
+}
 
 .codex-check {
   text-align: center;

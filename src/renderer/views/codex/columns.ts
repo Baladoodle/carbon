@@ -17,6 +17,8 @@ import { err, ok, type Result } from '@core/util/result';
 
 export type CellEdit =
   | { type: 'text'; key: string }
+  /** Several lines: edited in a textarea, so its line breaks survive. */
+  | { type: 'longtext'; key: string }
   | { type: 'number'; key: string; min?: number; max?: number }
   | { type: 'range'; key: string }
   | { type: 'height'; key: string }
@@ -139,8 +141,9 @@ function sortField(def: FieldDef, v: unknown, world: World): number | string | n
 function editOf(def: FieldDef): CellEdit | null {
   switch (def.type) {
     case 'text':
-    case 'longtext':
       return { type: 'text', key: def.key };
+    case 'longtext':
+      return { type: 'longtext', key: def.key };
     case 'number':
       return {
         type: 'number',
@@ -334,6 +337,9 @@ export function commandForEdit(edit: CellEdit, e: Entity, draft: string): Result
     case 'text':
       if (edit.key === 'name' && t === '') return err('edit.empty', 'a name is needed');
       return set(t === '' ? null : edit.key === 'name' ? t : draft);
+    case 'longtext':
+      // Inner line breaks are the text; only the ends are trimmed (as on the Bench).
+      return set(t === '' ? null : draft.replace(/^\s+|\s+$/g, ''));
     case 'attribute': {
       if (t === '') return ok(cmd('entity.setAttribute', { id: e.id, key: edit.key, value: null }));
       const n = num(t);

@@ -123,6 +123,33 @@ test('codex edits a choice through the picker', async () => {
   await filter('');
 });
 
+test('codex edits long text inline without losing its line breaks', async () => {
+  await carbon.dispatch(
+    cmd('entity.setField', {
+      id: 'moss-grazer',
+      field: 'behaviour',
+      value: 'Grazes moss.\nScatters at noise.',
+    }),
+  );
+  await carbon.gotoView('codex', '3');
+  await filter('kind:creature');
+  const cell = page().locator('[data-entity="moss-grazer"] td[data-col="f:behaviour"]');
+  await expect(cell).toHaveText('Grazes moss.');
+  await cell.dblclick();
+  const editor = cell.locator('textarea, input');
+  await editor.press('Control+End');
+  await editor.pressSequentially(' Fast.');
+  await editor.press('Enter');
+  await expect
+    .poll(() =>
+      readFileSync(path.join(carbon.worldDir, 'entities/creature/moss-grazer.md'), 'utf8'),
+    )
+    .toMatch(/Grazes moss\.\n\s+Scatters at noise\. Fast\./);
+  await body().press('Control+z');
+  await body().press('Control+z');
+  await filter('');
+});
+
 test('codex stays virtualised with 2,000 entities', async () => {
   const many = Array.from({ length: 2000 }, (_, i) =>
     cmd('entity.create', {
@@ -250,6 +277,45 @@ test('climate keys: select, nudge, new biome, and space aims a spread at the reg
   await expect(page().locator('[data-testid="climate-region"]')).toHaveCount(1);
   await body().press(' ');
   await page().waitForSelector('[data-testid="view-spread"]');
+});
+
+test('climate escape and a click on the empty plane deselect the biome', async () => {
+  await carbon.gotoView('climate', '2');
+  await page().getByRole('tab', { name: 'Groundline' }).click();
+  await body().press('j');
+  await expect(region('meadow-steps')).toHaveClass(/climate-region-selected/);
+  await body().press('Escape');
+  await expect(region('meadow-steps')).not.toHaveClass(/climate-region-selected/);
+  // With nothing selected, arrows move nothing.
+  await body().press('ArrowRight');
+  await page().waitForTimeout(800);
+  expect(climateOf('meadow-steps')).toMatch(/min: 0\.4\s+max: 0\.7/);
+  await region('meadow-steps').click();
+  await expect(region('meadow-steps')).toHaveClass(/climate-region-selected/);
+  const plane = (await page().getByTestId('climate-plane').boundingBox())!;
+  await page().mouse.click(plane.x + plane.width - 6, plane.y + 6);
+  await expect(region('meadow-steps')).not.toHaveClass(/climate-region-selected/);
+});
+
+test('climate: a burst of arrow keys moves by every press, as one undo step', async () => {
+  await carbon.gotoView('climate', '2');
+  await page().getByRole('tab', { name: 'Groundline' }).click();
+  await body().press('j');
+  await expect(region('meadow-steps')).toHaveClass(/climate-region-selected/);
+  for (let i = 0; i < 3; i++) await page().keyboard.press('ArrowRight');
+  await expect.poll(() => climateOf('meadow-steps')).toMatch(/min: 0\.55\s+max: 0\.85/);
+  // A second burst (resizing from the wet corner) is a step of its own.
+  for (let i = 0; i < 2; i++) await page().keyboard.press('Shift+ArrowUp');
+  await expect
+    .poll(() => climateOf('meadow-steps'))
+    .toMatch(/moisture:\s+min: 0\.35\s+max: 0\.8\b/);
+  await body().press('Control+z');
+  await expect
+    .poll(() => climateOf('meadow-steps'))
+    .toMatch(/moisture:\s+min: 0\.35\s+max: 0\.7\b/);
+  expect(climateOf('meadow-steps')).toMatch(/min: 0\.55\s+max: 0\.85/);
+  await body().press('Control+z');
+  await expect.poll(() => climateOf('meadow-steps')).toMatch(/min: 0\.4\s+max: 0\.7/);
 });
 
 test('climate screenshots', async () => {

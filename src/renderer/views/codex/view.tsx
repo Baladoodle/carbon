@@ -18,7 +18,7 @@ import { resolvePlacement, type Placements } from '@core/placement';
 import { useActions } from '../../actions';
 import { flash, focusEntity, setUi, startSpreadAt, useUi } from '../../state/ui';
 import { currentWorld, dispatch, useWorld } from '../../state/world';
-import { Button, Combobox, Input, Kbd, StateGlyph, Tabs, Tooltip, cx } from '../../ui';
+import { Button, Combobox, Input, Kbd, StateGlyph, Tabs, Textarea, Tooltip, cx } from '../../ui';
 import { IconCodex } from '../../ui/icons';
 import { defineView } from '../define';
 import { columnsFor, commandForEdit, draftOf, sortEntities, type Column } from './columns';
@@ -191,6 +191,26 @@ function CellEditor({
       </div>
     );
   }
+  if (edit?.type === 'longtext')
+    return (
+      <Textarea
+        autoFocus
+        className="codex-editor codex-editor-long"
+        rows={Math.min(6, Math.max(2, editing.draft.split('\n').length + 1))}
+        value={editing.draft}
+        invalid={editing.error !== null}
+        title={editing.error ?? undefined}
+        aria-label={column.label}
+        onFocus={(e) => e.currentTarget.select()}
+        onChange={(e) => onDraft(e.target.value)}
+        onKeyDown={(e) => {
+          // Enter commits like every cell; shift+enter breaks the line.
+          if (e.key === 'Enter' && e.shiftKey) return;
+          keys(e);
+        }}
+        onBlur={onCancel}
+      />
+    );
   return (
     <Input
       autoFocus
@@ -617,20 +637,22 @@ function CodexView(): ReactNode {
   return (
     <div className="codex" data-testid="codex">
       <div className="codex-top">
-        <Tabs
-          value={tab}
-          onValueChange={(v) => {
-            setTab(v as Tab);
-            // Hand the keys back to the table (the tab strip would keep the arrows).
-            requestAnimationFrame(() => scrollRef.current?.focus());
-          }}
-          aria-label="Kind"
-          tabs={TABS.map((t) => ({
-            value: t,
-            label: t === 'all' ? 'All' : schema.kinds[t].plural,
-            count: counts[t] ?? 0,
-          }))}
-        />
+        {/* A click on a tab, even the current one, hands the keys back to the table. */}
+        <div
+          style={{ display: 'contents' }}
+          onPointerUp={() => requestAnimationFrame(() => scrollRef.current?.focus())}
+        >
+          <Tabs
+            value={tab}
+            onValueChange={(v) => setTab(v as Tab)}
+            aria-label="Kind"
+            tabs={TABS.map((t) => ({
+              value: t,
+              label: t === 'all' ? 'All' : schema.kinds[t].plural,
+              count: counts[t] ?? 0,
+            }))}
+          />
+        </div>
         <FilterBar
           value={query}
           onChange={setQuery}

@@ -1,7 +1,9 @@
 import {
+  useEffect,
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from 'react';
@@ -13,10 +15,11 @@ import { schemaOf, type World } from '@core/model/world';
 import { entitiesInBiome, knownBands, resolvePlacement } from '@core/placement';
 import { useActions } from '../../actions';
 import { flash, focusEntity, startSpreadAt, useUi } from '../../state/ui';
-import { currentWorld, dispatch, useWorld } from '../../state/world';
+import { currentWorld, dispatch, useWorld, whenRev } from '../../state/world';
 import { Kbd, StateGlyph, Tabs, Tooltip, cx } from '../../ui';
 import { IconClimate } from '../../ui/icons';
 import { defineView } from '../define';
+import { Burst } from '../column/burst';
 import {
   climateOf,
   emptyRegions,
@@ -123,17 +126,44 @@ function ClimateView(): ReactNode {
   });
   const band = bands.find((b) => b.id === pickedBand)?.id ?? bands[0]?.id ?? null;
   const [selectedRaw, setSelected] = useState<string | null>(null);
+  // The Bench focus a deselect turned away from: the selection stops following it.
+  const [unfollowed, setUnfollowed] = useState<string | null>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
   const planeRef = useRef<HTMLDivElement>(null);
+
+  // Arrow-key nudges: a live draft per burst, committed as one undo step once the keys rest.
+  const [burst] = useState(
+    () =>
+      new Burst<Rect>(async (id, rect) => {
+        const r = await dispatch(
+          cmd('entity.setField', { id, field: 'climate', value: climateOf(rect) }),
+        );
+        if (!r.ok) return flash(r.error.message, 'error');
+        await whenRev(r.rev);
+      }),
+  );
+  const nudging = useSyncExternalStore(
+    (fn) => burst.subscribe(fn),
+    () => burst.current,
+  );
+  // Leaving the view sends a waiting burst rather than dropping it.
+  useEffect(() => () => burst.flush(), [burst]);
 
   const { placed, loose } = useMemo(
     () => (world && band ? regionsOf(world, band) : { placed: [], loose: [] }),
     [world, band],
   );
-  // Live rectangles: the one being dragged shows its draft.
+  // Live rectangles: the one being dragged or nudged shows its draft.
   const live = useMemo(
-    () => placed.map((r) => (drag?.id === r.id ? { ...r, rect: drag.rect } : r)),
-    [placed, drag],
+    () =>
+      placed.map((r) =>
+        drag?.id === r.id
+          ? { ...r, rect: drag.rect }
+          : nudging?.key === r.id
+            ? { ...r, rect: nudging.value }
+            : r,
+      ),
+    [placed, drag, nudging],
   );
   const shared = useMemo(() => overlaps(live.map((r) => ({ id: r.id, rect: r.rect }))), [live]);
   const empty = useMemo(() => emptyRegions(live.map((r) => r.rect)), [live]);
@@ -142,12 +172,13 @@ function ClimateView(): ReactNode {
   const selected =
     selectedRaw && placed.some((r) => r.id === selectedRaw)
       ? selectedRaw
-      : focus && placed.some((r) => r.id === focus)
+      : focus && focus !== unfollowed && placed.some((r) => r.id === focus)
         ? focus
         : null;
   const sel = live.find((r) => r.id === selected);
 
   const chooseBand = (id: string): void => {
+    burst.flush();
     setBand(id);
     setSelected(null);
     try {
@@ -163,8 +194,15 @@ function ClimateView(): ReactNode {
     if (next) chooseBand(next.id);
   };
   const select = (id: string | null): void => {
+    if (id !== nudging?.key) burst.flush();
     setSelected(id);
+    setUnfollowed(null);
     if (id) focusEntity(id);
+  };
+  const deselect = (): void => {
+    burst.flush();
+    setSelected(null);
+    setUnfollowed(focus);
   };
 
   const save = async (id: string, rect: Rect): Promise<void> => {
@@ -176,8 +214,10 @@ function ClimateView(): ReactNode {
 
   const nudge = (dx: number, dy: number, resize: boolean): void => {
     if (!sel) return;
-    const next = resize ? resizeRect(sel.rect, 'ne', dx, dy) : moveRect(sel.rect, dx, dy);
-    if (!sameRect(next, sel.rect)) void save(sel.id, next);
+    // Build on the burst's draft, not on the world: a press can come before the last one lands.
+    const from = burst.get(sel.id) ?? sel.rect;
+    const next = resize ? resizeRect(from, 'ne', dx, dy) : moveRect(from, dx, dy);
+    if (!sameRect(next, from)) burst.push(sel.id, next);
   };
 
   const create = async (): Promise<void> => {
@@ -325,7 +365,16 @@ function ClimateView(): ReactNode {
       keys: ['escape'],
       hidden: true,
       enabled: () => !!sel || drag !== null,
-      run: () => (drag ? setDrag(null) : setSelected(null)),
+      run: () => (drag ? setDrag(null) : deselect()),
+    },
+    {
+      id: 'climate.undo-nudge',
+      label: 'Undo',
+      keys: ['ctrl+z'],
+      hidden: true,
+      // Undo before a burst was sent drops the burst (it was never a step of its own).
+      enabled: () => burst.waiting,
+      run: () => void burst.cancel(),
     },
     {
       id: 'climate.spread',
@@ -354,6 +403,7 @@ function ClimateView(): ReactNode {
     e.stopPropagation();
     e.preventDefault();
     e.currentTarget.setPointerCapture(e.pointerId);
+    burst.flush();
     select(id);
     setDrag({ id, handle, startX: e.clientX, startY: e.clientY, start: r.rect, rect: r.rect });
   };
@@ -386,17 +436,20 @@ function ClimateView(): ReactNode {
 
   return (
     <div className="climate" data-testid="climate">
-      <Tabs
-        className="climate-bands"
-        value={band}
-        onValueChange={(id) => {
-          chooseBand(id);
-          // Hand the keys back to the plane (the tab strip would keep the arrows).
-          requestAnimationFrame(() => planeRef.current?.focus());
-        }}
-        aria-label="Band"
-        tabs={bands.map((b) => ({ value: b.id, label: b.name }))}
-      />
+      {/* A click on a tab, even the current one, hands the keys back to the plane
+          (the tab strip would keep the arrows and switch bands with them). */}
+      <div
+        style={{ display: 'contents' }}
+        onPointerUp={() => requestAnimationFrame(() => planeRef.current?.focus())}
+      >
+        <Tabs
+          className="climate-bands"
+          value={band}
+          onValueChange={chooseBand}
+          aria-label="Band"
+          tabs={bands.map((b) => ({ value: b.id, label: b.name }))}
+        />
+      </div>
       <div className="climate-stage">
         <div className="climate-frame">
           <span className="climate-axis climate-axis-y t-3">wet</span>
@@ -410,7 +463,8 @@ function ClimateView(): ReactNode {
             onPointerUp={endDrag}
             onPointerCancel={() => setDrag(null)}
             onPointerDown={(e) => {
-              if (e.target === e.currentTarget) setSelected(null);
+              // The plane or its empty climate (anything but a biome) deselects.
+              if (!(e.target as Element).closest('[data-testid="climate-region"]')) deselect();
             }}
           >
             {empty.map((r, i) => (
