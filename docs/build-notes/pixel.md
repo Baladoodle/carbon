@@ -229,8 +229,8 @@ step):
 - A table for `halo_attenuate`.
 - Reusing the pooled alpha sums.
 
-Cropping the real 100-cell sheet (1440²) takes about 130 ms, and filtering all
-100 crops to 16² about 570 ms.
+Cropping a real 100-cell sheet takes about 0.1 s at 1440² and 0.3 s at 2880²
+(transparent), and filtering all 100 crops to 16² about 570 ms.
 
 ## Icon prompts (Genforge's house style)
 
@@ -315,23 +315,46 @@ ends with Genforge's *Return the same framing at the same size.*
 Not adopted: Genforge's per-art-pixel draft noise. It exists to keep a model
 from leaving repainted surfaces flat, and a layout guide needs no texture.
 
-**`cropSheet` assigns sprites by their centre, not by cell bounds.** On a real
-10×10 sheet (images-core, `gpt-image-2.6-flare`, low, 2880², $0.106), the
-model's grid drifted up to about 28 px from the layout's 58 px gutters, and
-cutting by strict cell bounds flagged 54 of 100 good sprites. Now:
+**`cropSheet` registers the model's grid, then assigns each sprite to its
+cell.** Real sheets from images-core:
 
-1. The whole sheet is segmented once into 8-connected foreground parts:
+| Sheet | Model | Drift at 2880² | Gutter |
+|---|---|---|---|
+| `items-sheet-100-flare` | `gpt-image-2.6-flare`, $0.106 | up to ~28 px | 58 px |
+| `items-sheet-100-flare25` | `gpt-image-2.5-flare`, $0.043 | up to ~72 px, non-monotonic: rows 5–8 shift down, then back | 58 px |
+
+Cutting by strict cell bounds flagged 48 of 100 good sprites on the first
+sheet. The steps:
+
+1. **Segment the whole sheet once** into 8-connected foreground parts:
    - by alpha (`a ≥ 128`)
    - by a given flat colour
-   - or `auto`: alpha if there's any transparency, else the median colour of
-     the sheet's outer border
-2. Specks under 0.05% of a cell are ignored.
-3. Each part belongs to **the cell its centre falls in**, or the nearest cell
-   when the centre lies in a gutter.
-4. The crop holds only the cell's own parts, square-padded. The bounding box
-   covers those parts.
+   - or `auto`: alpha when there's any transparency, else the opaque model
+     below
 
-The rule is images-core's, as the coordinator asked.
+   Specks under 0.05% of a cell are ignored.
+2. **Register the grid.**
+   - **Banding:** the model draws an even grid, so the parts' centres form
+     `rows` horizontal and `cols` vertical bands. When both axes split cleanly
+     at their k−1 largest gaps (gaps ≥ 0.3 pitch, bands ≤ 0.6 pitch), a part's
+     band ranks are its row and column, however far the grid drifts.
+   - **The fallback**, when the bands aren't clean (a whole row missing): each
+     part goes to the nearest *corrected* cell centre, and each row's and
+     column's correction is the median offset of its sprites. This is
+     iterated. A row or column with fewer than 3 sprites uses the sheet-wide
+     median, or none at all.
+   - Per-row and per-column offsets are always re-estimated from the final
+     assignment.
+3. **Opaque sheets segment twice when the grid drifted** (more than a
+   quarter gutter). The background model and the flood seeds are re-sampled at
+   the gutters and cell rings where the model actually drew them. Otherwise
+   planned gutter lines run through drifted sprites and, on a backdrop-coloured
+   sprite (grey iron on grey cells), seed the flood inside it. That case lost
+   34 sprites at 2880² before the second pass, and 0 after.
+4. **Crop** each cell's own parts, square-padded.
+
+On a synthetic sheet whose rows drift 0.62 pitch and back, the previous rule
+put 30 sprites in the wrong cell, and registration gets all 100 right.
 
 **Opaque sheets.** A model may ignore the transparent-background request.
 The real sheet came from the old guide and is transparent; its grungy backdrop
@@ -348,7 +371,7 @@ the new guide repainted as background:
   interior that matches the backdrop (grey iron on the guide's MID-GREY
   cells) is enclosed by its outline, so it stays sprite. Thin outlines have
   1–2 px gaps, so the flood runs against the foreground dilated by `r`
-  (2 px at 1440², 4 at 2880²), then regrows `r` steps through
+  (4 px at 1440², 8 at 2880²), then regrows `r` steps through
   background-coloured pixels to give back the true edge.
 - **Limits:**
   - A hole of exactly the backdrop colour, fully enclosed by the sprite (the
@@ -356,48 +379,55 @@ the new guide repainted as background:
   - Where an outline gap is wider than `r`, a matching rim can be nicked.
   - A soft glow below alpha 128 counts once composited, so boxes can be
     larger than in the transparent original.
-  - Cropping an opaque 1440² sheet takes about 360 ms, against 130 ms
-    transparent.
+  - Cropping an opaque 2880² sheet takes about 1.6 s, against about 0.3 s
+    for a transparent one.
 
 **Flags:**
 
 - `empty`: own foreground under 0.5% of the cell.
-- `background_only`: the empty cell is one flat colour (luminance range ≤ 4),
-  or the "foreground" fills over 97% of the cell, meaning the background was
-  segmented as a sprite.
-- `touches_edge` keeps a real meaning. It fires when a part touches the sheet
-  edge, or when a part has 15% or more of its pixels in another cell that owns
-  no sprite of its own, i.e. two sprites merged into one connected part. The
-  robbed cell is flagged `empty` + `touches_edge`. A sprite that only drifts
-  across a cell line is **not** flagged.
-- `fragmented`: the cell owns more than one large part (≥ 15% of the largest
-  and ≥ 1% of its foreground).
+- `background_only`: the empty cell is one flat colour, or the "foreground"
+  fills over 97% of the cell.
+- `touches_edge`: the sprite reaches past its **corrected** cell plus half a
+  gutter (with a 1 px antialiased fringe per 1440 px), touches the sheet edge,
+  or is merged with a neighbour's sprite: one part with 15% or more of its
+  pixels in another cell that owns no sprite of its own. The robbed cell is
+  flagged `empty` + `touches_edge`.
+- `fragmented`: more than one large part (≥ 15% of the largest and ≥ 1% of
+  the cell's foreground).
 
 **Regression tests:**
 
-- **The recorded real sheet** (`fixtures/pixel/sheets/`, 3.5 MB, stored at
-  1440²): all 100 sprites crop, **0 flags** (48 under the old bounds rule),
-  each bounding box is centred within its cell, and every crop filters to a
-  16×16 icon.
-- **The same real sprites composited opaquely** over a grungy textured
-  backdrop, over a light stained parchment, and over the new guide repainted
-  with noise: **0 flags** each. Every box lies between the transparent
-  original's alpha-128 box and its visible extent (alpha ≥ 8), within the
-  3 px antialiased fringe.
+- **Both real sheets** (`fixtures/pixel/sheets/`, stored at 1440²): 100 crops
+  each, **0 flags**, each box centred within its cell, and every crop filters
+  to a 16×16 icon.
+- **No clipping:** every sprite pixel (alpha ≥ 128) in the 2 px ring just
+  outside a crop belongs to another crop.
+- **Both real sheets composited opaquely** over a grungy textured backdrop, a
+  stained parchment and the repainted guide with noise: **0 flags** each.
+  Every box lies between the transparent original's alpha-128 box and its
+  visible extent (alpha ≥ 8), within the 3 px fringe.
 - **Synthetic cases:**
-  - drift into the gutter: whole, unflagged
-  - a centre in a gutter: goes to the nearest cell
-  - two sprites joined by a bridge: owner flagged `touches_edge`, robbed cell
-    `empty` + `touches_edge`
+  - drift past half a pitch and back
+  - a missing row (the fallback)
+  - drift into the gutter
+  - a centre in a gutter
+  - a bridge between two sprites
   - a sprite off the sheet edge
   - empty and flat cells
-  - two-blob fragmentation
+  - fragmentation
   - ±12 noise
   - an explicit background and forced alpha
   - a sheet returned at another size
 
-Cropping the real sheet takes about 130 ms, and filtering its 100 crops about
-570 ms.
+Times, measured on the real sheets:
+
+| Sheet | Size | Background | Crop time |
+|---|---|---|---|
+| real | 1440² | transparent | about 0.1 s |
+| real, upscaled | 2880² | transparent | about 0.3 s |
+| real, upscaled | 2880² | opaque, guide repainted | about 1.6 s (two passes) |
+
+Filtering 100 crops to 16² takes about 570 ms.
 
 ## Regenerating
 

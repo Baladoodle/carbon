@@ -207,182 +207,314 @@ export function cropSheet(
     x1: Math.min(W, Math.ceil((c.x + c.w) * sx)),
     y1: Math.min(H, Math.ceil((c.y + c.h) * sy)),
   }));
-  const bg: BgColour[] | null = alpha
-    ? null
-    : typeof mode === 'object'
-      ? [{ rgb: [mode[0], mode[1], mode[2]], tol: tolerance }]
-      : backgroundModel(d, W, H, layout, sx, sy, rects, tolerance);
-  const fg = new Uint8Array(W * H);
-  for (let i = 0; i < W * H; i++) {
-    const o = i * 4;
-    if ((d[o + 3] ?? 0) < 128) continue;
-    if (bg) {
-      const r = d[o] ?? 0;
-      const g = d[o + 1] ?? 0;
-      const b = d[o + 2] ?? 0;
-      let isBg = false;
-      for (const c of bg) {
-        if (
-          Math.max(Math.abs(r - c.rgb[0]), Math.abs(g - c.rgb[1]), Math.abs(b - c.rgb[2])) <= c.tol
-        ) {
-          isBg = true;
-          break;
-        }
-      }
-      if (isBg) continue;
-    }
-    fg[i] = 1;
-  }
-
-  if (bg) {
-    // Background is what is background-coloured AND connected to where background must be, so a sprite's
-    // interior that matches the backdrop (grey iron on the guide's grey cells) stays sprite. Thin outlines
-    // have 1–2 px gaps, so the fill runs against the foreground dilated by `r` (gaps closed), and then
-    // regrows `r` steps through background-coloured pixels to give back the true edge.
-    const r = Math.max(2, Math.round(4 * Math.min(sx, sy)));
-    const barrier = dilate({ w: W, h: H, data: fg }, ellipseKernel(2 * r + 1)).data;
-    const reached = new Uint8Array(W * H);
-    let queue = new Int32Array(W * H);
-    let qt = 0;
-    backgroundSites(W, H, layout, sx, sy, rects, (x, y) => {
-      const i = y * W + x;
-      if (!barrier[i] && !reached[i]) {
-        reached[i] = 1;
-        queue[qt++] = i;
-      }
+  /**
+   * Foreground, parts and their per-cell shares, with the background sampled on the grid shifted
+   * by the given per-row / per-column offsets (sheet px): where the model actually drew its gutters.
+   */
+  const segment = (rowShift: Float64Array, colShift: Float64Array) => {
+    const shifted = rects.map((r, i) => {
+      const c = layout.cells[i] as SheetCell;
+      const ox = Math.round(colShift[c.col] ?? 0);
+      const oy = Math.round(rowShift[c.row] ?? 0);
+      return {
+        x0: Math.max(0, r.x0 + ox),
+        y0: Math.max(0, r.y0 + oy),
+        x1: Math.min(W, r.x1 + ox),
+        y1: Math.min(H, r.y1 + oy),
+      };
     });
-    const spread = (
-      open: (i: number) => boolean,
-      from: Int32Array,
-      n: number,
-      depth: number,
-    ): void => {
-      let frontier = from.subarray(0, n);
-      for (let step = 0; step < depth && frontier.length; step++) {
-        const next = new Int32Array(W * H);
+    const bg: BgColour[] | null = alpha
+      ? null
+      : typeof mode === 'object'
+        ? [{ rgb: [mode[0], mode[1], mode[2]], tol: tolerance }]
+        : backgroundModel(d, W, H, layout, sx, sy, shifted, tolerance, rowShift, colShift);
+    const fg = new Uint8Array(W * H);
+    for (let i = 0; i < W * H; i++) {
+      const o = i * 4;
+      if ((d[o + 3] ?? 0) < 128) continue;
+      if (bg) {
+        const r = d[o] ?? 0;
+        const g = d[o + 1] ?? 0;
+        const b = d[o + 2] ?? 0;
+        let isBg = false;
+        for (const c of bg) {
+          if (
+            Math.max(Math.abs(r - c.rgb[0]), Math.abs(g - c.rgb[1]), Math.abs(b - c.rgb[2])) <=
+            c.tol
+          ) {
+            isBg = true;
+            break;
+          }
+        }
+        if (isBg) continue;
+      }
+      fg[i] = 1;
+    }
+
+    if (bg) {
+      // Background is what is background-coloured AND connected to where background must be, so a sprite's
+      // interior that matches the backdrop (grey iron on the guide's grey cells) stays sprite. Thin outlines
+      // have gaps of a few px, so the fill runs against the foreground dilated by `r` (4 px at 1440², 8 at
+      // 2880²; gaps closed), then regrows `r` steps through background-coloured pixels for the true edge.
+      const r = Math.max(2, Math.round(8 * Math.min(sx, sy)));
+      const barrier = dilate({ w: W, h: H, data: fg }, ellipseKernel(2 * r + 1)).data;
+      const reached = new Uint8Array(W * H);
+      let queue = new Int32Array(W * H);
+      let qt = 0;
+      backgroundSites(W, H, layout, sx, sy, shifted, rowShift, colShift, (x, y) => {
+        const i = y * W + x;
+        if (!barrier[i] && !reached[i]) {
+          reached[i] = 1;
+          queue[qt++] = i;
+        }
+      });
+      // flood through the gap-closed background (unbounded) ...
+      let qh = 0;
+      const push = (j: number): void => {
+        if (!reached[j] && !barrier[j]) {
+          reached[j] = 1;
+          queue[qt++] = j;
+        }
+      };
+      while (qh < qt) {
+        const i = queue[qh++] as number;
+        const x = i % W;
+        if (x > 0) push(i - 1);
+        if (x < W - 1) push(i + 1);
+        if (i >= W) push(i - W);
+        if (i + W < W * H) push(i + W);
+      }
+      // ... then regrow r steps from everything reached into background-coloured pixels: the true edge
+      let frontier = queue.subarray(0, qt);
+      let next = new Int32Array(Math.min(W * H, qt * 4 + 16));
+      for (let step = 0; step < r && frontier.length; step++) {
         let nt = 0;
-        const go = (j: number): void => {
-          if (!reached[j] && open(j)) {
+        const grow = (j: number): void => {
+          if (!reached[j] && !fg[j]) {
             reached[j] = 1;
+            if (nt >= next.length) {
+              const bigger = new Int32Array(next.length * 2);
+              bigger.set(next);
+              next = bigger;
+            }
             next[nt++] = j;
           }
         };
         for (const i of frontier) {
           const x = i % W;
-          if (x > 0) go(i - 1);
-          if (x < W - 1) go(i + 1);
-          if (i >= W) go(i - W);
-          if (i + W < W * H) go(i + W);
+          if (x > 0) grow(i - 1);
+          if (x < W - 1) grow(i + 1);
+          if (i >= W) grow(i - W);
+          if (i + W < W * H) grow(i + W);
         }
-        frontier = next.subarray(0, nt);
+        frontier = next.slice(0, nt);
       }
-    };
-    // flood through the gap-closed background (unbounded), then regrow r steps into the true background
-    let qh = 0;
-    while (qh < qt) {
-      const i = queue[qh++] as number;
-      const x = i % W;
-      for (const j of [x > 0 ? i - 1 : -1, x < W - 1 ? i + 1 : -1, i - W, i + W]) {
-        if (j < 0 || j >= W * H || reached[j] || barrier[j]) continue;
-        reached[j] = 1;
-        queue[qt++] = j;
-      }
+      queue = new Int32Array(0); // release the flood buffer before labelling
+      for (let i = 0; i < W * H; i++) fg[i] = reached[i] ? 0 : 1;
     }
-    spread((j) => !fg[j], queue, qt, r);
-    queue = new Int32Array(0);
-    for (let i = 0; i < W * H; i++) fg[i] = reached[i] ? 0 : 1;
-  }
 
-  // which cell a coordinate is in (-1: gutter)
-  const colOf = new Int32Array(W).fill(-1);
-  const rowOf = new Int32Array(H).fill(-1);
-  layout.cells.forEach((c, i) => {
-    const r = rects[i] as (typeof rects)[number];
-    for (let x = r.x0; x < r.x1; x++) colOf[x] = c.col;
-    for (let y = r.y0; y < r.y1; y++) rowOf[y] = c.row;
-  });
-  const cellAt = new Map<number, number>(
-    layout.cells.map((c) => [c.row * 100000 + c.col, c.index]),
-  );
+    // which cell a coordinate is in (-1: gutter)
+    const colOf = new Int32Array(W).fill(-1);
+    const rowOf = new Int32Array(H).fill(-1);
+    layout.cells.forEach((c, i) => {
+      const r = shifted[i] as (typeof rects)[number];
+      for (let x = r.x0; x < r.x1; x++) colOf[x] = c.col;
+      for (let y = r.y0; y < r.y1; y++) rowOf[y] = c.row;
+    });
+    const cellAt = new Map<number, number>(
+      layout.cells.map((c) => [c.row * 100000 + c.col, c.index]),
+    );
 
-  // 8-connected parts over the whole sheet
-  const label = new Int32Array(W * H).fill(-1);
-  const parts: Part[] = [];
-  const stack = new Int32Array(W * H);
-  for (let s = 0; s < W * H; s++) {
-    if (!fg[s] || label[s] !== -1) continue;
-    const id = parts.length;
-    const part: Part = {
-      size: 0,
-      sumX: 0,
-      sumY: 0,
-      x0: W,
-      y0: H,
-      x1: -1,
-      y1: -1,
-      sheetEdge: false,
-      inCell: new Map(),
-      owner: -1,
-    };
-    parts.push(part);
-    let top = 0;
-    stack[top++] = s;
-    label[s] = id;
-    while (top) {
-      const k = stack[--top] as number;
-      const x = k % W;
-      const y = (k - x) / W;
-      part.size++;
-      part.sumX += x;
-      part.sumY += y;
-      if (x < part.x0) part.x0 = x;
-      if (y < part.y0) part.y0 = y;
-      if (x > part.x1) part.x1 = x;
-      if (y > part.y1) part.y1 = y;
-      if (x === 0 || y === 0 || x === W - 1 || y === H - 1) part.sheetEdge = true;
-      const col = colOf[x] as number;
-      const row = rowOf[y] as number;
-      if (col >= 0 && row >= 0) {
-        const ci = cellAt.get(row * 100000 + col);
-        if (ci !== undefined) part.inCell.set(ci, (part.inCell.get(ci) ?? 0) + 1);
-      }
-      for (let dy = -1; dy <= 1; dy++) {
-        const ny = y + dy;
-        if (ny < 0 || ny >= H) continue;
-        for (let dx = -1; dx <= 1; dx++) {
-          const nx = x + dx;
-          if (nx < 0 || nx >= W) continue;
-          const n = ny * W + nx;
-          if (fg[n] && label[n] === -1) {
-            label[n] = id;
-            stack[top++] = n;
+    // 8-connected parts over the whole sheet
+    const label = new Int32Array(W * H).fill(-1);
+    const parts: Part[] = [];
+    const stack = new Int32Array(W * H);
+    for (let s = 0; s < W * H; s++) {
+      if (!fg[s] || label[s] !== -1) continue;
+      const id = parts.length;
+      const part: Part = {
+        size: 0,
+        sumX: 0,
+        sumY: 0,
+        x0: W,
+        y0: H,
+        x1: -1,
+        y1: -1,
+        sheetEdge: false,
+        inCell: new Map(),
+        owner: -1,
+      };
+      parts.push(part);
+      let top = 0;
+      stack[top++] = s;
+      label[s] = id;
+      while (top) {
+        const k = stack[--top] as number;
+        const x = k % W;
+        const y = (k - x) / W;
+        part.size++;
+        part.sumX += x;
+        part.sumY += y;
+        if (x < part.x0) part.x0 = x;
+        if (y < part.y0) part.y0 = y;
+        if (x > part.x1) part.x1 = x;
+        if (y > part.y1) part.y1 = y;
+        if (x === 0 || y === 0 || x === W - 1 || y === H - 1) part.sheetEdge = true;
+        const col = colOf[x] as number;
+        const row = rowOf[y] as number;
+        if (col >= 0 && row >= 0) {
+          const ci = cellAt.get(row * 100000 + col);
+          if (ci !== undefined) part.inCell.set(ci, (part.inCell.get(ci) ?? 0) + 1);
+        }
+        for (let dy = -1; dy <= 1; dy++) {
+          const ny = y + dy;
+          if (ny < 0 || ny >= H) continue;
+          for (let dx = -1; dx <= 1; dx++) {
+            const nx = x + dx;
+            if (nx < 0 || nx >= W) continue;
+            const n = ny * W + nx;
+            if (fg[n] && label[n] === -1) {
+              label[n] = id;
+              stack[top++] = n;
+            }
           }
         }
       }
     }
-  }
 
-  const cellArea = (rects[0] ? (rects[0].x1 - rects[0].x0) * (rects[0].y1 - rects[0].y0) : 1) || 1;
-  const minPart = Math.max(4, Math.round(cellArea * 0.0005));
-  const owned = layout.cells.map((): number[] => []);
-  parts.forEach((p, id) => {
-    if (p.size < minPart) return;
-    const cx = p.sumX / p.size;
-    const cy = p.sumY / p.size;
-    let best = -1;
-    let bestD = Infinity;
-    rects.forEach((r, i) => {
-      const dx = cx < r.x0 ? r.x0 - cx : cx >= r.x1 ? cx - r.x1 + 1 : 0;
-      const dy = cy < r.y0 ? r.y0 - cy : cy >= r.y1 ? cy - r.y1 + 1 : 0;
-      const dist = dx * dx + dy * dy;
-      if (dist < bestD) {
-        bestD = dist;
-        best = i;
+    const cellArea =
+      (rects[0] ? (rects[0].x1 - rects[0].x0) * (rects[0].y1 - rects[0].y0) : 1) || 1;
+    const minPart = Math.max(4, Math.round(cellArea * 0.0005));
+    const big = parts.flatMap((p, id) => (p.size >= minPart ? [id] : []));
+    return { bg, label, parts, big, minPart };
+  };
+
+  // Register the model's grid. It keeps its own even grid, which drifts from ours (28 px on a 2.6
+  // sheet, 72 px — more than a gutter — on a 2.5 sheet at 2880²), so each part goes to the cell whose
+  // CORRECTED centre is nearest its centroid, and each row's and column's correction is the median
+  // offset of its sprites' centres. Assign, re-estimate, repeat until stable.
+  const centres = layout.cells.map((c) => ({ x: (c.x + c.w / 2) * sx, y: (c.y + c.h / 2) * sy }));
+  const pitchX = ((layout.cells[0]?.w ?? 1) + layout.gutter) * sx;
+  const pitchY = ((layout.cells[0]?.h ?? 1) + layout.gutter) * sy;
+  const rowOff = new Float64Array(layout.rows);
+  const colOff = new Float64Array(layout.cols);
+  let owned: number[][] = [];
+  let parts: Part[] = [];
+  let big: number[] = [];
+  const registerGrid = (): void => {
+    rowOff.fill(0);
+    colOff.fill(0);
+    const assign = (): number[][] => {
+      const out = layout.cells.map((): number[] => []);
+      for (const id of big) {
+        const p = parts[id] as Part;
+        const cx = p.sumX / p.size;
+        const cy = p.sumY / p.size;
+        let best = -1;
+        let bestD = Infinity;
+        layout.cells.forEach((c, i) => {
+          const ce = centres[i] as { x: number; y: number };
+          const dx = (cx - ce.x - (colOff[c.col] ?? 0)) / pitchX;
+          const dy = (cy - ce.y - (rowOff[c.row] ?? 0)) / pitchY;
+          const dist = dx * dx + dy * dy;
+          if (dist < bestD) {
+            bestD = dist;
+            best = i;
+          }
+        });
+        // further than a whole pitch from every corrected centre: a stray mark, nobody's sprite
+        if (best >= 0 && bestD <= 1) out[best]?.push(id);
       }
-    });
-    if (best < 0) return;
-    p.owner = best;
-    owned[best]?.push(id);
+      return out;
+    };
+    const median = (v: number[]): number => {
+      const t = [...v].sort((p, q) => p - q);
+      return t.length ? (t[t.length >> 1] ?? 0) : 0;
+    };
+    /** Re-estimate each row's and column's offset from an assignment; the largest change. */
+    const register = (o: number[][]): number => {
+      const byRow: number[][] = Array.from({ length: layout.rows }, () => []);
+      const byCol: number[][] = Array.from({ length: layout.cols }, () => []);
+      layout.cells.forEach((c, i) => {
+        const ids = o[i] ?? [];
+        if (!ids.length) return;
+        // the sprite's centre: the size-weighted centroid of its parts
+        let n = 0;
+        let mx = 0;
+        let my = 0;
+        for (const id of ids) {
+          const p = parts[id] as Part;
+          n += p.size;
+          mx += p.sumX;
+          my += p.sumY;
+        }
+        const ce = centres[i] as { x: number; y: number };
+        byRow[c.row]?.push(my / n - ce.y);
+        byCol[c.col]?.push(mx / n - ce.x);
+      });
+      // a row or column with fewer than 3 sprites has no meaningful median: use the whole sheet's (or none)
+      const allY = byRow.flat();
+      const allX = byCol.flat();
+      const est = (v: number[], all: number[]): number =>
+        median(v.length >= 3 ? v : all.length >= 3 ? all : []);
+      let moved = 0;
+      for (let r = 0; r < layout.rows; r++) {
+        const v = est(byRow[r] ?? [], allY);
+        moved = Math.max(moved, Math.abs(v - (rowOff[r] ?? 0)));
+        rowOff[r] = v;
+      }
+      for (let k = 0; k < layout.cols; k++) {
+        const v = est(byCol[k] ?? [], allX);
+        moved = Math.max(moved, Math.abs(v - (colOff[k] ?? 0)));
+        colOff[k] = v;
+      }
+      return moved;
+    };
+    for (let iter = 0; iter < 4; iter++) {
+      owned = assign();
+      if (register(owned) < 1) break;
+    }
+    // Banding: the model draws an even grid, so sprite centres form `rows` horizontal and `cols`
+    // vertical bands. When both axes split cleanly, a part's band ranks ARE its row and column, which
+    // holds however far a stretched grid drifts (the medians above can lock onto a wrong row once a
+    // whole row starts out misassigned).
+    const centroidsX = big.map((id) => (parts[id] as Part).sumX / (parts[id] as Part).size);
+    const centroidsY = big.map((id) => (parts[id] as Part).sumY / (parts[id] as Part).size);
+    const rowCut = bands(centroidsY, layout.rows, pitchY);
+    const colCut = bands(centroidsX, layout.cols, pitchX);
+    if (rowCut && colCut) {
+      const cellAtRC = new Map(layout.cells.map((c) => [c.row * 100000 + c.col, c.index]));
+      const banded = layout.cells.map((): number[] => []);
+      big.forEach((id, k) => {
+        const row = rowCut.filter((t) => (centroidsY[k] ?? 0) > t).length;
+        const col = colCut.filter((t) => (centroidsX[k] ?? 0) > t).length;
+        const ci = cellAtRC.get(row * 100000 + col);
+        if (ci !== undefined) banded[ci]?.push(id);
+      });
+      owned = banded;
+    } else {
+      owned = assign();
+    }
+    register(owned); // the offsets the reach check uses come from the final assignment
+  };
+
+  // Segment on the planned grid and register it. An opaque sheet's background is sampled at the
+  // gutters and cell rings, so when the model's grid drifted (more than a quarter gutter), sample
+  // again where it actually drew them and segment once more: planned gutter lines can run through
+  // drifted sprites and, on a backdrop-coloured sprite (grey iron on grey cells), seed the flood
+  // inside it.
+  let seg = segment(rowOff, colOff);
+  ({ parts, big } = seg);
+  registerGrid();
+  const drift = Math.max(...rowOff.map(Math.abs), ...colOff.map(Math.abs));
+  if (seg.bg && drift > (layout.gutter / 4) * Math.min(sx, sy)) {
+    seg = segment(Float64Array.from(rowOff), Float64Array.from(colOff));
+    ({ parts, big } = seg);
+    registerGrid();
+  }
+  const { label } = seg;
+  owned.forEach((ids, i) => {
+    for (const id of ids) (parts[id] as Part).owner = i;
   });
   const occupied = new Set(owned.flatMap((ids, i) => (ids.length ? [i] : [])));
 
@@ -421,7 +553,24 @@ export function cropSheet(
         if (other !== ci && !occupied.has(other) && n >= 0.15 * p.size) return true;
       return false;
     });
-    if (bleeds) flags.push('touches_edge');
+    // or reaches past where the model actually drew the cell (corrected), plus half a gutter
+    const hx = (layout.gutter / 2) * sx;
+    const hy = (layout.gutter / 2) * sy;
+    const ox0 = r.x0 + (colOff[cell.col] ?? 0) - hx;
+    const oy0 = r.y0 + (rowOff[cell.row] ?? 0) - hy;
+    const ox1 = r.x1 + (colOff[cell.col] ?? 0) + hx;
+    const oy1 = r.y1 + (rowOff[cell.row] ?? 0) + hy;
+    const fringe = Math.max(1, Math.round(2 * Math.min(sx, sy))); // a blended edge pixel at 1440², two at 2880²
+    const reaches = ids.some((id) => {
+      const p = parts[id] as Part;
+      return (
+        p.x0 < ox0 - fringe ||
+        p.y0 < oy0 - fringe ||
+        p.x1 + 1 > ox1 + fringe ||
+        p.y1 + 1 > oy1 + fringe
+      );
+    });
+    if (bleeds || reaches) flags.push('touches_edge');
     const largest = Math.max(...ids.map((id) => parts[id]?.size ?? 0));
     if (
       ids.filter((id) => (parts[id]?.size ?? 0) >= Math.max(0.15 * largest, 0.01 * total)).length >
@@ -489,6 +638,28 @@ interface BgColour {
  * a grungy texture's extremes; sprite interiors that share the colour
  * are protected by the connectivity rule in `cropSheet`, not by the tolerance.
  */
+/**
+ * Split 1-D centres into exactly `k` bands at the k−1 largest gaps; the cut points, or null when the
+ * split is not clean (a gap under 0.3 pitch, or a band wider than 0.6 pitch).
+ */
+function bands(values: number[], k: number, pitch: number): number[] | null {
+  if (k <= 1) return [];
+  const v = [...values].sort((a, b) => a - b);
+  if (v.length < k) return null;
+  const gaps = v.slice(1).map((x, i) => ({ i, gap: x - (v[i] ?? 0) }));
+  const cuts = [...gaps]
+    .sort((a, b) => b.gap - a.gap || a.i - b.i)
+    .slice(0, k - 1)
+    .sort((a, b) => a.i - b.i);
+  if (cuts.some((c) => c.gap < 0.3 * pitch)) return null;
+  let start = 0;
+  for (const c of [...cuts.map((c) => c.i + 1), v.length]) {
+    if ((v[c - 1] ?? 0) - (v[start] ?? 0) > 0.6 * pitch) return null;
+    start = c;
+  }
+  return cuts.map((c) => ((v[c.i] ?? 0) + (v[c.i + 1] ?? 0)) / 2);
+}
+
 /** Where sprites should not be: the sheet border, the planned gutters' centre lines, a ring 2 px inside each cell. */
 function backgroundSites(
   W: number,
@@ -497,6 +668,8 @@ function backgroundSites(
   sx: number,
   sy: number,
   rects: Array<{ x0: number; y0: number; x1: number; y1: number }>,
+  rowShift: Float64Array,
+  colShift: Float64Array,
   visit: (x: number, y: number) => void,
 ): void {
   const take = (x: number, y: number): void => {
@@ -506,8 +679,8 @@ function backgroundSites(
   for (let y = 0; y < H; y++) for (const x of [0, 1, W - 2, W - 1]) take(x, y);
   const half = layout.gutter / 2;
   for (const c of layout.cells) {
-    const gx = Math.round((c.x - half) * sx);
-    const gy = Math.round((c.y - half) * sy);
+    const gx = Math.round((c.x - half) * sx + (colShift[c.col] ?? 0));
+    const gy = Math.round((c.y - half) * sy + (rowShift[c.row] ?? 0));
     for (let y = 0; y < H; y += 2) take(gx, y);
     for (let x = 0; x < W; x += 2) take(x, gy);
   }
@@ -532,9 +705,11 @@ function backgroundModel(
   sy: number,
   rects: Array<{ x0: number; y0: number; x1: number; y1: number }>,
   tolerance: number,
+  rowShift: Float64Array,
+  colShift: Float64Array,
 ): BgColour[] {
   const samples: number[] = [];
-  backgroundSites(W, H, layout, sx, sy, rects, (x, y) => {
+  backgroundSites(W, H, layout, sx, sy, rects, rowShift, colShift, (x, y) => {
     const o = (y * W + x) * 4;
     samples.push(((d[o] ?? 0) << 16) | ((d[o + 1] ?? 0) << 8) | (d[o + 2] ?? 0));
   });

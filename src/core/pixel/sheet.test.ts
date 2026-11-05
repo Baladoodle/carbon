@@ -231,115 +231,206 @@ describe('cropSheet against grid drift', () => {
   });
 });
 
-describe('the recorded real sheet (images-core, gpt-image-2.6-flare, 100 items, 2880² stored at 1440²)', () => {
-  const dir = resolve(import.meta.dirname, '../../../fixtures/pixel/sheets');
-  const sheet = decodePng(readFileSync(`${dir}/items-sheet-100-flare.png`));
-  const layout = sheetLayout(100, { w: 2880, h: 2880 });
-
-  it('crops all 100 sprites with no flags, despite the model drifting up to ~28 px from the grid', () => {
-    const cells = cropSheet(sheet, layout);
-    expect(cells.filter((c) => c.crop === null)).toEqual([]);
-    expect(cells.filter((c) => c.flags.length).map((c) => [c.index, c.flags])).toEqual([]);
-    const k = 2880 / sheet.width;
-    for (const c of cells) {
-      const cell = layout.cells[c.index]!;
-      const cx = (c.bbox!.x + c.bbox!.w / 2) * k;
-      const cy = (c.bbox!.y + c.bbox!.h / 2) * k;
-      expect(Math.abs(cx - (cell.x + cell.w / 2))).toBeLessThan(cell.w / 2);
-      expect(Math.abs(cy - (cell.y + cell.h / 2))).toBeLessThan(cell.h / 2);
-    }
-  });
-
-  it('every crop goes through the item preset to a non-empty 16×16 icon', () => {
-    for (const c of cropSheet(sheet, layout)) {
-      const { image, report } = filterImage(c.crop!, { target: { w: 16, h: 16 }, preset: 'item' });
-      expect([image.width, image.height]).toEqual([16, 16]);
-      expect(report.opaquePixels).toBeGreaterThan(20);
-    }
-  });
-});
-
-describe('opaque sheets: the real sprites over a grungy backdrop and over the repainted guide', () => {
-  const dir = resolve(import.meta.dirname, '../../../fixtures/pixel/sheets');
-  const real = decodePng(readFileSync(`${dir}/items-sheet-100-flare.png`));
-  const layout = sheetLayout(100, { w: 2880, h: 2880 });
-  const W = real.width;
-  const H = real.height;
-  const hash = (x: number, y: number, s: number): number => {
-    let h = (x * 374761393 + y * 668265263 + s * 982451653) >>> 0;
-    h = Math.imul(h ^ (h >>> 13), 1274126177) >>> 0;
-    return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
-  };
-  /** Composite the real (transparent) sheet over an opaque background, as a model without transparency returns it. */
-  const over = (bg: (x: number, y: number) => [number, number, number]): RgbaImage => {
-    const data = new Uint8ClampedArray(W * H * 4);
-    for (let y = 0; y < H; y++) {
-      for (let x = 0; x < W; x++) {
-        const o = (y * W + x) * 4;
-        const a = real.data[o + 3]! / 255;
-        const b = bg(x, y);
-        for (let c = 0; c < 3; c++) data[o + c] = real.data[o + c]! * a + b[c]! * (1 - a);
-        data[o + 3] = 255;
+describe("cropSheet registers the model's grid (drift past half a pitch, like gpt-image-2.5)", () => {
+  const layout = sheetLayout(100, { w: 1000, h: 1000 }, { gutter: 20 });
+  const pitch = layout.cells[0]!.w + layout.gutter;
+  /** Each sprite is a block coloured by its own index, drawn where a drifting model grid puts it. */
+  const draw = (dy: (row: number) => number, skipRow = -1): RgbaImage => {
+    const W = 1000;
+    const data = new Uint8ClampedArray(W * W * 4);
+    for (const c of layout.cells) {
+      if (c.row === skipRow) continue;
+      const cx = c.x + c.w / 2 + c.col * 0.03 * pitch;
+      const cy = c.y + c.h / 2 + dy(c.row) * pitch;
+      for (let y = Math.floor(cy - 22); y < cy + 22; y++) {
+        for (let x = Math.floor(cx - 18); x < cx + 18; x++)
+          data.set([c.index, 255 - c.index, 128, 255], (y * W + x) * 4);
       }
     }
-    return { width: W, height: H, data };
+    return { width: W, height: W, data };
   };
-  const reference = cropSheet(real, layout);
-  // every visibly painted pixel (alpha ≥ 8; the backdrop carries 1–6) counted: the full extent, soft glows included
-  const visible = cropSheet(
-    { ...real, data: real.data.map((v, i) => (i % 4 === 3 ? (v >= 8 ? 255 : 0) : v)) },
-    layout,
-  );
-  /**
-   * Same sprites as the transparent original: no flags, and each box lies between the alpha-128 box and
-   * the box of every visible pixel (a soft glow below alpha 128 shows once composited), within the 3 px
-   * antialiased fringe the composite blends.
-   */
-  const expectLikeReference = (cells: CroppedCell[]): void => {
-    expect(cells.map((c) => c.segmentation)).toEqual(Array(100).fill('colour'));
-    expect(cells.filter((c) => c.flags.length).map((c) => [c.index, c.flags])).toEqual([]);
-    cells.forEach((c, i) => {
-      const [b, inner, outer] = [c.bbox!, reference[i]!.bbox!, visible[i]!.bbox!];
-      const edges = (r: typeof b): number[] => [r.x, r.y, r.x + r.w, r.y + r.h];
-      const [e, lo, hi] = [edges(b), edges(inner), edges(outer)];
-      // left/top edges: outer ≤ e ≤ inner; right/bottom: inner ≤ e ≤ outer
-      expect(e[0]!).toBeGreaterThanOrEqual(hi[0]! - 3);
-      expect(e[0]!).toBeLessThanOrEqual(lo[0]! + 3);
-      expect(e[1]!).toBeGreaterThanOrEqual(hi[1]! - 3);
-      expect(e[1]!).toBeLessThanOrEqual(lo[1]! + 3);
-      expect(e[2]!).toBeLessThanOrEqual(hi[2]! + 3);
-      expect(e[2]!).toBeGreaterThanOrEqual(lo[2]! - 3);
-      expect(e[3]!).toBeLessThanOrEqual(hi[3]! + 3);
-      expect(e[3]!).toBeGreaterThanOrEqual(lo[3]! - 3);
-    });
-  };
+  const centreColour = (c: CroppedCell): number | undefined =>
+    c.crop?.data[((c.crop.height >> 1) * c.crop.width + (c.crop.width >> 1)) * 4];
 
-  it('a grungy, textured backdrop (blotches and per-pixel grain) stays background', () => {
-    const grunge = (x: number, y: number): [number, number, number] => {
-      const blotch = (hash(x >> 5, y >> 5, 1) - 0.5) * 36 + (hash(x >> 3, y >> 3, 2) - 0.5) * 16;
-      const grain = (hash(x, y, 3) - 0.5) * 16;
-      const v = 96 + blotch + grain;
-      return [v + 8, v, v - 10];
-    };
-    expectLikeReference(cropSheet(over(grunge), layout));
+  it('puts every sprite in its own cell when rows drift up to 0.62 pitch and back (nearest-centre alone misplaces 30)', () => {
+    const profile = [0, 0, 0.05, 0.1, 0.25, 0.45, 0.6, 0.62, 0.3, 0.1];
+    const cells = cropSheet(
+      draw((row) => profile[row]!),
+      layout,
+    );
+    expect(cells.filter((c) => centreColour(c) !== c.index).map((c) => c.index)).toEqual([]);
+    expect(cells.filter((c) => c.flags.length).map((c) => c.index)).toEqual([]);
   });
 
-  it('a light parchment with stains and coarse grain stays background', () => {
-    const parchment = (x: number, y: number): [number, number, number] => {
-      const stain = hash(x >> 6, y >> 6, 5) < 0.2 ? -28 : 0;
-      const v = 205 + stain + (hash(x >> 2, y >> 2, 6) - 0.5) * 22 + (hash(x, y, 7) - 0.5) * 10;
-      return [v + 6, v - 4, v - 22];
-    };
-    expectLikeReference(cropSheet(over(parchment), layout));
-  });
-
-  it('the new guide repainted as the background (MID-GREY cells, DARK GREY gutter, with noise) stays background', () => {
-    const guide = drawGuide(layout, { w: W, h: H });
-    const repainted = (x: number, y: number): [number, number, number] => {
-      const o = (y * W + x) * 4;
-      const n = (hash(x, y, 4) - 0.5) * 14;
-      return [guide.data[o]! + n, guide.data[o + 1]! + n, guide.data[o + 2]! + n];
-    };
-    expectLikeReference(cropSheet(over(repainted), layout));
+  it('falls back to per-row and per-column medians when a whole row is missing', () => {
+    const cells = cropSheet(
+      draw((row) => (row > 4 ? 0.3 : 0), 3),
+      layout,
+    );
+    for (const c of cells) {
+      if (layout.cells[c.index]!.row === 3) expect(c.flags).toEqual(['empty']);
+      else {
+        expect(centreColour(c)).toBe(c.index);
+        expect(c.flags).toEqual([]);
+      }
+    }
   });
 });
+
+const SHEETS = [
+  { file: 'items-sheet-100-flare', model: 'gpt-image-2.6-flare', drift: '~28 px' },
+  {
+    file: 'items-sheet-100-flare25',
+    model: 'gpt-image-2.5-flare',
+    drift: '~72 px, more than a 58 px gutter',
+  },
+] as const;
+const sheetDir = resolve(import.meta.dirname, '../../../fixtures/pixel/sheets');
+
+describe.each(SHEETS)(
+  'the recorded real sheet $file ($model, 100 items, 2880² stored at 1440²)',
+  ({ file, drift }) => {
+    const sheet = decodePng(readFileSync(`${sheetDir}/${file}.png`));
+    const layout = sheetLayout(100, { w: 2880, h: 2880 });
+    const cells = cropSheet(sheet, layout);
+
+    it(`crops all 100 sprites with no flags, despite the model's grid drifting ${drift}`, () => {
+      expect(cells.filter((c) => c.crop === null)).toEqual([]);
+      expect(cells.filter((c) => c.flags.length).map((c) => [c.index, c.flags])).toEqual([]);
+      const k = 2880 / sheet.width;
+      for (const c of cells) {
+        const cell = layout.cells[c.index]!;
+        expect(Math.abs((c.bbox!.x + c.bbox!.w / 2) * k - (cell.x + cell.w / 2))).toBeLessThan(
+          cell.w / 2,
+        );
+        expect(Math.abs((c.bbox!.y + c.bbox!.h / 2) * k - (cell.y + cell.h / 2))).toBeLessThan(
+          cell.h / 2,
+        );
+      }
+    });
+
+    it('clips nothing: every sprite pixel just outside a crop belongs to another crop', () => {
+      const W = sheet.width;
+      const inside = (x: number, y: number, skip: number): boolean =>
+        cells.some(
+          (c, i) =>
+            i !== skip &&
+            x >= c.bbox!.x &&
+            y >= c.bbox!.y &&
+            x < c.bbox!.x + c.bbox!.w &&
+            y < c.bbox!.y + c.bbox!.h,
+        );
+      const clipped: string[] = [];
+      cells.forEach((c, i) => {
+        const b = c.bbox!;
+        for (let y = b.y - 2; y < b.y + b.h + 2; y++) {
+          for (let x = b.x - 2; x < b.x + b.w + 2; x++) {
+            if (x >= b.x && y >= b.y && x < b.x + b.w && y < b.y + b.h) continue; // the ring only
+            if (x < 0 || y < 0 || x >= W || y >= sheet.height) continue;
+            if (sheet.data[(y * W + x) * 4 + 3]! >= 128 && !inside(x, y, i))
+              clipped.push(`${i}@${x},${y}`);
+          }
+        }
+      });
+      expect(clipped).toEqual([]);
+    });
+
+    it('every crop goes through the item preset to a non-empty 16×16 icon', () => {
+      for (const c of cells) {
+        const { image, report } = filterImage(c.crop!, {
+          target: { w: 16, h: 16 },
+          preset: 'item',
+        });
+        expect([image.width, image.height]).toEqual([16, 16]);
+        expect(report.opaquePixels).toBeGreaterThan(20);
+      }
+    });
+  },
+);
+
+describe.each(SHEETS)(
+  'opaque sheets: $file over a grungy backdrop, a parchment and the repainted guide',
+  ({ file }) => {
+    const real = decodePng(readFileSync(`${sheetDir}/${file}.png`));
+    const layout = sheetLayout(100, { w: 2880, h: 2880 });
+    const W = real.width;
+    const H = real.height;
+    const hash = (x: number, y: number, s: number): number => {
+      let h = (x * 374761393 + y * 668265263 + s * 982451653) >>> 0;
+      h = Math.imul(h ^ (h >>> 13), 1274126177) >>> 0;
+      return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+    };
+    /** Composite the real (transparent) sheet over an opaque background, as a model without transparency returns it. */
+    const over = (bg: (x: number, y: number) => [number, number, number]): RgbaImage => {
+      const data = new Uint8ClampedArray(W * H * 4);
+      for (let y = 0; y < H; y++) {
+        for (let x = 0; x < W; x++) {
+          const o = (y * W + x) * 4;
+          const a = real.data[o + 3]! / 255;
+          const b = bg(x, y);
+          for (let c = 0; c < 3; c++) data[o + c] = real.data[o + c]! * a + b[c]! * (1 - a);
+          data[o + 3] = 255;
+        }
+      }
+      return { width: W, height: H, data };
+    };
+    const reference = cropSheet(real, layout);
+    // every visibly painted pixel (alpha ≥ 8; the backdrop carries 1–6) counted: the full extent, soft glows included
+    const visible = cropSheet(
+      { ...real, data: real.data.map((v, i) => (i % 4 === 3 ? (v >= 8 ? 255 : 0) : v)) },
+      layout,
+    );
+    /**
+     * Same sprites as the transparent original: no flags, and each box lies between the alpha-128 box and
+     * the box of every visible pixel (a soft glow below alpha 128 shows once composited), within the 3 px
+     * antialiased fringe the composite blends.
+     */
+    const expectLikeReference = (cells: CroppedCell[]): void => {
+      expect(cells.map((c) => c.segmentation)).toEqual(Array(100).fill('colour'));
+      expect(cells.filter((c) => c.flags.length).map((c) => [c.index, c.flags])).toEqual([]);
+      cells.forEach((c, i) => {
+        const [b, inner, outer] = [c.bbox!, reference[i]!.bbox!, visible[i]!.bbox!];
+        const edges = (r: typeof b): number[] => [r.x, r.y, r.x + r.w, r.y + r.h];
+        const [e, lo, hi] = [edges(b), edges(inner), edges(outer)];
+        // left/top edges: outer ≤ e ≤ inner; right/bottom: inner ≤ e ≤ outer
+        expect(e[0]!).toBeGreaterThanOrEqual(hi[0]! - 3);
+        expect(e[0]!).toBeLessThanOrEqual(lo[0]! + 3);
+        expect(e[1]!).toBeGreaterThanOrEqual(hi[1]! - 3);
+        expect(e[1]!).toBeLessThanOrEqual(lo[1]! + 3);
+        expect(e[2]!).toBeLessThanOrEqual(hi[2]! + 3);
+        expect(e[2]!).toBeGreaterThanOrEqual(lo[2]! - 3);
+        expect(e[3]!).toBeLessThanOrEqual(hi[3]! + 3);
+        expect(e[3]!).toBeGreaterThanOrEqual(lo[3]! - 3);
+      });
+    };
+
+    it('a grungy, textured backdrop (blotches and per-pixel grain) stays background', () => {
+      const grunge = (x: number, y: number): [number, number, number] => {
+        const blotch = (hash(x >> 5, y >> 5, 1) - 0.5) * 36 + (hash(x >> 3, y >> 3, 2) - 0.5) * 16;
+        const grain = (hash(x, y, 3) - 0.5) * 16;
+        const v = 96 + blotch + grain;
+        return [v + 8, v, v - 10];
+      };
+      expectLikeReference(cropSheet(over(grunge), layout));
+    });
+
+    it('a light parchment with stains and coarse grain stays background', () => {
+      const parchment = (x: number, y: number): [number, number, number] => {
+        const stain = hash(x >> 6, y >> 6, 5) < 0.2 ? -28 : 0;
+        const v = 205 + stain + (hash(x >> 2, y >> 2, 6) - 0.5) * 22 + (hash(x, y, 7) - 0.5) * 10;
+        return [v + 6, v - 4, v - 22];
+      };
+      expectLikeReference(cropSheet(over(parchment), layout));
+    });
+
+    it('the new guide repainted as the background (MID-GREY cells, DARK GREY gutter, with noise) stays background', () => {
+      const guide = drawGuide(layout, { w: W, h: H });
+      const repainted = (x: number, y: number): [number, number, number] => {
+        const o = (y * W + x) * 4;
+        const n = (hash(x, y, 4) - 0.5) * 14;
+        return [guide.data[o]! + n, guide.data[o + 1]! + n, guide.data[o + 2]! + n];
+      };
+      expectLikeReference(cropSheet(over(repainted), layout));
+    });
+  },
+);
