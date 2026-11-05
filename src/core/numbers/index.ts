@@ -213,3 +213,4 @@ export function formulaErrors(analysis: NumbersAnalysis): FormulaError[] {
   });
 }
 export { entityConsequences, type Consequence } from './consequences';
+export { completions, type Completion, type Completions, type CompletionKind } from './complete';

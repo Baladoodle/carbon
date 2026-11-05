@@ -55,8 +55,7 @@ describe('JsonArrayStreamer under arbitrary JSON and arbitrary chunking', () => 
         (items, before, after, cuts, pretty) => {
           // Decoys first (a nested "candidates" key included), the array, then more.
           const doc: Record<string, unknown> = {};
-          for (const [k, v] of Object.entries(before))
-            if (k !== 'candidates') doc[k] = v;
+          for (const [k, v] of Object.entries(before)) if (k !== 'candidates') doc[k] = v;
           doc.decoy = { candidates: [{ not: 'this one' }] };
           doc.candidates = items;
           for (const [k, v] of Object.entries(after)) if (!(k in doc)) doc[k] = v;
