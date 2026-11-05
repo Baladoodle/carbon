@@ -365,7 +365,7 @@ function Bar({
             data-testid="spread-spot"
             onClick={() => setPicking(true)}
           >
-            {setup.spot ? spotLabel(world, setup.spot) : 'Choose a spot'}
+            {setup.spot ? spotLabel(world, setup.spot) : <span className="t-3">Spot</span>}
           </button>
         </Tooltip>
       )}

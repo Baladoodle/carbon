@@ -364,6 +364,7 @@ function ExportView(): ReactNode {
         <div className="export-bar">
           <Input
             aria-label="Spec name"
+            placeholder="Spec name"
             className="export-name-input"
             data-testid="export-name"
             value={nameTouched ? name : suggested}
@@ -403,6 +404,19 @@ function ExportView(): ReactNode {
             </Button>
           )}
         </div>
+        {!draft && (
+          <Empty className="export-none" data-testid="export-none">
+            {chosen.length === 0 ? (
+              <>
+                Nothing chosen. <Kbd>space</Kbd> on an entity to choose it.
+              </>
+            ) : (
+              <>
+                No draft yet. <Kbd>ctrl+enter</Kbd> to draft the spec.
+              </>
+            )}
+          </Empty>
+        )}
         {draft && (
           <Textarea
             ref={editor}
