@@ -20,7 +20,7 @@ import {
 } from '@core/images/model';
 import { outputTokens, REFERENCE_IMAGE_TOKENS } from '@core/images/pricing';
 import { createHash } from 'node:crypto';
-import { sheetLayout } from './pixel';
+import { sheetLayout } from '@core/pixel';
 import { encodePng, type Rgba } from './png';
 
 /**
@@ -248,12 +248,12 @@ export class OpenAiImageProvider implements ImageProvider {
 }
 
 /**
- * A deterministic icon sheet for a sheet prompt ("A sprite sheet of N … on a
+ * A deterministic icon sheet for a sheet prompt (pixel's: "… a sheet of N … of a
  * C×R grid"): one disc per cell on transparency, coloured by the cell's line,
  * so cropping and review run on something sheet-shaped.
  */
 export function fakeSheet(prompt: string, size: string): Rgba | null {
-  const m = /A sprite sheet of (\d+) .*? on a (\d+)×(\d+) grid/.exec(prompt);
+  const m = /sheet of (\d+) separate .*? of an? (\d+)×(\d+) grid/.exec(prompt);
   if (!m) return null;
   const n = Number(m[1]);
   const cols = Number(m[2]);
@@ -262,7 +262,7 @@ export function fakeSheet(prompt: string, size: string): Rgba | null {
   const W = Math.max(64, Math.round((w0 ?? 1024) / 8));
   const H = Math.max(64, Math.round((h0 ?? 1024) / 8));
   const layout = sheetLayout(n, { w: W, h: H }, { cols, rows });
-  const lines = prompt.split('\n').filter((l) => /^row \d+, col \d+: /.test(l));
+  const lines = prompt.split('\n').filter((l) => /^- row \d+, column \d+: /.test(l));
   const data = new Uint8ClampedArray(W * H * 4);
   for (const cell of layout.cells) {
     const hex = createHash('sha256')

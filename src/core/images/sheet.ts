@@ -1,45 +1,33 @@
 import { getEntity, type World } from '../model/world';
-import { artOf, ICON_CONVENTIONS, paletteWords } from './prompt';
+import type { Entity } from '../model/entity';
+import { sheetPrompt as pixelSheetPrompt, type IconArt, type SheetLayout } from '../pixel';
+import { artOf } from './prompt';
 
 /**
- * Icon sheets (docs/IMAGES.md §2a), the pure parts: each item's prompt line,
- * the sheet prompt built from the (possibly edited) lines, and splitting a
- * batch into sheets of at most 100.
+ * Icon sheets (docs/IMAGES.md §2a), the parts images-core adds to pixel's
+ * `sheetPrompt`: each cell's editable line, and splitting a batch into sheets
+ * of at most 100.
  *
- * Lines are written here, deterministically, from the entity: a sheet of 100
- * needs no Claude call per item. The dialog shows them and they can be edited.
+ * The prompt itself is pixel's (Genforge's tile-sheet prompt: the guide's
+ * colours named, the house style once, `- row R, column C: …` per cell). The
+ * batch dialog shows each cell's text after the position and lets you edit
+ * it; `sheetPromptWithLines` puts edited text back in place of pixel's.
  */
 
 export const SHEET_MAX = 100;
 
-/** "Spore Lantern, a lantern (tool) made from Lumen Spore: light that breathes." */
-export function sheetItemLine(world: World, entityId: string): string {
-  const e = getEntity(world, entityId);
-  if (!e) return entityId;
-  const subkind = typeof e.fields.subkind === 'string' ? e.fields.subkind : undefined;
-  const materials = [
-    ...new Set(
-      e.relations
-        .filter((r) => r.type === 'made_from')
-        .map((r) => getEntity(world, r.target)?.name)
-        .filter((n): n is string => typeof n === 'string'),
+/** `world.settings.art` in pixel's shape. */
+export function iconArt(world: World): IconArt {
+  const art = artOf(world);
+  return {
+    ...(art.direction ? { direction: art.direction } : {}),
+    notes: Object.fromEntries(
+      Object.entries(art.kinds).filter(([, v]) => typeof v === 'string' && v !== ''),
     ),
-  ];
-  const what = [
-    subkind ? `a ${subkind}` : `a ${e.kind}`,
-    materials.length > 0 ? `made from ${materials.join(' and ')}` : '',
-  ]
-    .filter(Boolean)
-    .join(' ');
-  const identity = e.identity
-    .replace(/\s+/g, ' ')
-    .trim()
-    .replace(/[.\s]+$/, '');
-  return `${e.name}, ${what}${identity ? `: ${identity.charAt(0).toLowerCase()}${identity.slice(1)}` : ''}`.slice(
-    0,
-    300,
-  );
+  };
 }
+
+const CELL = /^- row (\d+), column (\d+): (.*?)\.?$/;
 
 /** Splits items into sheets of at most `max`, as evenly as possible (230 → 77, 77, 76). */
 export function splitSheets<T>(items: readonly T[], max = SHEET_MAX): T[][] {
@@ -55,28 +43,50 @@ export function splitSheets<T>(items: readonly T[], max = SHEET_MAX): T[][] {
   return out;
 }
 
+function entitiesOf(world: World, ids: readonly string[]): Entity[] {
+  return ids.map((id) => {
+    const e = getEntity(world, id);
+    if (!e) throw new Error(`no entity "${id}"`);
+    return e;
+  });
+}
+
 /**
- * The sheet prompt: the house style once, then each cell by position. The
- * guide image (faint cell boxes) goes with it as the reference.
+ * Pixel's sheet prompt for these entities, with each cell's text replaced by
+ * `lines[i]` where one is given (an edit in the dialog).
  */
-export function sheetPrompt(
+export function sheetPromptWithLines(
   world: World,
-  lines: readonly string[],
-  grid: { cols: number; rows: number },
-  background = 'fully transparent',
+  ids: readonly string[],
+  layout: SheetLayout,
+  lines?: readonly (string | undefined)[],
 ): string {
-  const palette = paletteWords(artOf(world).direction);
-  const out = [
-    `A sprite sheet of ${lines.length} separate game item icons on a ${grid.cols}×${grid.rows} grid, following the reference image's cell boxes exactly: one item per cell, in reading order (left to right, top to bottom).`,
-    `Every item is centred in its cell with clear space around it, and no item crosses a cell edge. No text, no labels, no numbers, no grid lines in the result. Background: ${background}, the same everywhere.`,
-    `House style for every item: ${ICON_CONVENTIONS.slice(0, 3).join(' ')}`,
-    ...(palette ? [`Palette: ${palette}.`] : []),
-    '',
-    'The cells:',
-    ...lines.map(
-      (l, i) =>
-        `row ${Math.floor(i / grid.cols) + 1}, col ${(i % grid.cols) + 1}: ${l.replace(/\s+/g, ' ').trim()}`,
-    ),
-  ];
-  return out.join('\n');
+  const base = pixelSheetPrompt(entitiesOf(world, ids), layout, world, iconArt(world));
+  if (!lines) return base;
+  return base
+    .split('\n')
+    .map((l) => {
+      const m = CELL.exec(l);
+      if (!m) return l;
+      const row = Number(m[1]) - 1;
+      const col = Number(m[2]) - 1;
+      const i = layout.cells.findIndex((c) => c.row === row && c.col === col);
+      const edited = lines[i]?.replace(/\s+/g, ' ').trim().replace(/\.+$/, '');
+      return edited ? `- row ${row + 1}, column ${col + 1}: ${edited}.` : l;
+    })
+    .join('\n');
+}
+
+/** Each cell's text as pixel writes it (after "row R, column C: "), in cell order: what the dialog shows. */
+export function sheetLines(world: World, ids: readonly string[], layout: SheetLayout): string[] {
+  const out: string[] = ids.map(() => '');
+  for (const l of sheetPromptWithLines(world, ids, layout).split('\n')) {
+    const m = CELL.exec(l);
+    if (!m) continue;
+    const i = layout.cells.findIndex(
+      (c) => c.row === Number(m[1]) - 1 && c.col === Number(m[2]) - 1,
+    );
+    if (i >= 0) out[i] = m[3] ?? '';
+  }
+  return out;
 }

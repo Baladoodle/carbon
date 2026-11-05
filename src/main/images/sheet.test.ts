@@ -5,14 +5,14 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { FakeAiGateway } from '@core/ai/fake';
 import { cmd } from '@core/commands/registry';
 import { imagePaths, SHEET_SIZE } from '@core/images/model';
-import { sheetItemLine, sheetPrompt, splitSheets } from '@core/images/sheet';
+import { sheetLines, sheetPromptWithLines, splitSheets } from '@core/images/sheet';
 import { sampleWorld } from '@core/testing/sample';
 import type { World } from '@core/model/world';
 import { resetDiskState } from '../store/disk-state';
 import { loadWorldDir, writeWorldDir } from '../store/world-dir';
 import { WorldSession } from '../world-session';
 import { MainImageGateway } from './gateway';
-import { cropSheet, drawGuide, sheetLayout } from './pixel';
+import { cropSheet, drawGuide, sheetLayout } from '@core/pixel';
 import { decodePng } from './png';
 import { FakeImageProvider, type ImageProvider, type ProviderRequest } from './provider';
 
@@ -67,8 +67,17 @@ const gateway = (provider: ImageProvider = new FakeImageProvider()) =>
     mode: 'fake',
   });
 
-const items = (ids: string[]) =>
-  ids.map((entityId) => ({ entityId, line: sheetItemLine(session.world, entityId) }));
+/** Each id with a line: pixel's own text for a sheet of ≤ 100, else the entity's name. */
+const items = (ids: string[]) => {
+  const lines =
+    ids.length <= 100
+      ? sheetLines(session.world, ids, sheetLayout(ids.length, { w: 2880, h: 2880 }))
+      : [];
+  return ids.map((entityId, i) => ({
+    entityId,
+    line: lines[i] || (session.world.entities[entityId]?.name ?? entityId),
+  }));
+};
 const trinkets = (n: number) => Array.from({ length: n }, (_, i) => `trinket-${i}`);
 
 describe('icon sheets (pure)', () => {
@@ -80,15 +89,25 @@ describe('icon sheets (pure)', () => {
     expect(splitSheets([])).toEqual([]);
   });
 
-  it('lines come from the entity; the sheet prompt places each by position', () => {
+  it("lines are pixel's cell text; an edited line replaces it in pixel's prompt, the rest unchanged", () => {
     const w = sampleWorld();
-    expect(sheetItemLine(w, 'spore-lantern')).toMatch(/^Spore Lantern, a tool/);
-    const p = sheetPrompt(w, ['A thing', 'Another'], { cols: 2, rows: 1 });
-    expect(p).toMatch(/^A sprite sheet of 2 separate game item icons on a 2×1 grid/);
-    expect(p).toContain('row 1, col 2: Another');
+    const ids = ['spore-lantern', 'cinder-sting', 'cloud-anklet'];
+    const layout = sheetLayout(3, { w: 2880, h: 2880 });
+    const lines = sheetLines(w, ids, layout);
+    expect(lines[0]).toMatch(/^a single Spore Lantern/);
+    const base = sheetPromptWithLines(w, ids, layout);
+    expect(base).toContain(`- row 1, column 2: ${lines[1]}`);
+    const edited = sheetPromptWithLines(w, ids, layout, [
+      undefined,
+      'a hot little dagger',
+      undefined,
+    ]);
+    expect(edited).toContain('- row 1, column 2: a hot little dagger.');
+    // Unedited lines come back verbatim.
+    expect(sheetPromptWithLines(w, ids, layout, lines)).toBe(base);
   });
 
-  it('the adapter crops what the fake draws, and flags an empty cell', () => {
+  it('cropSheet finds nothing in a blank sheet: every cell is empty', () => {
     const layout = sheetLayout(4, { w: 200, h: 200 });
     expect([layout.cols, layout.rows]).toEqual([2, 2]);
     const guide = drawGuide(layout);
@@ -239,6 +258,8 @@ describe('icon sheets through the gateway', () => {
 describe.each([
   ['items-sheet-100-flare.png', 'gpt-image-2.6-flare'],
   ['items-sheet-100-flare25.png', 'gpt-image-2.5-flare'],
+  // The whole chain on the default model: pixel's grey guide and sheetPrompt.
+  ['items-sheet-100-flare25-pixel.png', 'gpt-image-2.5-flare'],
 ])('the recorded real sheet %s (%s; 100 items, 2880² stored at 1440²)', (file) => {
   const fixture = path.resolve(import.meta.dirname, '../../../fixtures/images', file);
 
@@ -265,15 +286,15 @@ describe.each([
       const cy = (b.y + b.h / 2) * k;
       expect(Math.abs(cx - (cell.x + cell.w / 2))).toBeLessThan(cell.w / 2);
       expect(Math.abs(cy - (cell.y + cell.h / 2))).toBeLessThan(cell.h / 2);
-      // Never clipped: no opaque pixel on the bbox's edge continues just outside it.
+      // Never clipped: no foreground pixel (pixel's rule: alpha ≥ 128) on the bbox's edge continues just outside it.
       let clipped = 0;
       for (let x = b.x; x < b.x + b.w; x++) {
-        if (alpha(x, b.y) >= 16 && alpha(x, b.y - 1) >= 16) clipped++;
-        if (alpha(x, b.y + b.h - 1) >= 16 && alpha(x, b.y + b.h) >= 16) clipped++;
+        if (alpha(x, b.y) >= 128 && alpha(x, b.y - 1) >= 128) clipped++;
+        if (alpha(x, b.y + b.h - 1) >= 128 && alpha(x, b.y + b.h) >= 128) clipped++;
       }
       for (let y = b.y; y < b.y + b.h; y++) {
-        if (alpha(b.x, y) >= 16 && alpha(b.x - 1, y) >= 16) clipped++;
-        if (alpha(b.x + b.w - 1, y) >= 16 && alpha(b.x + b.w, y) >= 16) clipped++;
+        if (alpha(b.x, y) >= 128 && alpha(b.x - 1, y) >= 128) clipped++;
+        if (alpha(b.x + b.w - 1, y) >= 128 && alpha(b.x + b.w, y) >= 128) clipped++;
       }
       expect(clipped, `cell ${c.index} is clipped`).toBe(0);
     }

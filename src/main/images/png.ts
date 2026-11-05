@@ -1,35 +1,20 @@
 import { createHash } from 'node:crypto';
-import { PNG } from 'pngjs';
+import { decodePng as decode, encodePng as encode, type RgbaImage } from '@core/pixel';
 
 /**
- * Pixels in main: RGBA buffers (the pixel filters' type) ⇄ PNG bytes, with
- * pngjs (pure JS, no native modules).
+ * Pixels in main: RGBA buffers ⇄ PNG bytes, through pixel's codec
+ * (`@core/pixel`, fast-png: pure JS, every colour type and bit depth).
  */
-export interface Rgba {
-  width: number;
-  height: number;
-  data: Uint8ClampedArray;
-}
+export type Rgba = RgbaImage;
 
 export const sha256 = (bytes: Uint8Array): string =>
   createHash('sha256').update(bytes).digest('hex');
 
 /** Decodes a PNG of any colour type and bit depth to 8-bit RGBA. Throws on bytes that aren't a PNG. */
-export function decodePng(bytes: Uint8Array): Rgba {
-  const png = PNG.sync.read(Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength));
-  return {
-    width: png.width,
-    height: png.height,
-    data: new Uint8ClampedArray(png.data.buffer, png.data.byteOffset, png.data.byteLength),
-  };
-}
+export const decodePng = (bytes: Uint8Array): Rgba => decode(bytes);
 
 /** Encodes RGBA as an 8-bit RGBA PNG. Deterministic: the same pixels give the same bytes. */
-export function encodePng(img: Rgba): Uint8Array {
-  const png = new PNG({ width: img.width, height: img.height, colorType: 6 });
-  png.data = Buffer.from(img.data.buffer, img.data.byteOffset, img.data.byteLength);
-  return new Uint8Array(PNG.sync.write(png, { colorType: 6 }));
-}
+export const encodePng = (img: Rgba): Uint8Array => encode(img);
 
 /** True when the bytes start with the PNG signature. */
 export const isPng = (b: Uint8Array): boolean =>

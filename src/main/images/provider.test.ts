@@ -3,7 +3,7 @@ import path from 'node:path';
 import OpenAI from 'openai';
 import { describe, expect, it } from 'vitest';
 import { costNanos, DEFAULT_IMAGE_PRICING } from '@core/images/pricing';
-import { filterImage } from './pixel';
+import { filterImage } from '@core/pixel';
 import { decodePng } from './png';
 import type { ProviderError } from './provider';
 import { classifyOpenAiError, OpenAiImageProvider, usageFrom } from './provider';

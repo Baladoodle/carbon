@@ -41,7 +41,7 @@ import {
   type ImageResult,
   type ImageStatus,
 } from '@core/images/gateway';
-import { sheetItemLine, sheetPrompt, splitSheets } from '@core/images/sheet';
+import { sheetLines, sheetPromptWithLines, splitSheets } from '@core/images/sheet';
 import {
   ICON_PX,
   SHEET_SIZE,
@@ -67,14 +67,7 @@ import type { DispatchResult } from '@shared/ipc';
 import type { z } from 'zod';
 import { writeFileAtomic } from '../store/atomic';
 import { ImageLogStore } from './log';
-import {
-  cropSheet,
-  drawGuide,
-  filterImage,
-  FILTER_SOURCE,
-  sheetLayout,
-  type SheetCell,
-} from './pixel';
+import { cropSheet, drawGuide, filterImage, sheetLayout, type SheetCell } from '@core/pixel';
 import { dataUrl, decodePng, downscale, encodePng, isPng, sha256, type Rgba } from './png';
 import { ProviderError, type ImageProvider, type ProviderResponse } from './provider';
 import { ulid } from './ulid';
@@ -714,9 +707,8 @@ export class MainImageGateway implements ImageGateway {
     } catch {
       return fail('invalid_output', "the concept image couldn't be read");
     }
-    const output = encodePng(
-      filterImage(decoded, { target: { w: ICON_PX, h: ICON_PX }, preset: 'item' }).image,
-    );
+    const filtered = filterImage(decoded, { target: { w: ICON_PX, h: ICON_PX }, preset: 'item' });
+    const output = encodePng(filtered.image);
     const meta: ImageMeta = {
       id: ulid(this.now().getTime()),
       entity: r.entityId,
@@ -725,7 +717,12 @@ export class MainImageGateway implements ImageGateway {
         by: 'filter',
         from: from.id,
         preset: 'item',
-        settings: { target: ICON_PX, filter: FILTER_SOURCE },
+        // What ran (pixel's report): the settings and the Genforge revision.
+        settings: {
+          target: ICON_PX,
+          settings: filtered.report.settings,
+          upstream: filtered.report.upstream,
+        },
       },
       created: this.now().toISOString(),
       width: ICON_PX,
@@ -771,12 +768,18 @@ export class MainImageGateway implements ImageGateway {
       signal?.removeEventListener('abort', relay);
       if (r.requestId && this.controllers.get(r.requestId) === ac)
         this.controllers.delete(r.requestId);
-      for (const i of todo) i.line = sheetItemLine(world, i.entityId);
       const sheetCall = resolveCall(s, 'icon', { ...r, size: SHEET_SIZE });
       const sheets = this.planSheets(
         todo.map((i) => i.entityId),
         sheetCall,
       );
+      const lineOf = new Map(
+        sheets.flatMap((x) => x.items.map((i) => [i.entityId, i.line] as const)),
+      );
+      for (const i of todo) {
+        const line = lineOf.get(i.entityId);
+        if (line !== undefined) i.line = line;
+      }
       const total = sheets.reduce((n, x) => n + Math.round(x.estimateUsd * 1e9), 0);
       const remaining = Math.round(s.budget.sessionUsd * 1e9) - this.sessionNanos;
       return {
@@ -931,15 +934,17 @@ export class MainImageGateway implements ImageGateway {
     const [w, h] = SHEET_SIZE.split('x').map(Number) as [number, number];
     return splitSheets(entityIds).map((ids, index) => {
       const layout = sheetLayout(ids.length, { w, h });
-      const items = ids.map((entityId) => ({
+      const defaults = sheetLines(world, ids, layout);
+      const items = ids.map((entityId, i) => ({
         entityId,
         name: world.entities[entityId]?.name ?? entityId,
-        line: lines?.get(entityId) ?? sheetItemLine(world, entityId),
+        line: lines?.get(entityId) ?? defaults[i] ?? entityId,
       }));
-      const prompt = sheetPrompt(
+      const prompt = sheetPromptWithLines(
         world,
-        items.map((i) => i.line),
+        ids,
         layout,
+        items.map((i) => i.line),
       );
       return {
         index,
@@ -1043,10 +1048,11 @@ export class MainImageGateway implements ImageGateway {
       });
     const [w, h] = plan.size.split('x').map(Number) as [number, number];
     const layout = sheetLayout(plan.items.length, { w, h }, { cols: plan.cols, rows: plan.rows });
-    const prompt = sheetPrompt(
+    const prompt = sheetPromptWithLines(
       world,
-      plan.items.map((i) => i.line),
+      entityIds,
       layout,
+      plan.items.map((i) => i.line),
     );
     const owner = entityIds[0] as string;
     const receipt: ImageReceipt = {
