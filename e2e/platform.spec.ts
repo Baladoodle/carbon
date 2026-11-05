@@ -101,8 +101,17 @@ test('export: choose by kind, draft with the AI, edit, write and mark exported',
     (e) => e.kind === 'band' && (e.state === 'decided' || e.state === 'exported'),
   );
   for (const b of bands) expect(b.state).toBe('exported');
-  // One undo step reverts the marking.
+  // One undo step reverts the marking and takes the spec file away; redo puts both back.
   expect(snap.history.undoLabel).toMatch(/^Export /);
+  const exportsDir = path.join(carbon.worldDir, 'exports');
+  const specs = (): string[] => readdirSync(exportsDir).filter((f) => f.endsWith('.md'));
+  await page().locator('body').press('Control+z');
+  await expect.poll(specs).toEqual([]);
+  await page().locator('body').press('Control+Shift+z');
+  await expect.poll(specs).toEqual(files);
+  expect(readFileSync(path.join(exportsDir, files[0] ?? ''), 'utf8')).toBe(text);
+  const redone = await carbon.invoke('world:snapshot', null);
+  for (const b of bands) expect(redone.world.entities[b.id]?.state).toBe('exported');
 });
 
 test('external edits flow in; a clash with an unsaved edit asks which to keep', async () => {
