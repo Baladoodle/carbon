@@ -7,6 +7,7 @@ import { ENTITY_KINDS, type EntityKind, type Lane } from '../model/kinds';
 import { getEntity, schemaOf, type World } from '../model/world';
 import { err, ok, type Result } from '../util/result';
 import { patternsFocus, PATTERNS_SYSTEM, PATTERNS_TASK } from '../taste/prompt';
+import { selfCheckCandidate } from '../prompts/quality';
 import { MOVE_DEFS } from './moves';
 import { SPREAD_SYSTEM, spreadFocus, spreadTask } from './prompt';
 import { checkSpot, spotEntities, spotKind } from './spot';
@@ -218,6 +219,13 @@ export function parseSpreadCandidate(
   if (
     def.output !== 'finding' &&
     Object.values(world.entities).some((e) => e.id !== about && normName(e.name) === normName(name))
+  )
+    return null;
+  // The quality bar's deterministic half: a candidate the critic would flag at
+  // once (a pure-number identity, another entity's identity) is dropped.
+  if (
+    def.output !== 'finding' &&
+    selfCheckCandidate(world, { name, identity: text(x.identity, 300) }, about)
   )
     return null;
   const rawRelations = (Array.isArray(x.relations) ? x.relations : []).flatMap((r) => {

@@ -2,6 +2,7 @@ import { CRITIQUE_KINDS, type CritiqueNote } from '../ai/moments';
 import { getEntity, schemaOf } from '../model/world';
 import { err, ok } from '../util/result';
 import { assemble } from './common';
+import { critiqueRubric } from './quality';
 import { arr, enumOf, nullable, obj, str } from './schema';
 import type { PromptBuilder } from './types';
 
@@ -10,15 +11,12 @@ import type { PromptBuilder } from './types';
 export const CRITIQUE_INSTRUCTIONS = `# Moment: critique
 
 Review the entity in focus and return notes ONLY for real problems of these kinds:
-- just_a_number: its effect is only a stat change (+N, ×N, a percentage, a faster/stronger version) with no new behaviour, choice, verb or feeling. Numbers attached to a distinct identity are fine.
-- rule_clash: it breaks one of the designer's rules. Set ruleId to that rule's id in brackets, e.g. "r1".
-- duplicate: it is the same thing as another existing entity: the same or nearly the same name, or the same role and identity under a different name. Put the other entity's id in entities.
-- contradicts_relation: one of its relations, or one pointing at it, is wrong or impossible: a target id that doesn't exist in the world, a target of the wrong kind, or a relation that contradicts the entity's own fields or place (a lava creature living in a frozen biome). Put the relation's target id in entities only if that entity exists.
-- weak_identity: its one-line identity is missing, generic, or doesn't say what makes it distinct.
+${critiqueRubric()}
 
 Precision matters more than coverage: the designer reads every note. If the entity is sound, return an empty list. Never raise a note on taste alone, never pad, never repeat one problem as two notes. At most one note per kind.
 text: one precise sentence naming the problem, addressed to the designer. No hedging.
-field: the field the note is about, or null.
+field: the field the note is about, or null. Set it whenever the problem lives in one field (identity for weak_identity).
+Fields the ask lists as written by the AI are held to the same bar as the designer's; a note on one lets the designer have it rewritten, so name that field.
 entities: other existing entity ids the note is about (never the entity itself), or [].`;
 
 const TRIGGER: Record<string, string> = {
@@ -40,6 +38,9 @@ export const critiqueBuilder: PromptBuilder<'critique'> = {
       `Entity: ${e.id} (${schemaOf(world).kinds[e.kind].label}). ${TRIGGER[req.trigger] ?? ''}`,
       ...(dangling.length > 0
         ? [`Relation targets that are not in the world: ${dangling.join('; ')}`]
+        : []),
+      ...(e.ai_fields.length > 0
+        ? [`Fields written by the AI and not edited since: ${[...e.ai_fields].sort().join(', ')}`]
         : []),
       '',
       'Critique it.',

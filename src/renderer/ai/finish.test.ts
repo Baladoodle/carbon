@@ -3,7 +3,7 @@ import { applyCommands } from '@core/commands/apply';
 import { cmd, type Command } from '@core/commands/registry';
 import type { World } from '@core/model/world';
 import { sampleWorld } from '@core/testing/sample';
-import { createFinishTriggers } from './finish';
+import { createFinishTriggers, fieldSnapshot, userChangedFields } from './finish';
 
 function setup(opts: { allowed?: boolean } = {}) {
   let world: World = sampleWorld();
@@ -95,5 +95,78 @@ describe('the automatic critique triggers', () => {
     if (!dead) throw new Error('sample has a graveyard entity');
     await s.t.statesChanged([dead.id]);
     expect(s.calls).toEqual([]);
+  });
+
+  describe('provenance: only your edits finish an edit', () => {
+    const ai = (id: string, field: string, value: unknown): Command =>
+      cmd('entity.setField', { id, field, value, source: 'ai' });
+
+    it('accepting AI values alone, then leaving, sends no critique', async () => {
+      const s = setup();
+      await s.t.focusChanged('glide');
+      s.apply(ai('glide', 'identity', 'Ride the updraft, steer the fall.'));
+      s.apply(ai('glide', 'description', 'Open the coat and the wind decides.'));
+      s.apply(cmd('entity.setAttribute', { id: 'glide', key: 'lift', value: 3, source: 'ai' }));
+      await s.t.focusChanged('sunken-stair');
+      expect(s.calls).toEqual([]);
+      // ctrl+s too.
+      await s.t.focusChanged('glide');
+      s.apply(ai('glide', 'identity', 'Another AI line.'));
+      await s.t.finish('glide');
+      expect(s.calls).toEqual([]);
+    });
+
+    it('a field you edit after the AI wrote it counts', async () => {
+      const s = setup();
+      await s.t.focusChanged('glide');
+      s.apply(ai('glide', 'identity', 'Ride the updraft.'));
+      s.apply(cmd('entity.setField', { id: 'glide', field: 'identity', value: 'Mine now.' }));
+      await s.t.focusChanged(null);
+      expect(s.calls).toEqual([['glide', 'finish_edit']]);
+    });
+
+    it('your edit beside AI-accepted ones counts', async () => {
+      const s = setup();
+      await s.t.focusChanged('glide');
+      s.apply(ai('glide', 'identity', 'Ride the updraft.'));
+      s.apply(cmd('entity.update', { id: 'glide', set: { description: 'Typed by you.' } }));
+      await s.t.focusChanged(null);
+      expect(s.calls).toEqual([['glide', 'finish_edit']]);
+    });
+
+    it('an attribute the AI set does not count; one you set does', async () => {
+      const s = setup();
+      await s.t.focusChanged('glide');
+      s.apply(cmd('entity.setAttribute', { id: 'glide', key: 'lift', value: 2, source: 'ai' }));
+      await s.t.finish('glide');
+      expect(s.calls).toEqual([]);
+      s.apply(cmd('entity.setAttribute', { id: 'glide', key: 'lift', value: 4 }));
+      await s.t.finish('glide');
+      expect(s.calls).toEqual([['glide', 'finish_edit']]);
+    });
+
+    it('a state change still critiques after AI-only changes', async () => {
+      const s = setup();
+      await s.t.focusChanged('glide');
+      s.apply(ai('glide', 'identity', 'Ride the updraft.'));
+      await s.t.statesChanged(['glide']);
+      expect(s.calls).toEqual([['glide', 'state_change']]);
+    });
+
+    it('userChangedFields: differs from the baseline and is not AI-marked', () => {
+      const s = setup();
+      const before = s.world().entities.glide!;
+      const base = fieldSnapshot(before);
+      expect(userChangedFields(base, before)).toEqual([]);
+      s.apply(ai('glide', 'identity', 'AI line.'));
+      expect(userChangedFields(base, s.world().entities.glide!)).toEqual([]);
+      s.apply(cmd('entity.update', { id: 'glide', set: { identity: 'Your line.', tags: ['x'] } }));
+      expect(userChangedFields(base, s.world().entities.glide!)).toEqual(['identity', 'tags']);
+      // A field cleared by you counts (it leaves the snapshot).
+      const g = s.world().entities.glide!;
+      const key = Object.keys(g.fields)[0]!;
+      s.apply(cmd('entity.setField', { id: 'glide', field: key, value: null }));
+      expect(userChangedFields(base, s.world().entities.glide!)).toContain(key);
+    });
   });
 });

@@ -5,7 +5,7 @@ import { getEntity, schemaOf } from '@core/model/world';
 import { defOf } from '@core/bench/value';
 import { hashValue } from '@core/util/hash';
 import { ai } from '../ai/client';
-import { notesStore, publishNotes } from '../state/notes';
+import { dismissNote, notesStore, publishNotes } from '../state/notes';
 import { flash } from '../state/ui';
 import { currentWorld, transact, whenRev, worldStore } from '../state/world';
 import { staleCritiqueSources } from '@core/bench/critique';
@@ -22,6 +22,7 @@ export const benchAi = createBenchAi({
   dispatch: (label, commands) => transact(label, commands),
   publishNotes,
   say: (text, tone) => flash(text, tone),
+  dismissNote,
 });
 
 /**

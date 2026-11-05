@@ -36,6 +36,11 @@ export const SuggestRequestSchema = z.object({
   field: z.string(),
   /** Values already shown, so `tab` again gives another. */
   avoid: z.array(z.unknown()).default([]),
+  /**
+   * A critique note to fix (the Bench's Rewrite on a note about an AI-written
+   * field). Optional: a plain tab sends none.
+   */
+  guidance: z.string().max(500).optional(),
 });
 export const SuggestionSchema = z.object({
   value: FieldValueSchema,
