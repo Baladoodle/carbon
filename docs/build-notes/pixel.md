@@ -1,269 +1,377 @@
 # Build notes: pixel
 
+Genforge's pixel filters are ported to pure TypeScript in `src/core/pixel/`.
+They match the real Genforge **exactly**, for every preset:
+
+- **135 committed references:** 0 differing pixels.
+- **1,520 random fuzz cases:** 0 differing pixels.
+
+The port follows Infinite's `tools/genforge` at `52e6547`. A copy is committed
+under `upstream/genforge/`, with its provenance in `src/core/pixel/UPSTREAM.json`.
+
 ## API (stable; images-core depends on it)
 
 ```ts
 import { filterImage, decodePng, encodePng, iconPrompt } from '@core/pixel';
 
-const src = decodePng(bytes);                       // Uint8Array (main reads the file) → RgbaImage
+const src = decodePng(bytes);                        // Uint8Array (main reads the file) → RgbaImage
 const { image, report } = filterImage(src, {
   target: { w: 16, h: 16 },
-  preset: 'item',                                   // 'item' | 'sprite' | 'texture' | 'none'
-  settings: { paletteSize: 12 },                    // optional per-call overrides
+  preset: 'item',                                    // 'item' | 'sprite' | 'texture' | 'none'
+  // settings: { ... }                               // optional: REPLACES the preset (Genforge's --settings)
 });
-const out = encodePng(image);                       // → Uint8Array (main writes it atomically)
+const out = encodePng(image);                        // → Uint8Array (main writes it atomically)
 ```
 
-- `RgbaImage = { width, height, data: Uint8ClampedArray }`, straight RGBA8, row-major.
-- `filterImage` is pure and deterministic. It throws `PixelError` on bad input
-  (size mismatch, non-integer or out-of-range target, unknown preset, bad settings).
-- `report`: `{ preset, settings (resolved), source, target, colors, opaquePixels, provisional, upstream }`.
-  **`report.provisional === true` means the output is not yet the verified
-  Genforge port**; store `report.settings` in `ImageMeta.origin.settings`.
-- `iconPrompt(entity, world, art?) → string`: `Entity`/`World` from `@core/model`
-  are assignable; `art` is `world.settings.art` (`{ direction?, notes? }`).
+### `filterImage`
 
-## Status: the Genforge port is blocked (read this first)
+- **Images:** `RgbaImage = { width, height, data: Uint8ClampedArray }`,
+  straight RGBA8, row-major.
+- **What it is:** Genforge's `filters.render(crop, size, PRESETS[preset])`.
+  It's pure and deterministic, and it never mutates its input.
+- **Errors:** it throws `PixelError` for:
+  - a size mismatch
+  - a target that isn't an integer in 1..4096
+  - an unknown preset
+  - `item` with a non-square target (as `genforge/cli.py` refuses)
+  - settings that aren't ported (listed under Gaps)
+- **`report`:** `{ preset, settings, source, target, colors, opaquePixels, upstream }`.
+  - `settings` is what ran (`null` for `none`). Store it in
+    `ImageMeta.origin.settings`.
+  - `upstream` is the Genforge revision.
+  - `report.provisional` is **gone**: the port is no longer provisional.
+- **Settings:** `PixelSettings` is Genforge's settings shape (`downscale`,
+  `colors`, `outline`, `cleanup`, `alpha`, and for items `hairlines`,
+  `halo_floor`, `crop_threshold`, `blur`, `alpha_threshold`, `outline_darken`).
+  The old provisional fields (`paletteSize`, `rim`, …) no longer exist.
+- **Presets:** `PRESET_SETTINGS` holds Genforge's `plans.py` PRESETS,
+  verbatim:
 
-**No Genforge code has been ported, and there are no parity results.** The
-Infinite repository (`Baladoodle/infinite`, which holds `tools/genforge`) is
-private. Attaching it to this session with `add_repo` was refused by the
-session's permission policy, and an unauthenticated `git clone` asks for
-credentials. Nothing in `src/core/pixel/` was derived from Genforge's source,
-its `prompts/items/*.txt` or `docs/filters.md`.
-
-What exists instead, so the images-core work isn't blocked:
-
-| Piece | State |
+| Preset | Settings |
 |---|---|
-| `filterImage` API, types, errors, report | **Final shape.** Callers can integrate now |
-| Filter maths (`filter.ts`, `quantize.ts`), preset values (`presets.ts`) | **Provisional, carbon's own.** `report.provisional === true`, `report.upstream === null` |
-| Inner-rim path, topology-preserving pooling, Genforge's material rim | **Not implemented** (their definitions live only in Genforge's source) |
-| PNG decode/encode (`png.ts`, over `fast-png`) | Done, tested |
-| Fixture sources (`fixtures/pixel/sources/`, 8 images) | Done, regenerated deterministically by `scripts/pixel-sources.mjs` |
-| Genforge references (`fixtures/pixel/reference/`) | **None.** They can only come from running the real Genforge |
-| `scripts/pixel-references.mjs` | Written; its default Genforge command line is **unverified** (see below) |
-| Parity test (`parity.test.ts`) | Harness done. With no references it is **skipped**, which is not evidence of parity |
-| Property tests, perf test | Done, pass |
-| `iconPrompt` (`prompts.ts`) | Done to the conventions IMAGES.md lists; **the house-style wording is carbon's**, not taken from the real prompt files |
-| `UPSTREAM.json` | Records the files to hash, with `status: "not-ported"` and null hashes and revision |
+| `item` | `{ downscale: 'item', colors: { count: 16 }, hairlines: true }` |
+| `sprite` | `{ downscale: 'edge_preserving', colors: { count: 16, pick: 'variance' }, outline: 'rim' }` |
+| `texture` | `{ downscale: 'area', colors: { count: 16, pick: 'variance' }, outline: 'none' }` |
+| `none` | `null`: Genforge's plain resample (a copy, BOX when shrinking, else NEAREST) |
 
-**To unblock it:** allow `add_repo` for `Baladoodle/infinite` (or a permission
-rule for `mcp__claude-code-remote__add_repo`), then:
+### The rest of the API
 
-1. Sparse-clone `tools/genforge`, `python3 -m venv .venv && .venv/bin/pip install ./tools/genforge`.
-2. Port `filters/{__init__,items,topology}.py` stage by stage into
-   `filter.ts`/`quantize.ts` (plus a `topology.ts`), and take the preset values
-   from Genforge. Rewrite `prompts.ts` against `prompts/items/*.txt`.
-3. Check `genforge filter --help`, then run
-   `node scripts/pixel-references.mjs --genforge <path> [--cmd '<template>']`
-   and commit `fixtures/pixel/reference/`.
-4. `parity.test.ts` then runs every reference. All tolerances start at
-   **exact**. Loosen one only after measuring, with the reason written here.
-   `item` at 16×16 and 32×32 can't be loosened: a test enforces it.
-5. Fill `UPSTREAM.json` (revision, sha256 per file), and set
-   `report.provisional = false` and `report.upstream = <revision>`.
+- **PNG:** `decodePng` and `encodePng` over `fast-png@8.0.0`. It's pure JS, so
+  it's allowed in core. Every colour type and bit depth decodes to RGBA8.
+- **Prompts:** `iconPrompt(entity, world, art?) → string` and
+  `sheetPrompt(entities, layout, world, art?, { background? })`. `Entity` and
+  `World` from `@core/model` can be passed straight in, and `art` is
+  `world.settings.art`.
+- **Sheets:** `sheetLayout`, `drawGuide` and `cropSheet` are covered under
+  Icon sheets below.
 
-The API won't change when the port lands. Only pixels and preset values will,
-so images that are stored keep `report.settings` and can be re-filtered for free.
-
-## Icon sheets (IMAGES.md §2a, `sheet.ts`)
-
-This was added after the contract gained §2a, which arrived in the merge. It
-doesn't depend on Genforge.
-
-```ts
-import { sheetLayout, drawGuide, sheetPrompt, cropSheet } from '@core/pixel';
-
-const layout = sheetLayout(items.length, { w: 1024, h: 1024 });   // ≤100; near-square, max 10×10; gutter 2% of the short side
-const guide = drawGuide(layout, { w: 1024, h: 1024 });                                // white, 1-px #DCDCDC boxes just outside each cell → send as reference
-const prompt = sheetPrompt(items, layout, world, art, { background: 'fully transparent' });
-const cells = cropSheet(decodePng(bytes), layout, { background: 'auto' }); // or 'alpha' | [r,g,b]               // scales the grid if the model returned another size
-// cells[i]: { index, region, bbox, crop: RgbaImage | null, flags, segmentation: 'alpha' | 'colour' }
-// then: filterImage(cell.crop, { target: { w: 16, h: 16 }, preset: 'item' })
-```
-
-How the cropper works:
-
-- **The cut:** each cell plus a margin into the gutter (half the gutter by
-  default).
-- **Segmentation:** by alpha (`a ≥ 128`) when the sheet has any
-  transparency. Otherwise by colour: anything more than `tolerance` (32) in any
-  channel from the median of the region's border.
-- **The crop:** the foreground's bounding box, padded to a centred square,
-  with the background made transparent.
-- **Flags:**
-  - `empty`: foreground under 0.5% of the region
-  - `background_only`: empty, and the luminance range is ≤ 4, so it's just the flat
-    background
-  - `touches_edge`: the foreground reaches the region's border, so it may
-    bleed into a neighbour. The test shows that a sprite crossing into the next
-    cell flags that next cell too, which is what you want
-  - `fragmented`: more than one large 8-connected component, meaning at least
-    15% of the largest and 1% of the foreground
-- **Noise:** a test jitters every channel by ±12; the default tolerance (32)
-  still finds the exact boxes, and a speck-or-noise cell is `empty`, not
-  `background_only`.
-- **Speed:** cropping all 100 cells of a 1024² sheet takes about 96 ms, and
-  filtering them all to 16² another 37 ms. At 2048², cropping takes about
-  344 ms.
-
-The prompt states the house style once (with Palette and per-kind Art notes),
-then one line per cell: `row 1, col 1: Pickaxe, a chunky tool of Iron,
-diagonal from lower left to upper right, handle at the bottom left.`
-
-## Layout
+## What was ported, and how
 
 ```
 src/core/pixel/
-  index.ts        public exports (@core/pixel)
-  types.ts        RgbaImage, PixelPreset, PixelSettings, FilterOptions, FilterReport
-  filter.ts       filterImage, sRGB helpers (provisional maths)
-  presets.ts      PRESET_SETTINGS, resolveSettings (provisional values)
-  quantize.ts     deterministic median cut
-  png.ts          decodePng / encodePng over fast-png
-  prompts.ts      iconPrompt, sheetPrompt, paletteWords
-  sheet.ts        sheetLayout, drawGuide, cropSheet (IMAGES.md §2a)
-  errors.ts       PixelError
-  UPSTREAM.json   provenance (not-ported)
-  *.test.ts       filter, png, prompts, sheet, parity, perf
-fixtures/pixel/sources/        8 deterministic sources
-scripts/pixel-sources.mjs      regenerates the sources
-scripts/pixel-references.mjs   regenerates the references from a Genforge checkout
+  filter.ts     genforge/filters/__init__.py: render → _prepare/_finish, _downscale, _palette, _map, _outline, _cleanup, _snap
+  items.ts      genforge/filters/items.py: render_item, convert_item, hairlines, every stage they call
+  topology.ts   genforge/filters/topology.py: labels, negative space, _pool_source, _grammar_mask, _contour,
+                _apply_material_rim, allocate_adaptive_palette
+  presets.ts    genforge/plans.py PRESETS (verbatim) + the upstream revision
+  pil.ts        bit-exact Pillow 12.3: Resample.c (BOX, LANCZOS; fixed-point, two-pass), BoxBlur.c (GaussianBlur),
+                Geometry.c (NEAREST), Convert.c (RGBA↔RGBa), Image.resize's Python layer
+  cv.ts         OpenCV 4: MORPH_ELLIPSE kernels, erode/dilate (default border), 8-way components with stats
+  py.ts         Python/NumPy semantics: round-half-even, float %, colorsys, NumPy pairwise summation
+  png.ts, sheet.ts, prompts.ts, errors.ts, types.ts, index.ts, UPSTREAM.json
 ```
 
-`package.json`: added `fast-png@8.0.0`, exact pin, to `dependencies`. It is
-pure JS (fflate and iobuffer), with no Node or DOM APIs, so it's allowed in
-`src/core`. Main reads and writes the files and passes the bytes through.
+### The stages, as Genforge runs them
 
-## The provisional pipeline
+- **`item`:** this is Genforge's 16×16 converter, and it has the most stages:
+  - `halo_attenuate` (floor 0.10)
+  - `tight_alpha_crop` at alpha ≥ 89
+  - `fit_material`: linear-light, premultiplied LANCZOS, with a 0.40 Gaussian
+    blur on alpha and each plane
+  - `quantize_material`: a median cut over unique colours, so rare glints
+    survive
+  - `apply_local_inner_rim`: inward-anchored dark rim colours, quantised to
+    up to 4 and run-smoothed
+  - `hairlines`: thin source parts (bow strings) found by morphological
+    opening and redrawn as one-pixel lines
+- **`sprite`:** labels the components and partitions the negative space into
+  exterior, holes and channels. Then it pools the source into the grid
+  (`_pool_source`) and builds the silhouette with `_grammar_mask`: edge
+  promotion, component preservation, bridges, strands, notches, softness
+  pruning, orphans and path restoration. After that come
+  `allocate_adaptive_palette` (variance split), nearest-colour mapping and
+  `_apply_material_rim`.
+- **`texture`:** Pillow BOX on premultiplied RGBA, an alpha ≥ 128 mask, the
+  adaptive palette and nearest-colour mapping.
+- **`none`:** `imaging.resample`.
 
-These are the stages, in order:
+### Why it's exact
 
-1. **Resample:** exact fractional-area box weights per axis, so any scale
-   factor works (`noise-300x200` exercises odd ratios).
-2. **Linear light:** sRGB decoded through a 256-entry LUT, then re-encoded
-   rounding half up.
-3. **Halo fix:** colour weighted by alpha, so transparent pixels' RGB never
-   bleeds into the edges.
-4. **Alpha threshold:** a hard cut at `t·255`.
-5. **Rim:** opaque pixels whose 4-neighbour is transparent or off the image
-   are darkened by `rim`.
-6. **Median-cut palette:** the colours already in the image are kept when
-   there are no more than `n`, otherwise the nearest colour wins, ties to the
-   lowest index.
-7. **Canonical colour:** fully transparent pixels become `0,0,0,0`.
+Genforge's maths isn't only Python. A port that "does the same thing" drifts
+by ±1 levels everywhere. Four deliberate pieces close that gap:
 
-The rim runs **before** quantization. A property test caught the earlier order
-creating more colours than `paletteSize`.
+1. **Pillow is emulated in its C arithmetic**, not approximated:
+   - 22-bit fixed-point coefficients and the two-pass order, with rows
+     restricted to `ybox_first..last`
+   - `clip8`
+   - the float32 `_gaussian_blur_radius`
+   - the UINT32 box-blur accumulators and `(bulk + 2²³) >> 24`
+   - `MULDIV255` premultiplication
+   - the RGBA → RGBa → RGBA detour `Image.resize` takes
 
-| Preset | linearLight | alphaThreshold | haloFix | paletteSize | rim | tileable |
-|---|---|---|---|---|---|---|
-| item | ✓ | 0.5 | ✓ | 16 | 0.25 | |
-| sprite | ✓ | 0.5 | ✓ | 32 | 0 | |
-| texture | ✓ | soft | | 32 | 0 | ✓ (opaque) |
-| none | | soft | | – | 0 | |
+   `pil.test.ts` checks 60 operations against Pillow byte for byte; the
+   fixtures come from `scripts/pixel-pillow.py`. An earlier run of 280 random
+   cases matched too.
+2. **NumPy's float32 semantics** are reproduced at each site where they decide
+   a pixel (all were established empirically against NumPy 2.5.4):
+   - Comparing a float32 array with a Python float happens **in float32**
+     (NEP 50), so thresholds are `fround(0.22)` and so on. A value wrapped in
+     `float(...)` compares in float64 against the plain literal.
+   - `region.sum()` over a strided float32 block is NumPy's **pairwise sum
+     over buffered chunks of whole rows**, with `floor(8192/width)` rows per
+     chunk. A contiguous block is one pairwise run. I tested both hypotheses
+     on 3,000 and 40 random blocks before relying on them.
+   - `(h,w,3).sum(axis=(0,1))` accumulates sequentially.
+   - `.mean()` is `fround(sum / n)`.
+3. **Python semantics:** `round()` and `np.rint` are half-to-even, float `%`
+   takes the divisor's sign, `colorsys` is ported verbatim, and `max` and
+   `min` ties and stable sorts are kept.
+4. **Set and dict orders.** `items.py` iterates Python sets of positions. I
+   checked that nothing depends on that order: the palettes sort totally,
+   smoothing applies its changes after each pass, and `Counter.most_common(1)`
+   ties follow neighbour order, which is reproduced.
 
-## Parity results per preset
+## Parity results
 
-None yet. There are no Genforge references (see Status). The parity suite is
-reported as **skipped**, deliberately, not as passing.
+There are 135 references from the real Genforge (`genforge filter SRC
+--target WxH --preset P`). They come from 9 sources:
 
-## Property tests (fast-check)
+- six synthetic shapes: a disc, a gradient, a checker with holes, soft alpha,
+  1–3 px lines, and non-square noise
+- two icon-like illustrations at 512²: a sword and a potion
+- `bow-1024`, a provider-sized bow whose string exercises `hairlines` (10
+  redrawn pixels at 16², 22 at 32²)
 
-Over random images up to 40×40 and targets up to 32×32, for every preset:
+Every reference matched with **0 differing pixels and a max channel delta of
+0**:
 
-- deterministic
+| Preset | Targets | References | Differing pixels | Max channel delta | Tolerance |
+|---|---|---|---|---|---|
+| `item` | 16×16, 24×24, 32×32 | 27 | 0 | 0 | exact (16 and 32 locked exact by a test) |
+| `sprite` | 16×16, 32×32, 24×16, 13×21 | 36 | 0 | 0 | exact |
+| `texture` | 16×16, 32×32, 24×16, 13×21 | 36 | 0 | 0 | exact |
+| `none` | 16×16, 32×32, 24×16, 13×21 | 36 | 0 | 0 | exact |
+
+No tolerance was needed anywhere, so every preset asserts exact equality.
+
+**Fuzzing** (`scripts/pixel-fuzz.py`, then `PIXEL_FUZZ=<dir>` with
+`src/core/pixel/fuzz.test.ts`) feeds random sprites (ellipses, rects, lines,
+rings, translucency, blur, 24–420 px) through every preset at random targets
+from 8 to 40 px, including `none` upscales. Three seeds, 1,520 cases, **0
+differing pixels**.
+
+Fuzzing caught one real bug, now fixed and covered by `cv.test.ts`. The packed
+morphology's power-of-two run-ANDs treated positions left of the row as
+neutral border, but at x < 0 those runs still cover in-row pixels. Rows are
+now padded with a genuine margin of ones. The bug changed 1 pixel in 1,040
+cases (an 8×8 item from a 50×408 source).
+
+### Property tests (fast-check)
+
+These hold for every preset:
+
+- deterministic, report included
 - exact output size
-- integer bytes in 0..255
-- no NaNs
-- input not mutated
-- alpha in {0, 255} when there's a threshold
-- `texture` opaque
-- colour count ≤ `paletteSize`
-- transparent pixels zeroed
-- **idempotent at the same size for `sprite`, `texture` and `none`**
+- integer bytes
+- input untouched
+- binary alpha, with zero RGB on transparent pixels, for `item`, `sprite` and
+  `texture`
+- `texture` stays within 16 colours
+- an explicit palette is exact, outline shades included
+- empty sources
+- the rejected settings are rejected
 
-`item` isn't idempotent, because the rim darkens again on each pass. Whether
-Genforge's item filter is idempotent is to be checked when porting. There are
-also unit tests per stage (linear-light midpoint 188, halo, fractional
-weights, rim, report, errors), and PNG tests (round-trip, grey, grey with
-alpha, RGB, 16-bit, 1-bit and indexed decode, garbage).
-
-`fast-png`'s **encoder** writes a one-entry `tRNS` for indexed images. Carbon
-only ever encodes RGBA8, so this doesn't affect it. The decoder is correct.
+**Idempotence: only `none`**, because that's where Genforge has it. I measured
+Genforge's own second passes on 138 cases: `none` 0 differ, `item` 136,
+`sprite` 99, `texture` 40. The port reproduces those non-idempotent outputs
+exactly too (the parity above), so it doesn't assert a property the original
+lacks.
 
 ## Measurements
 
-These are for a 1024×1024 RGBA source in Node 22, under Vitest, in this
-container. The figure is the median of 10 runs after the first.
+Times are for one 1024×1024 source to 16×16, in Node 22.23 under Vitest on
+this 4-core container. Each row is 10 runs after a warm-up.
 
-| Preset | → 16×16 | → 32×32 | first call (cold JIT) |
-|---|---|---|---|
-| item | 9.2 ms | 9.2 ms | 40.9 ms |
-| sprite | 8.6 ms | 9.5 ms | 8.4 ms |
-| texture | 7.8 ms | 9.8 ms | 7.2 ms |
-| none | 8.4 ms | 8.2 ms | 26.3 ms |
+| Source | Preset | Median | Best | Worst | Cold first call |
+|---|---|---|---|---|---|
+| dense 800-px disc (worst case) | item | 200 ms | 169 | 302 | 323 |
+| | sprite | 150 ms | 82 | 244 | 250 |
+| | texture | 15 ms | 14 | 20 | 18 |
+| | none | 14 ms | 13 | 17 | 15 |
+| `bow-1024` (typical icon source) | item | 215 ms | 127 | 242 | 162 |
+| | sprite | 112 ms | 76 | 243 | 213 |
+| | texture | 14 ms | 13 | 18 | 16 |
+| | none | 13 ms | 12 | 15 | 13 |
 
-The budget is 300 ms. `perf.test.ts` asserts it per preset, taking the best of
-3 runs after a warm-up. Topology-preserving pooling will cost more once it's
-ported, and this test will keep it honest.
+The budget is 300 ms. `perf.test.ts` asserts it for every preset on both
+sources, taking the best of 3 runs after a warm-up.
 
-## Icon prompt: examples
+The first naive port took about 980 ms for `item`. Here's what fixed it,
+**without changing a single result** (parity and fuzz were re-run after each
+step):
 
-`iconPrompt(entity, world, art)`. Sections in order: Subject, Details (the
-first sentence of the description), Presentation (by item subkind), Proportions,
-Materials (from `made_from`), Palette (the art direction's colour words only),
-Art note (per kind), Light, Background, Never.
+- Bit-packed morphology: 32 pixels per word, power-of-two run-ANDs shared
+  across kernel levels, and dilation as the complement of eroding the
+  complement.
+- A dedicated path for Pillow's radius-0 box blur (the 0.40 Gaussian),
+  exactly a clamped 3-tap.
+- Inlined neighbour loops in labelling and contours.
+- A table for `halo_attenuate`.
+- Reusing the pooled alpha sums.
+
+Cropping 100 sheet cells from 1024² takes about 96 ms, and filtering them all
+another 37.
+
+## Icon prompts (Genforge's house style)
+
+I studied all 42 files in `prompts/items/*.txt`. Each is one paragraph:
+
+1. **An opening:** `A single <subject> inventory icon`, then a view
+   (`, seen from the front`) or a description.
+2. **A presentation clause by object type:**
+   - tools: *Diagonal presentation, the stout wooden handle pointing bottom
+     left and the head top right*
+   - swords: *the grip pointing bottom left and the blade top right*
+   - bows: *the bow arc bulging toward the top left*
+   - helmets: *seen from the front at a slight three-quarter angle*
+   - ingots: *a chunky trapezoid bar seen at a three-quarter angle from
+     above*
+   - rocks and vines have none
+3. **The material.**
+4. **A fixed closing.** It's verbatim in 41 of the 42 files; `wooden_bow`
+   swaps one phrase.
+
+`iconPrompt` builds exactly that structure:
+
+- The pose comes from the entity's name first, then its subkind.
+- The materials come from `made_from`.
+- The detail is the first sentence of the description, or else the identity.
+- The kind's art note is added as a sentence.
+- The closing is Genforge's tail, verbatim.
+- The art direction's palette words replace "muted earthy colours"
+  (IMAGES.md §5), and Genforge's phrase stays when there are none.
+
+`prompts.test.ts` reads the upstream files. It asserts that our tail ends 41
+of them (`wooden_bow` is the documented exception), that all 42 open with *A
+single … inventory icon*, and that the iron sword's presentation clause and
+tail come out identical.
+
+Examples:
 
 ```
-Subject: Glass Lung, an accessory: breathe where the air is poison.
-Details: A bellows of blown glass worn on the chest.
-Presentation: a single game inventory icon of the accessory, shown alone, upright and facing the viewer, centred.
-Proportions: chunky and simplified, a bold readable silhouette that still reads at 16×16 pixels; exaggerate the one defining feature and drop fine detail.
-Materials: made from Lung Glass; show each as a few large, clearly separated areas of flat colour.
-Palette: muted earth tones.
-Light: flat, even front light; no cast shadow, no glow, no reflections, no gradient background.
-Background: fully transparent. The object fills about 80% of the frame with clear empty space around its whole silhouette; nothing touches or crosses the edges.
-Never: text, letters, numbers, labels, borders, frames, outlines around the canvas, drop shadows, or a second object.
+A single Glass Lung inventory icon: a bellows of blown glass worn on the chest, made of lung glass. Short, exaggerated
+chunky proportions, large readable shapes, muted earth tones, clean pixel-friendly illustration, flat even light, no
+shadow, no text, no border, no surrounding objects. Transparent background. Leave generous space around the silhouette.
 ```
 
 ```
-Subject: Rift Cleaver, a weapon: cuts the seam between bands.
-Presentation: a single game inventory icon of the weapon, shown alone, diagonal from lower left to upper right, grip at the bottom left, centred.
-…
-Materials: made from Rift Steel; show each as a few large, clearly separated areas of flat colour.
-Palette: cold blue, silver.
-Art note: chipped, well-used edges.
-…
+A single Rift Cleaver inventory icon: cuts the seam between bands. Diagonal presentation from bottom left to top right;
+made of rift steel and ashwood. Chipped, well-used edges. Short, exaggerated chunky proportions, large readable shapes,
+cold blue and silver colours, clean pixel-friendly illustration, flat even light, no shadow, no text, no border, no
+surrounding objects. Transparent background. Leave generous space around the silhouette.
 ```
 
 ```
-Subject: Ember Moss, a material.
-Presentation: a single game inventory icon of the material, shown alone, upright and facing the viewer, centred.
-…
+A single Ember Moss inventory icon, a material. Short, exaggerated chunky proportions, large readable shapes, muted
+earthy colours, clean pixel-friendly illustration, flat even light, no shadow, no text, no border, no surrounding
+objects. Transparent background. Leave generous space around the silhouette.
 ```
+
+## Icon sheets (IMAGES.md §2a, `sheet.ts`)
+
+```ts
+const layout = sheetLayout(items.length, { w: 1024, h: 1024 });   // ≤100; near-square, max 10×10; gutter 2% of the short side
+const guide = drawGuide(layout, { w: 1024, h: 1024 });            // send as image 1
+const prompt = sheetPrompt(items, layout, world, art, { background: 'fully transparent' });
+const cells = cropSheet(decodePng(bytes), layout, { background: 'auto' }); // or 'alpha' | [r,g,b]
+// cells[i]: { index, region, bbox, crop: RgbaImage | null, flags, segmentation: 'alpha' | 'colour' }
+// flags ⊂ empty | background_only | touches_edge | fragmented; then filterImage(cell.crop, { …, preset: 'item' })
+```
+
+**The guide follows Genforge's tile drafts** (`genforge/walls/draft.py` and
+`prompts.py`):
+
+- Flat colours on an invisible grid, with no drawn lines. Genforge's prompts
+  explicitly forbid "grid lines or borders".
+- Each colour is named in the prompt's words.
+- The cells are MID-GREY (140, Genforge's `GROUND`) squares on a DARK GREY
+  (78, its `FACE`) gutter. The earlier faint-box guide is gone.
+
+**`sheetPrompt` follows Genforge's tile-sheet prompt.** It names the guide's
+colours and says *Do not move, add, remove or resize any square*. Then it
+states the item house style once, gives one line per cell by position, and
+ends with Genforge's *Return the same framing at the same size.*
+
+Not adopted: Genforge's per-art-pixel draft noise. It exists to keep a model
+from leaving repainted surfaces flat, and a layout guide needs no texture.
+
+**`cropSheet`** has these options and flags:
+
+- **Segmentation:** by alpha (`a ≥ 128`), by a given flat colour, or `auto`
+  (the median of each region's border).
+- **The crop:** a square-padded bounding box.
+- **Flags:**
+  - `empty`: foreground under 0.5%
+  - `background_only`: empty, with a luminance range ≤ 4
+  - `touches_edge`
+  - `fragmented`: more than one large 8-connected part
+
+## Regenerating
+
+```sh
+python3 -m venv <venv> && <venv>/bin/pip install ./upstream/genforge     # Pillow 12.3, NumPy 2.5, OpenCV 4.14
+node scripts/pixel-sources.mjs                                            # fixtures/pixel/sources (deterministic)
+node scripts/pixel-references.mjs --genforge upstream/genforge --python <venv>/bin/python \
+     --revision 52e6547bac6e4022abcc21e0820359ea3966a649                  # fixtures/pixel/reference + manifest.json
+<venv>/bin/python -I scripts/pixel-pillow.py fixtures/pixel/pillow        # the Pillow-level fixtures
+<venv>/bin/python -I scripts/pixel-fuzz.py <dir> <seed> <n> && PIXEL_FUZZ=<dir> npx vitest run src/core/pixel/fuzz.test.ts
+```
+
+Genforge is deterministic. Regenerating the references gives byte-identical
+files; I checked by diffing two runs.
 
 ## Decisions
 
-- **The API comes before the port**, so images-core can build against a
-  stable shape. `report.provisional` keeps the provisional pixels from being
-  mistaken for Genforge's.
-- **No invented "Genforge" maths.** The provisional stages are generic and
-  labelled as carbon's. The inner-rim path and topology pooling aren't faked,
-  because guessing at them would make a later parity failure look like a
-  porting bug.
-- **Parity tolerances default to exact**, and a test fixes `item`
-  16/32 at exact.
-- **Small sources** (256 to 512 px, about 360 KB in total) keep the repo
-  light. The 1024² perf source is built in memory.
+- **Settings replace the preset**, as Genforge's `--settings` does. A merge
+  would invent semantics Genforge doesn't have.
+- **Unported stages are refused, not approximated.** A silent approximation
+  would break the "exact" claim for whoever sets them.
+- **`item` requires a square target**, as Genforge's CLI does. `render_item`
+  would crop a non-square one.
+- **`upstream/genforge/` is committed** (as the coordinator asked) so the
+  references can be regenerated in any checkout. Nothing in `src/` imports it.
+- **Pillow and OpenCV are emulated only as far as Genforge uses them:**
+  8-bit L and RGBA, BOX, LANCZOS and NEAREST, GaussianBlur, symmetric kernels.
+- `package.json`: `fast-png@8.0.0` (exact), added in the first commit.
 
 ## Gaps
 
-- The whole Genforge port, the references and the parity results (see Status).
-- The `prompts/items/*.txt` house style itself. The template follows only the
-  bullet list in IMAGES.md.
-- The default `genforge filter` flags in `scripts/pixel-references.mjs`
-  (`--size WxH --out PATH`) are a guess. Pass `--cmd` after checking `--help`.
-- There's no Genforge sample image in the fixtures, because the repository
-  couldn't be read.
+- **Settings not ported,** each rejected with `PixelError`, none used by a
+  preset:
+  - `before` (blur, sharpen, grading: `_apply_pixel_palette_style`)
+  - `vibrance`
+  - `dither`
+  - `noise` (needs NumPy's PCG64 stream)
+  - `outline: outer`
+  - `cleanup.symmetry` (and `_pool_source`'s symmetry branch)
+  - `alpha: smooth`
+  - `downscale: median`
+  - `render_family`, `render_batch` and `palette_for_batch`
+- **Pillow's resize path for images over 100× taller than wide** isn't ported.
+  It resizes in two steps; no realistic icon source comes near it.
+- **The cold first call** costs 160–320 ms while V8 compiles. Main should
+  filter in a worker or tolerate one slow first icon.
+- **Fuzz coverage** spans 24–420 px synthetic sprites; the committed
+  references reach 1024². Huge sources (over 2048²) were not fuzzed, though
+  the row-chunked sums are written for them and tested on 2000²-scale
+  blocks.
