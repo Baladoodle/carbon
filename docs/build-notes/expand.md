@@ -331,8 +331,10 @@ These are all additive.
   completions. `esc` closes the list first, then the editor.
 - **A long text:** grows with its content and stops at 40% of its pane.
 
-**Full runs:** see the final summary in the last commit's message for the
-two full passes of `npm run check` and `npm run test:e2e`.
+**Full runs:** `npm run check` (lint, format, types, 766 unit tests, the
+`@smoke` e2e) and the full `npm run test:e2e` (132 tests, the 2,000-entity
+Column budgets among them) both passed twice in a row on the final tree,
+after the last merge of the base branch.
 
 ## 6. Left out, and what's next
 
