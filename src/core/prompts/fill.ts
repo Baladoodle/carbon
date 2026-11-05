@@ -5,6 +5,7 @@ import { edgesFit } from '../model/validate';
 import { getEntity, schemaOf, type World } from '../model/world';
 import { err, ok } from '../util/result';
 import { assemble } from './common';
+import { qualityConstraints, selfCheck } from './quality';
 import {
   duplicatesName,
   nullable,
@@ -25,7 +26,9 @@ The designer pressed ctrl+enter on the entity in focus and wants a proposal for 
 - Every proposal must fit the entity's filled fields, its relations, its place on Y and the world around it. The fields you write must agree with each other.
 - Keep what the designer already wrote as the source of truth; build out from it.
 - Return null for a field you can't fill well. A weak proposal is worse than none.
-- note: at most 12 words on why, or null.`;
+- note: at most 12 words on why, or null.
+
+${qualityConstraints('Every proposal, and the entity with all of them accepted,')}`;
 
 /** The empty fields of an entity that the AI may fill, in schema order. */
 export function emptyFields(world: World, e: Entity): WritableField[] {
@@ -95,6 +98,8 @@ export const fillBuilder: PromptBuilder<'fill_entity'> = {
         !f ||
         value === undefined ||
         (key === 'name' && typeof value === 'string' && duplicatesName(world, value, e.id)) ||
+        // The quality bar's deterministic half: what the critic would flag at once.
+        selfCheck(world, key, value, e.id) !== null ||
         // Each proposal is accepted on its own, so it must fit the entity alone and
         // with the proposals before it: of a bottom and a top that cross, the top goes.
         !edgesFit(e, key, value) ||
