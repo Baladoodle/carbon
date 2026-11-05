@@ -49,6 +49,9 @@ const INFIX: Record<string, { bp: number; right?: boolean }> = {
   '^': { bp: BP.pow, right: true },
 };
 
+/** How deeply expressions may nest (brackets, operators, calls). */
+export const MAX_DEPTH = 256;
+
 export const COMPARISONS = new Set(['==', '!=', '<', '<=', '>', '>=']);
 
 class Stop extends Error {
@@ -59,6 +62,10 @@ class Stop extends Error {
 
 class LineParser {
   private i = 0;
+  /** How deep `expr` is nested right now (recursion in the parser). */
+  private level = 0;
+  /** The depth of every node built so far (a leaf is 1). */
+  private readonly depths = new WeakMap<Expr, number>();
   constructor(
     private readonly tokens: Token[],
     private readonly end: Span,
@@ -87,6 +94,28 @@ class LineParser {
   }
   fail(code: string, message: string, at: Span, hint?: string): never {
     throw new Stop(diag('parse', code, message, at, { hint }));
+  }
+  private tooDeep(at: Span): never {
+    this.fail(
+      'parse.depth',
+      `Nested too deeply (more than ${MAX_DEPTH} levels)`,
+      at,
+      'Split it into smaller definitions',
+    );
+  }
+  /** Records a node's depth, from its children's, and stops past MAX_DEPTH. */
+  private node<E extends Expr>(e: E, children: Expr[], at: Span): E {
+    let d = 0;
+    for (const c of children) d = Math.max(d, this.depths.get(c) ?? 1);
+    if (d + 1 > MAX_DEPTH) this.tooDeep(at);
+    this.depths.set(e, d + 1);
+    return e;
+  }
+  /** The same node with another span (parentheses), keeping its depth. */
+  private respan(e: Expr, span: Span): Expr {
+    const out = { ...e, span };
+    this.depths.set(out, this.depths.get(e) ?? 1);
+    return out;
   }
   expectOp(text: string, what: string, hint?: string): Token {
     const t = this.peek();
@@ -192,6 +221,15 @@ class LineParser {
   }
 
   expr(minBp: number): Expr {
+    if (++this.level > MAX_DEPTH) this.tooDeep(this.peek().span);
+    try {
+      return this.exprAt(minBp);
+    } finally {
+      this.level--;
+    }
+  }
+
+  private exprAt(minBp: number): Expr {
     let left = this.nud();
     let chained = false;
     for (;;) {
@@ -216,13 +254,17 @@ class LineParser {
             break;
           }
         const close = this.expectOp(')', `"," or ")" in the call to ${left.name}`);
-        left = {
-          type: 'call',
-          callee: left.name,
-          calleeSpan: left.span,
+        left = this.node(
+          {
+            type: 'call',
+            callee: left.name,
+            calleeSpan: left.span,
+            args,
+            span: cover(left.span, close.span),
+          },
           args,
-          span: cover(left.span, close.span),
-        };
+          t.span,
+        );
         continue;
       }
       if (t.type === 'op' && t.text === '.' && BP.postfix > minBp) {
@@ -235,13 +277,17 @@ class LineParser {
             n.span,
             'Like  c.health',
           );
-        left = {
-          type: 'member',
-          object: left,
-          name: n.text,
-          span: cover(left.span, n.span),
-          nameSpan: n.span,
-        };
+        left = this.node(
+          {
+            type: 'member',
+            object: left,
+            name: n.text,
+            span: cover(left.span, n.span),
+            nameSpan: n.span,
+          },
+          [left],
+          t.span,
+        );
         continue;
       }
       if (t.type === 'keyword' && t.text === 'where' && BP.where > minBp) {
@@ -254,13 +300,17 @@ class LineParser {
             'Like  items where subkind == "armor"',
           );
         const cond = this.expr(BP.where);
-        left = {
-          type: 'where',
-          source: left,
-          cond,
-          span: cover(left.span, cond.span),
-          opSpan: t.span,
-        };
+        left = this.node(
+          {
+            type: 'where',
+            source: left,
+            cond,
+            span: cover(left.span, cond.span),
+            opSpan: t.span,
+          },
+          [left, cond],
+          t.span,
+        );
         continue;
       }
       const isInfix =
@@ -279,14 +329,18 @@ class LineParser {
       this.next();
       if (this.atEnd()) this.fail('parse.operand', `"${t.text}" needs a value after it`, t.span);
       const right = this.expr(info.right ? info.bp - 1 : info.bp);
-      left = {
-        type: 'binary',
-        op: t.text as BinaryOp,
-        left,
-        right,
-        span: cover(left.span, right.span),
-        opSpan: t.span,
-      };
+      left = this.node(
+        {
+          type: 'binary',
+          op: t.text as BinaryOp,
+          left,
+          right,
+          span: cover(left.span, right.span),
+          opSpan: t.span,
+        },
+        [left, right],
+        t.span,
+      );
       chained = isCompare;
     }
     return left;
@@ -307,7 +361,11 @@ class LineParser {
         if (t.text === 'none') return { type: 'none', span: t.span };
         if (t.text === 'not') {
           const operand = this.expr(BP.not);
-          return { type: 'unary', op: 'not', operand, span: cover(t.span, operand.span) };
+          return this.node(
+            { type: 'unary', op: 'not', operand, span: cover(t.span, operand.span) },
+            [operand],
+            t.span,
+          );
         }
         this.fail('parse.value', `Expected a value before "${t.text}"`, t.span);
       // falls through (fail never returns)
@@ -322,7 +380,7 @@ class LineParser {
             );
           const inner = this.expr(0);
           const close = this.expectOp(')', '")"', 'Close the parenthesis');
-          return { ...inner, span: cover(t.span, close.span) };
+          return this.respan(inner, cover(t.span, close.span));
         }
         if (t.text === '[') {
           const items: Expr[] = [];
@@ -336,11 +394,15 @@ class LineParser {
               break;
             }
           const close = this.expectOp(']', '"," or "]" in the list');
-          return { type: 'list', items, span: cover(t.span, close.span) };
+          return this.node({ type: 'list', items, span: cover(t.span, close.span) }, items, t.span);
         }
         if (t.text === '-') {
           const operand = this.expr(BP.neg);
-          return { type: 'unary', op: '-', operand, span: cover(t.span, operand.span) };
+          return this.node(
+            { type: 'unary', op: '-', operand, span: cover(t.span, operand.span) },
+            [operand],
+            t.span,
+          );
         }
         if (t.text === '.') {
           const n = this.next();
@@ -385,6 +447,8 @@ export function parseProgram(source: string): ParseResult {
   let line: Token[] = [];
   let comment: Token | undefined;
   let pendingBlank: Span | undefined;
+  /** Where the current line starts: just after the previous newline. */
+  let lineFrom = 0;
   const flush = (end: Span): void => {
     if (line.length === 0) {
       if (comment) {
@@ -407,9 +471,10 @@ export function parseProgram(source: string): ParseResult {
       items.push(def);
     } catch (e) {
       if (!(e instanceof Stop)) throw e;
-      // One error per line: a lexer error on this line already explains it.
-      const lineStart = first?.span.start ?? 0;
-      const lineEndAt = last?.span.end ?? lineStart;
+      // One error per line: a lexer error on this line already explains it
+      // (an unknown character leaves no token, so look at the whole line).
+      const lineStart = lineFrom;
+      const lineEndAt = Math.max(end.start, last?.span.end ?? lineStart);
       if (!lexErrors.some((d) => d.span.start >= lineStart && d.span.start <= lineEndAt))
         diagnostics.push(e.diagnostic);
       // Keep the name defined (with an error body), so other lines don't also
@@ -445,6 +510,7 @@ export function parseProgram(source: string): ParseResult {
   for (const t of tokens) {
     if (t.type === 'newline' || t.type === 'eof') {
       flush(t.span);
+      lineFrom = t.span.end;
       continue;
     }
     if (t.type === 'comment') {

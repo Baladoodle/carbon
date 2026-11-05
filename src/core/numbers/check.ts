@@ -1,6 +1,7 @@
 import type { EntityKind } from '../model/kinds';
 import type { WorldSchema } from '../model/schema';
-import { defsOf, type Def, type Expr, type ExprOf, type Program } from './ast';
+import { defsOf, walk, type Def, type Expr, type ExprOf, type Program } from './ast';
+import { buildGraph } from './graph';
 import { BUILTINS, isBuiltin, RESERVED } from './builtins';
 import { KEYWORDS } from './lexer';
 import { COLLECTIONS, kindsWithProp, propsOf, type Prop } from './props';
@@ -159,7 +160,28 @@ export class Checker {
       }
       this.defs.set(d.name, d);
     }
-    for (const name of this.defs.keys()) this.ensure(name);
+    for (const name of this.checkOrder()) this.ensure(name);
+  }
+
+  /**
+   * The order to check definitions in: what each one mentions first. Checking
+   * is recursive (a reference checks its target), so without this a long
+   * chain written callers-first would recurse once per link and overflow the
+   * stack. The edges are syntactic (any name or callee that is a definition),
+   * so they over-approximate the real ones; that only changes the order.
+   */
+  private checkOrder(): string[] {
+    const names = [...this.defs.keys()];
+    const edges = new Map<string, Set<string>>();
+    for (const [name, def] of this.defs) {
+      const out = new Set<string>();
+      walk(def.body, (e) => {
+        const n = e.type === 'name' ? e.name : e.type === 'call' ? e.callee : undefined;
+        if (n !== undefined && n !== name && this.defs.has(n)) out.add(n);
+      });
+      edges.set(name, out);
+    }
+    return buildGraph(names, edges, () => undefined).order;
   }
 
   /** Checks a definition if it hasn't been yet; returns its scheme (or a placeholder in a cycle). */
