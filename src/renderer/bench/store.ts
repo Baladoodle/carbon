@@ -15,8 +15,18 @@ export interface Pending {
   /** The value the AI proposes for the field (already checked against its schema). */
   value: unknown;
   note?: string;
-  /** `suggest`: one ghost suggestion (tab); `fill`: a fill proposal (ctrl+enter). */
+  /** `suggest`: one ghost suggestion (tab, or a Rewrite); `fill`: a fill proposal (ctrl+enter). */
   from: 'suggest' | 'fill';
+  /** A Rewrite's: the critique note it answers (withdrawn when it's accepted). */
+  noteId?: string;
+}
+
+/** A critique note about a field the AI wrote: what its Rewrite rewrites. */
+export interface Rewritable {
+  entity: string;
+  field: string;
+  /** The note's text, sent as the suggestion's guidance. */
+  text: string;
 }
 
 export interface BenchUi {
@@ -36,6 +46,8 @@ export interface BenchUi {
   focusRequest: (FieldRef & { seq: number; select?: boolean }) | null;
   /** The last AI error to show on the Bench, per entity. */
   error: Record<string, string>;
+  /** Note id → the AI-written field it's about (critique notes that offer Rewrite). */
+  rewrites: Record<string, Rewritable>;
 }
 
 export const benchStore = createStore<BenchUi>({
@@ -47,6 +59,7 @@ export const benchStore = createStore<BenchUi>({
   shown: {},
   focusRequest: null,
   error: {},
+  rewrites: {},
 });
 
 export const useBench = <T>(selector: (s: BenchUi) => T): T => useStore(benchStore, selector);
@@ -63,11 +76,9 @@ export function requestFieldFocus(entity: string, key: string, select = false): 
 }
 
 /** Sets or clears one entry of a record field of the store. */
-export function setEntry<K extends 'pending' | 'loading' | 'critiquing' | 'shown' | 'error'>(
-  which: K,
-  key: string,
-  value: BenchUi[K][string] | undefined,
-): void {
+export function setEntry<
+  K extends 'pending' | 'loading' | 'critiquing' | 'shown' | 'error' | 'rewrites',
+>(which: K, key: string, value: BenchUi[K][string] | undefined): void {
   benchStore.set((s) => {
     const rec = { ...(s[which] as Record<string, unknown>) };
     if (value === undefined) {

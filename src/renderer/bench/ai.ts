@@ -1,12 +1,12 @@
 import type { AiError, AiGateway } from '@core/ai/gateway';
-import type { Suggestion } from '@core/ai/moments';
+import type { CritiqueNote, Suggestion } from '@core/ai/moments';
 import { cmd, type Command } from '@core/commands/registry';
 import type { Note } from '@core/model/notes';
 import { getEntity, schemaOf, type World } from '@core/model/world';
 import { hashValue } from '@core/util/hash';
 import { critiqueNotes, critiqueSource } from '@core/bench/critique';
 import { RequestSlots } from './slots';
-import { benchStore, fieldId, setBench, setEntry, type Pending } from './store';
+import { benchStore, fieldId, setBench, setEntry, type Pending, type Rewritable } from './store';
 import { checkValue, defOf, isEmptyField } from '@core/bench/value';
 
 /**
@@ -26,6 +26,8 @@ export interface BenchAiDeps {
   publishNotes: (source: string, notes: Note[]) => void;
   /** Tells the user something (AI off, an error). */
   say: (text: string, tone: 'info' | 'error') => void;
+  /** Withdraws one note (a Rewrite's, once its rewrite is accepted). */
+  dismissNote?: (id: string) => void;
 }
 
 /** What to tell the user about a failed call; cancellations are silent. */
@@ -88,18 +90,33 @@ export function createBenchAi(deps: BenchAiDeps) {
 
   /** tab: one ghost suggestion. With one already showing, tab accepts it instead. */
   async function suggestOne(entityId: string, key: string): Promise<void> {
+    if (benchStore.get().pending[fieldId(entityId, key)]) return accept(entityId, key);
+    return ghost(entityId, key);
+  }
+
+  /** One suggestion into a field as a ghost; with `rewrite`, it answers that critique note. */
+  async function ghost(
+    entityId: string,
+    key: string,
+    rewrite?: { noteId: string; text: string },
+  ): Promise<void> {
     const id = fieldId(entityId, key);
-    if (benchStore.get().pending[id]) return accept(entityId, key);
     const f = fieldDef(entityId, key);
     if (!f || f.def.ai === false) return;
     const signal = slots.start(entityId, 'field');
     setEntry('loading', id, true);
     setEntry('error', entityId, undefined);
+    if (rewrite) setEntry('pending', id, undefined);
     setBench({ three: null });
     try {
       const out = await deps.gateway.run(
         'suggest_one',
-        { entityId, field: key, avoid: benchStore.get().shown[id] ?? [] },
+        {
+          entityId,
+          field: key,
+          avoid: benchStore.get().shown[id] ?? [],
+          ...(rewrite ? { guidance: rewrite.text } : {}),
+        },
         { signal },
       );
       if (!slots.isCurrent(entityId, 'field', signal)) return;
@@ -107,12 +124,39 @@ export function createBenchAi(deps: BenchAiDeps) {
       const [s] = valid(entityId, key, [out.result.suggestion]);
       if (!s) return deps.say('The suggestion didn’t fit this field', 'error');
       remember(id, s.value);
-      const p: Pending = { value: s.value, from: 'suggest', ...(s.note ? { note: s.note } : {}) };
+      const p: Pending = {
+        value: s.value,
+        from: 'suggest',
+        ...(s.note ? { note: s.note } : {}),
+        ...(rewrite ? { noteId: rewrite.noteId } : {}),
+      };
       setEntry('pending', id, p);
     } finally {
       slots.finish(entityId, 'field', signal);
       setEntry('loading', id, undefined);
     }
+  }
+
+  /**
+   * The note's Rewrite: a note about a field the AI wrote (and you haven't
+   * edited) asks for a new value with the note as guidance. It waits in the
+   * field like a tab suggestion; accepting it is one command (one undo step)
+   * and withdraws the note.
+   */
+  async function rewrite(noteId: string): Promise<void> {
+    const r = rewritableNote(noteId);
+    if (!r) return;
+    await ghost(r.entity, r.field, { noteId, text: r.text });
+  }
+
+  /** A note's Rewrite target, while its field is still the AI's. */
+  function rewritableNote(noteId: string): Rewritable | null {
+    const r = benchStore.get().rewrites[noteId];
+    const w = deps.getWorld();
+    const e = r && w ? getEntity(w, r.entity) : undefined;
+    if (!r || !e || !e.ai_fields.includes(r.field)) return null;
+    const f = fieldDef(r.entity, r.field);
+    return f && f.def.ai !== false ? r : null;
   }
 
   /** shift+tab: three alternatives under the field. */
@@ -211,7 +255,17 @@ export function createBenchAi(deps: BenchAiDeps) {
     if (!p) return;
     setEntry('pending', id, undefined);
     const f = fieldDef(entityId, key);
-    await write(entityId, key, p.value, `Accept ${f?.def.label.toLowerCase() ?? key}`);
+    const done = await write(
+      entityId,
+      key,
+      p.value,
+      `${p.noteId ? 'Rewrite' : 'Accept'} ${f?.def.label.toLowerCase() ?? key}`,
+    );
+    // The rewrite answers its note.
+    if (done && p.noteId) {
+      deps.dismissNote?.(p.noteId);
+      setEntry('rewrites', p.noteId, undefined);
+    }
   }
 
   /** Rejects (esc) what waits in a field, and closes the three. */
@@ -259,6 +313,7 @@ export function createBenchAi(deps: BenchAiDeps) {
       // An entity deleted while its critique was out has nothing left to note.
       if (!w || !getEntity(w, entityId)) return;
       deps.publishNotes(critiqueSource(entityId), critiqueNotes(w, entityId, out.result.notes));
+      markRewritable(w, entityId, out.result.notes);
       if (trigger === 'on_demand' && out.result.notes.length === 0) deps.say('No notes', 'info');
     } finally {
       slots.finish(entityId, 'critique', signal);
@@ -266,7 +321,26 @@ export function createBenchAi(deps: BenchAiDeps) {
     }
   }
 
+  /** Remembers which of an entity's new notes are about a field the AI wrote. */
+  function markRewritable(w: World, entityId: string, notes: readonly CritiqueNote[]): void {
+    const e = getEntity(w, entityId);
+    const prefix = `${critiqueSource(entityId)}:`;
+    const kept = Object.fromEntries(
+      Object.entries(benchStore.get().rewrites).filter(([id]) => !id.startsWith(prefix)),
+    );
+    for (const n of notes) {
+      const field = n.field ?? (n.kind === 'weak_identity' ? 'identity' : undefined);
+      if (!e || !field || !e.ai_fields.includes(field)) continue;
+      // The note's id, as published (one note at a time gives its own id).
+      const [note] = critiqueNotes(w, entityId, [n]);
+      if (note) kept[note.id] = { entity: entityId, field, text: n.text };
+    }
+    setBench({ rewrites: kept });
+  }
+
   return {
+    rewrite,
+    rewritableNote,
     suggestOne,
     suggestThree,
     pickThree,

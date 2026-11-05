@@ -49,7 +49,9 @@ describe('bench AI', () => {
       shown: {},
       focusRequest: null,
       error: {},
+      rewrites: {},
     });
+  let dismissed: string[] = [];
   const make = (gateway?: AiGateway) =>
     createBenchAi({
       gateway: gateway ?? new FakeAiGateway({ getWorld: () => world }),
@@ -65,8 +67,10 @@ describe('bench AI', () => {
         notes[s] = n;
       },
       say: (t) => said.push(t),
+      dismissNote: (id) => dismissed.push(id),
     });
   beforeEach(() => {
+    dismissed = [];
     world = sampleWorld();
     notes = {};
     said = [];
@@ -134,6 +138,60 @@ describe('bench AI', () => {
     await b.critique('glide', 'finish_edit');
     expect(notes['ai:glide']?.some((n) => n.kind === 'weak_identity')).toBe(true);
     expect(benchStore.get().critiquing['glide']).toBeUndefined();
+  });
+
+  it('a note on a field the AI wrote offers Rewrite: the note is the guidance, accepting is one command', async () => {
+    const sent: unknown[] = [];
+    const fake = new FakeAiGateway({ getWorld: () => world });
+    const run = fake.run.bind(fake);
+    fake.run = ((moment, req, opts) => {
+      sent.push({ moment, req });
+      return run(moment, req, opts);
+    });
+    const b = make(fake);
+    const set = (value: string, source: 'ai' | 'user') => {
+      const r = applyCommands(
+        world,
+        [cmd('entity.setField', { id: 'glide', field: 'identity', value, source })],
+        ctx,
+      );
+      if (!r.ok) throw new Error(r.error.message);
+      world = r.value.world;
+    };
+    set('Odd.', 'ai');
+    await b.critique('glide', 'on_demand');
+    const note = notes['ai:glide']!.find((n) => n.kind === 'weak_identity')!;
+    expect(benchStore.get().rewrites[note.id]).toMatchObject({
+      entity: 'glide',
+      field: 'identity',
+    });
+    expect(b.rewritableNote(note.id)).not.toBeNull();
+    await b.rewrite(note.id);
+    const last = sent.at(-1) as { moment: string; req: { field: string; guidance?: string } };
+    expect(last.moment).toBe('suggest_one');
+    expect(last.req).toMatchObject({ field: 'identity', guidance: note.text });
+    const p = benchStore.get().pending[fieldId('glide', 'identity')];
+    expect(p).toMatchObject({ from: 'suggest', noteId: note.id });
+    const before = world;
+    await b.accept('glide', 'identity');
+    expect(world.entities.glide!.identity).toBe(p!.value);
+    expect(world.entities.glide!.ai_fields).toContain('identity');
+    // One command: the world before it is one step back.
+    expect(before.entities.glide!.identity).toBe('Odd.');
+    expect(dismissed).toEqual([note.id]);
+    expect(benchStore.get().rewrites[note.id]).toBeUndefined();
+
+    // Once you edit the field, it's yours: no Rewrite.
+    set('Odd.', 'ai');
+    await b.critique('glide', 'on_demand');
+    const again = notes['ai:glide']!.find((n) => n.kind === 'weak_identity')!;
+    expect(b.rewritableNote(again.id)).not.toBeNull();
+    set('Mine.', 'user');
+    expect(b.rewritableNote(again.id)).toBeNull();
+    // A note on a field you wrote never offers it.
+    await b.critique('glide', 'on_demand');
+    const mine = notes['ai:glide']!.find((n) => n.kind === 'weak_identity')!;
+    expect(benchStore.get().rewrites[mine.id]).toBeUndefined();
   });
 
   it('a newer request cancels the stale one, whose result is never shown', async () => {
