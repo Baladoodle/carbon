@@ -144,10 +144,10 @@ describe('bench AI', () => {
     const sent: unknown[] = [];
     const fake = new FakeAiGateway({ getWorld: () => world });
     const run = fake.run.bind(fake);
-    fake.run = ((moment, req, opts) => {
+    fake.run = (moment, req, opts) => {
       sent.push({ moment, req });
       return run(moment, req, opts);
-    });
+    };
     const b = make(fake);
     const set = (value: string, source: 'ai' | 'user') => {
       const r = applyCommands(
