@@ -206,6 +206,21 @@ describe('a run that could not reach the model never passes (review-b)', () => {
     expect(reportMarkdown(r)).toContain('2 cases could not run');
   });
 
+  it('cases the spend cap stopped are listed, and the run fails', () => {
+    const r = buildReport(
+      'live',
+      '2026-11-04T10:00:00.000Z',
+      'm',
+      world,
+      [run({ moment: 'critique', expect: { clean: true } }, { notes: [] })],
+      ['spread-fill-low-sky-items', 'spec-cinder-sting-glide'],
+    );
+    expect(r.pass).toBe(false);
+    const md = reportMarkdown(r);
+    expect(md).toContain('2 cases did not start');
+    expect(md).toContain('spread-fill-low-sky-items');
+  });
+
   it('no cases at all is not a pass', () => {
     expect(buildReport('live', '2026-11-04T10:00:00.000Z', 'm', world, []).pass).toBe(false);
   });

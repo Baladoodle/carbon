@@ -313,6 +313,8 @@ export interface Report {
   metrics: Metric[];
   /** Cases that never produced an answer to measure (API, network, refusal, truncation). */
   unrun: { id: string; error: string }[];
+  /** Cases that never started (the run's spend cap was reached first). */
+  skipped: string[];
   pass: boolean;
   runs: {
     id: string;
@@ -332,6 +334,7 @@ export function buildReport(
   model: string,
   world: World,
   runs: readonly CaseRun[],
+  skipped: readonly string[] = [],
 ): Report {
   const metrics = computeMetrics(world, runs);
   const usage = runs.reduce<Usage>(
@@ -360,7 +363,12 @@ export function buildReport(
     usage,
     metrics,
     unrun,
-    pass: runs.length > 0 && unrun.length === 0 && metrics.every((m) => m.pass !== false),
+    skipped: [...skipped],
+    pass:
+      runs.length > 0 &&
+      unrun.length === 0 &&
+      skipped.length === 0 &&
+      metrics.every((m) => m.pass !== false),
     runs: runs.map((r) => ({
       id: r.case.id,
       moment: r.case.moment,
@@ -400,6 +408,14 @@ export function reportMarkdown(r: Report): string {
           `**${r.unrun.length} ${r.unrun.length === 1 ? 'case' : 'cases'} could not run**, so this run can't pass:`,
           '',
           ...r.unrun.map((u) => `- ${u.id}: ${u.error}`),
+          '',
+        ]
+      : []),
+    ...(r.skipped.length > 0
+      ? [
+          `**${r.skipped.length} ${r.skipped.length === 1 ? 'case' : 'cases'} did not start**: the spend cap was reached (raise it with \`--max-usd\`).`,
+          '',
+          ...r.skipped.map((id) => `- ${id}`),
           '',
         ]
       : []),
