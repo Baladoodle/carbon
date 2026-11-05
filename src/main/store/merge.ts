@@ -48,6 +48,7 @@ const SCALAR_KEYS = [
   'relations',
   'origin',
   'ai_fields',
+  'agent_fields',
   'killed',
   'created',
 ] as const;

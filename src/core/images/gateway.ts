@@ -388,6 +388,8 @@ export const ImageLogEntrySchema = z.object({
   /** The image made: the AI log shows its thumbnail via `images:file`. */
   image: ImageIdSchema.optional(),
   batchId: z.string().optional(),
+  /** Added by the agent socket (docs/MCP.md): an outside agent asked for this call. */
+  via: z.enum(['agent']).optional(),
 });
 export type ImageLogEntry = z.infer<typeof ImageLogEntrySchema>;
 

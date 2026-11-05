@@ -10,6 +10,12 @@ import { PatchSchema } from '@core/commands/patch';
 import { CommandSchema } from '@core/commands/apply';
 import { WorldSchemaZ } from '@core/model/world';
 import {
+  AgentLogEntrySchema,
+  AgentRevealSchema,
+  AgentSettingsPatchSchema,
+  AgentStatusSchema,
+} from './agent';
+import {
   BatchPlanRequestSchema,
   BatchPlanSchema,
   BatchProgressSchema,
@@ -81,6 +87,8 @@ export const PatchEventSchema = z.object({
   cause: z.enum(['command', 'undo', 'redo', 'external']),
   label: z.string().optional(),
   history: HistoryInfoSchema,
+  /** Added by the agent socket: an outside agent's command (docs/MCP.md). The Bench treats it like an outside edit. */
+  by: z.enum(['agent']).optional(),
 });
 export type PatchEvent = z.infer<typeof PatchEventSchema>;
 
@@ -274,6 +282,13 @@ export const INVOKE = {
     request: z.enum(['minimize', 'maximize', 'close', 'devtools']),
     response: done,
   },
+  // Added by the agent socket (docs/MCP.md; src/main/agent).
+  'agent:status': { request: none, response: AgentStatusSchema },
+  'agent:setSettings': { request: AgentSettingsPatchSchema, response: AgentStatusSchema },
+  'agent:log': {
+    request: z.object({ limit: z.number().int().min(1).max(500).optional() }),
+    response: z.array(AgentLogEntrySchema),
+  },
 } as const satisfies Record<string, { request: z.ZodType; response: z.ZodType }>;
 
 export const EVENTS = {
@@ -290,6 +305,12 @@ export const EVENTS = {
   'images:progress': BatchProgressSchema,
   /** A new line in the image log (an image call finished). */
   'images:logged': ImageLogEntrySchema,
+  // Added by the agent socket.
+  'agent:status': AgentStatusSchema,
+  /** A tool call finished. */
+  'agent:logged': AgentLogEntrySchema,
+  /** The agent's `focus` or `view` tool: show this. */
+  'agent:reveal': AgentRevealSchema,
 } as const satisfies Record<string, z.ZodType>;
 
 export type InvokeChannel = keyof typeof INVOKE;

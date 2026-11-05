@@ -13,7 +13,8 @@ export type Relation = z.infer<typeof RelationSchema>;
 
 /** Who wrote an entity, and from where. */
 export const OriginSchema = z.object({
-  by: z.enum(['user', 'ai']),
+  /** `agent`: made through carbon's agent socket (docs/MCP.md), by an outside agent. */
+  by: z.enum(['user', 'ai', 'agent']),
   /** The spread it was kept from, if any. */
   spread: z.string().optional(),
   /** The AI moment that produced it (e.g. `spread`, `fill_entity`). */
@@ -53,6 +54,11 @@ export const EntitySchema = z.object({
   origin: OriginSchema.default({ by: 'user' }),
   /** Keys (common or kind fields) whose current value the AI wrote and you haven't edited. */
   ai_fields: z.array(z.string()).default([]),
+  /**
+   * Keys whose current value an outside agent wrote (docs/MCP.md) and you
+   * haven't edited since. Absent when empty, so existing files don't change.
+   */
+  agent_fields: z.array(z.string()).optional(),
   killed: KilledSchema.optional(),
   created: TimestampSchema,
   updated: TimestampSchema,

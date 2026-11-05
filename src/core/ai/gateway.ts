@@ -98,6 +98,8 @@ export const AiLogEntrySchema = z.object({
   /** Local token estimate of the request, and the exact count when count_tokens was called. */
   estimate: z.number().int().min(0).optional(),
   counted: z.number().int().min(0).optional(),
+  /** Added by the agent socket (docs/MCP.md): the call was asked for by an outside agent. */
+  via: z.enum(['agent']).optional(),
 });
 export type AiLogEntry = z.infer<typeof AiLogEntrySchema>;
 
@@ -106,6 +108,8 @@ export interface AiRunOptions<M extends Moment> {
   signal?: AbortSignal;
   /** Streamed pieces as they arrive (spread candidates). Each is already validated. */
   onPartial?: (partial: MomentPartial<M>) => void;
+  /** Who asked: `agent` for an outside agent's call (docs/MCP.md); logged as `via`. */
+  via?: 'agent';
 }
 
 /**

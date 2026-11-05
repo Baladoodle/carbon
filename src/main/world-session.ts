@@ -95,6 +95,8 @@ export class WorldSession {
     commands: readonly { type: string; payload: unknown }[],
     label?: string,
     effect?: StepEffect,
+    /** `{ by: 'agent' }`: an outside agent's step (docs/MCP.md); its patch event says so. */
+    meta?: { by: 'agent' },
   ): DispatchResult {
     const r = applyCommands(this.current, commands, { now: this.clock() });
     if (!r.ok) return { ok: false, error: r.error };
@@ -107,7 +109,7 @@ export class WorldSession {
     });
     const entry = this.history.past[this.history.past.length - 1];
     if (effect && entry) this.effects.set(entry, effect);
-    this.commit(r.value.world, r.value.patch, 'command', name);
+    this.commit(r.value.world, r.value.patch, 'command', name, meta?.by);
     return { ok: true, rev: this.rev };
   }
 
@@ -175,13 +177,26 @@ export class WorldSession {
     };
   }
 
-  private commit(next: World, patch: Patch, cause: PatchEvent['cause'], label: string): void {
+  private commit(
+    next: World,
+    patch: Patch,
+    cause: PatchEvent['cause'],
+    label: string,
+    by?: 'agent',
+  ): void {
     const before = this.current;
     this.current = next;
     this.rev++;
     const changes = filesForPatch(before, next, patch);
     this.persist(() => writeChanges(this.dir, changes));
-    const event: PatchEvent = { rev: this.rev, patch, cause, label, history: this.historyInfo() };
+    const event: PatchEvent = {
+      rev: this.rev,
+      patch,
+      cause,
+      label,
+      history: this.historyInfo(),
+      ...(by ? { by } : {}),
+    };
     for (const l of this.patchListeners) l(event);
   }
 

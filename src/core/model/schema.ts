@@ -113,6 +113,7 @@ export const COMMON_FIELDS = [
   'relations',
   'origin',
   'ai_fields',
+  'agent_fields',
   'created',
   'updated',
   'fields',

@@ -159,7 +159,7 @@ describe('compileQuery', () => {
       ['sometimes', 'placed: use pinned, inferred or none'],
     ]);
     expect(errs('ai:maybe')).toEqual([['maybe', 'ai: use yes or no']]);
-    expect(errs('origin:me')).toEqual([['me', 'origin: use user or ai']]);
+    expect(errs('origin:me')).toEqual([['me', 'origin: use user, ai or agent']]);
     expect(errs('has:wings')).toEqual([['wings', 'no field "wings"']]);
     expect(errs('climate:hot')).toEqual([['hot', "climate: climate can't be filtered"]]);
     expect(errs('made_from:>2')).toEqual([['made_from', "made_from: can't compare with >"]]);

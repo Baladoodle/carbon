@@ -1,4 +1,5 @@
 import type { MainModule } from '../modules';
+import { setImageGateway } from './current';
 import { createImageGateway } from './index';
 
 /**
@@ -14,6 +15,7 @@ const imagesModule: MainModule = {
   async start({ session, ai, handle, send, window }) {
     const g = createImageGateway(session, ai);
     await g.attach();
+    setImageGateway(g);
     const push = <C extends 'images:status' | 'images:progress' | 'images:logged'>(
       channel: C,
       payload: Parameters<typeof send<C>>[2],
@@ -57,6 +59,7 @@ const imagesModule: MainModule = {
       if (e.patch.some((op) => op.path[0] === 'settings')) g.refresh();
     });
     return async () => {
+      setImageGateway(null);
       offStatus();
       offPatch();
       await g.flush();

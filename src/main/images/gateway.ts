@@ -1,3 +1,4 @@
+import { currentVia } from '../agent/via';
 import { mkdir, readFile, readdir, rm, stat } from 'node:fs/promises';
 import path from 'node:path';
 import type { AiGateway } from '@core/ai/gateway';
@@ -274,7 +275,11 @@ export class MainImageGateway implements ImageGateway {
           unknownOutcome: false,
         },
       };
-    const out = await this.o.ai.run('image_prompt', r.data, signal ? { signal } : {});
+    const via = currentVia();
+    const out = await this.o.ai.run('image_prompt', r.data, {
+      ...(signal ? { signal } : {}),
+      ...(via ? { via } : {}),
+    });
     if (!out.ok)
       return {
         ok: false,
@@ -624,6 +629,7 @@ export class MainImageGateway implements ImageGateway {
         ...(a.requestId ? { requestId: a.requestId } : {}),
         ...(a.status === 'ok' && result.ok ? { image: result.image } : {}),
         ...(batchId ? { batchId } : {}),
+        ...(currentVia() ? { via: 'agent' as const } : {}),
       };
       this.log$.add(entry);
       this.onLogged?.(entry);

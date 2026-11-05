@@ -255,6 +255,7 @@ export class ClaudeAiGateway implements AiGateway {
       moment,
       ...(entityOf() ? { entity: entityOf() } : {}),
       ...(trigger ? { trigger } : {}),
+      ...(options.via ? { via: options.via } : {}),
     };
 
     if (!this.enabled)
@@ -628,7 +629,7 @@ export class ClaudeAiGateway implements AiGateway {
   }
 
   private finish<M extends Moment>(
-    base: { moment: Moment; entity?: string; trigger?: string },
+    base: { moment: Moment; entity?: string; trigger?: string; via?: 'agent' },
     outcome: AiOutcome<M>,
     extra: {
       attempts: number;

@@ -59,6 +59,7 @@ export const createEntity = defineCommand({
     relations: z.array(RelationSchema).optional(),
     origin: OriginSchema.optional(),
     ai_fields: z.array(z.string()).optional(),
+    agent_fields: z.array(z.string()).optional(),
   }),
   label: (p) => `Create ${p.name}`,
   plan(world, p, ctx) {
@@ -86,6 +87,9 @@ export const createEntity = defineCommand({
       relations: p.relations ?? [],
       origin: p.origin ?? { by: 'user' },
       ai_fields: p.ai_fields ?? [],
+      ...(p.agent_fields && p.agent_fields.length > 0
+        ? { agent_fields: [...new Set(p.agent_fields)] }
+        : {}),
       created: ctx.now,
       updated: ctx.now,
     });
@@ -99,11 +103,42 @@ export const createEntity = defineCommand({
 /** A value for a field: `null` clears it. */
 const FieldChanges = z.record(z.string(), z.unknown());
 
+/**
+ * Who wrote a value: `user` clears the markers, `ai` marks it AI-written
+ * (`ai_fields`), `agent` marks it written by an outside agent (`agent_fields`,
+ * docs/MCP.md). A key carries at most one of the two markers.
+ */
+export const SourceSchema = z.enum(['user', 'ai', 'agent']);
+export type Source = z.infer<typeof SourceSchema>;
+
+/** The patch ops that bring `ai_fields` and `agent_fields` to `ai` and `agent` (agent_fields absent when empty). */
+function markerOps(e: Entity, ai: readonly string[], agent: readonly string[]): Patch {
+  const ops: Patch = [];
+  const same = (a: readonly string[], b: readonly string[]): boolean =>
+    a.length === b.length && a.every((k, i) => k === b[i]);
+  if (!same(ai, e.ai_fields))
+    ops.push({ op: 'set', path: ['entities', e.id, 'ai_fields'], value: [...ai] });
+  const was = e.agent_fields ?? [];
+  if (!same(agent, was)) {
+    if (agent.length === 0) ops.push({ op: 'remove', path: ['entities', e.id, 'agent_fields'] });
+    else ops.push({ op: 'set', path: ['entities', e.id, 'agent_fields'], value: [...agent] });
+  }
+  return ops;
+}
+
+/** Applies one key's marker for `source` to the two marker sets. */
+function mark(key: string, source: Source, ai: Set<string>, agent: Set<string>): void {
+  if (source === 'ai') ai.add(key);
+  else ai.delete(key);
+  if (source === 'agent') agent.add(key);
+  else agent.delete(key);
+}
+
 function planFieldChanges(
   world: World,
   e: Entity,
   set: Record<string, unknown>,
-  source: 'user' | 'ai',
+  source: Source,
   now: string,
 ): Result<Patch> {
   const kind = schemaOf(world).kinds[e.kind];
@@ -111,6 +146,7 @@ function planFieldChanges(
   const fields = { ...e.fields };
   let fieldsChanged = false;
   const ai = new Set(e.ai_fields);
+  const agent = new Set(e.agent_fields ?? []);
   for (const [key, raw] of Object.entries(set)) {
     const clear = raw === null || raw === undefined;
     if (isEditableCommonField(key)) {
@@ -134,13 +170,10 @@ function planFieldChanges(
       else fields[key] = raw;
       fieldsChanged = true;
     }
-    if (source === 'ai') ai.add(key);
-    else ai.delete(key);
+    mark(key, source, ai, agent);
   }
   if (fieldsChanged) patch.push({ op: 'set', path: [...ent(e.id), 'fields'], value: fields });
-  const aiList = [...ai];
-  if (aiList.length !== e.ai_fields.length || aiList.some((k, i) => k !== e.ai_fields[i]))
-    patch.push({ op: 'set', path: [...ent(e.id), 'ai_fields'], value: aiList });
+  patch.push(...markerOps(e, [...ai], [...agent]));
   // Editing an exported entity sends it back to decided (docs/EXPERIENCE.md §8).
   if (e.state === 'exported')
     patch.push({ op: 'set', path: [...ent(e.id), 'state'], value: 'decided' });
@@ -153,8 +186,8 @@ export const updateEntity = defineCommand({
     id: EntityIdSchema,
     /** Common text fields (`name`, `identity`, `description`, `why`, `tags`) or kind fields; `null` clears. */
     set: FieldChanges,
-    /** `ai` marks the fields as AI-written (accepting a suggestion); `user` clears the marker. */
-    source: z.enum(['user', 'ai']).default('user'),
+    /** `ai` marks the fields as AI-written (accepting a suggestion), `agent` as agent-written; `user` clears the markers. */
+    source: SourceSchema.default('user'),
   }),
   label: (p, w) => `Edit ${getEntity(w, p.id)?.name ?? p.id}`,
   plan(world, p, ctx) {
@@ -169,7 +202,7 @@ export const setField = defineCommand({
     id: EntityIdSchema,
     field: z.string(),
     value: z.unknown(),
-    source: z.enum(['user', 'ai']).default('user'),
+    source: SourceSchema.default('user'),
   }),
   label: (p, w) => `Set ${p.field} of ${getEntity(w, p.id)?.name ?? p.id}`,
   plan(world, p, ctx) {
@@ -322,7 +355,7 @@ export const setAttribute = defineCommand({
     key: z.string().regex(/^[a-z][a-z0-9_]*$/),
     /** `null` removes the attribute. */
     value: z.number().refine(Number.isFinite, 'a finite number').nullable(),
-    source: z.enum(['user', 'ai']).default('user'),
+    source: SourceSchema.default('user'),
   }),
   label: (p, w) => `Set ${p.key} of ${getEntity(w, p.id)?.name ?? p.id}`,
   plan(world, p, ctx) {
@@ -334,10 +367,11 @@ export const setAttribute = defineCommand({
     else attributes[p.key] = p.value;
     const marker = `attributes.${p.key}`;
     const ai = e.ai_fields.filter((k) => k !== marker);
+    const agent = (e.agent_fields ?? []).filter((k) => k !== marker);
     if (p.source === 'ai' && p.value !== null) ai.push(marker);
+    if (p.source === 'agent' && p.value !== null) agent.push(marker);
     const patch: Patch = [{ op: 'set', path: [...ent(e.id), 'attributes'], value: attributes }];
-    if (ai.length !== e.ai_fields.length || ai.some((k, i) => k !== e.ai_fields[i]))
-      patch.push({ op: 'set', path: [...ent(e.id), 'ai_fields'], value: ai });
+    patch.push(...markerOps(e, ai, agent));
     if (e.state === 'exported')
       patch.push({ op: 'set', path: [...ent(e.id), 'state'], value: 'decided' });
     patch.push({ op: 'set', path: [...ent(e.id), 'updated'], value: ctx.now });

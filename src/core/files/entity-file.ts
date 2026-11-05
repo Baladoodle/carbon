@@ -20,6 +20,7 @@ const ORDER = [
   'relations',
   'origin',
   'ai_fields',
+  'agent_fields',
   'killed',
   'created',
   'updated',

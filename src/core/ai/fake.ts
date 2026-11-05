@@ -179,6 +179,7 @@ export class FakeAiGateway implements AiGateway {
         moment,
         ...(entity ? { entity } : {}),
         outcome: outcome.ok ? 'ok' : outcome.error.code === 'cancelled' ? 'cancelled' : 'error',
+        ...(options.via ? { via: options.via } : {}),
         ...(outcome.ok ? { meta } : { error: outcome.error }),
       });
       this.pending--;
