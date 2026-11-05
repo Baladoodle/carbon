@@ -344,3 +344,90 @@ export function roundNice(v: number): number {
 }
 
 const trimNum = (x: number): string => String(Number(x.toPrecision(6))).replace('-', '−');
+
+/** An edit of an intent curve's control points (numeric x, as on the plot). */
+export type IntentEdit =
+  | { type: 'add'; x: number; y: number }
+  | { type: 'move'; index: number; x?: number; y?: number }
+  | { type: 'remove'; index: number };
+
+/**
+ * Applies an edit to intent points (numeric x, as `CurveSample.intent`). The
+ * result is sorted by x with no two points at the same x, every x inside the
+ * domain, and, on the band and tier axes, every x on a tick:
+ *
+ *  - add: snapped to the nearest tick (bands, tiers) or clamped to the range
+ *    (attributes); a point already at that x takes the new y instead
+ *  - move: y is free; x snaps or clamps the same way, and a point never passes
+ *    or lands on a neighbour (such an x move is ignored, the y move kept)
+ *  - remove: the point goes; removing the last one leaves no intent
+ */
+export function editIntent(
+  points: readonly { x: number; y: number }[],
+  edit: IntentEdit,
+  sample: Pick<CurveSample, 'axis' | 'domain' | 'ticks'>,
+): { x: number; y: number }[] {
+  const sorted = [...points].sort((a, b) => a.x - b.x).map((p) => ({ ...p }));
+  const categorical = sample.axis !== 'attribute';
+  const place = (x: number): number | null => {
+    if (!Number.isFinite(x)) return null;
+    if (!categorical) return Math.min(sample.domain[1], Math.max(sample.domain[0], x));
+    let best: number | null = null;
+    for (const t of sample.ticks)
+      if (best === null || Math.abs(t.x - x) < Math.abs(best - x)) best = t.x;
+    return best;
+  };
+  const okY = (y: number | undefined): y is number => y !== undefined && Number.isFinite(y);
+  switch (edit.type) {
+    case 'add': {
+      const x = place(edit.x);
+      if (x === null || !okY(edit.y)) return sorted;
+      const at = sorted.find((p) => p.x === x);
+      if (at) at.y = edit.y;
+      else sorted.push({ x, y: edit.y });
+      return sorted.sort((a, b) => a.x - b.x);
+    }
+    case 'remove':
+      return sorted.filter((_, i) => i !== edit.index);
+    case 'move': {
+      const p = sorted[edit.index];
+      if (!p) return sorted;
+      if (okY(edit.y)) p.y = edit.y;
+      if (edit.x !== undefined) {
+        const x = place(edit.x);
+        const lo = sorted[edit.index - 1]?.x ?? -Infinity;
+        const hi = sorted[edit.index + 1]?.x ?? Infinity;
+        if (x !== null && x > lo && x < hi) p.x = x;
+      }
+      return sorted;
+    }
+  }
+}
+
+/**
+ * Where a new point goes when it's added from the keyboard next to point
+ * `index`: halfway to the next point (or the domain's end), else halfway to
+ * the previous one; on bands and tiers, the nearest free tick to the right,
+ * else to the left. `null` when there is no room.
+ */
+export function nextIntentX(
+  points: readonly { x: number; y: number }[],
+  index: number,
+  sample: Pick<CurveSample, 'axis' | 'domain' | 'ticks'>,
+): number | null {
+  const sorted = [...points].sort((a, b) => a.x - b.x);
+  const p = sorted[index];
+  if (!p) return null;
+  const taken = new Set(sorted.map((q) => q.x));
+  if (sample.axis !== 'attribute') {
+    const xs = sample.ticks.map((t) => t.x).filter((x) => !taken.has(x));
+    return xs.find((x) => x > p.x) ?? [...xs].reverse().find((x) => x < p.x) ?? null;
+  }
+  const next = sorted[index + 1]?.x ?? sample.domain[1];
+  const prev = sorted[index - 1]?.x ?? sample.domain[0];
+  const right = (p.x + next) / 2;
+  if (right > p.x && right < next && !taken.has(right)) return right;
+  const left = (prev + p.x) / 2;
+  if (left < p.x && left > prev && !taken.has(left)) return left;
+  return null;
+}

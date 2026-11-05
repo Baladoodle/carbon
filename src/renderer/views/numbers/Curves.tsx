@@ -1,13 +1,17 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { cmd } from '@core/commands/registry';
 import type { Curve, CurveAxis } from '@core/model/curves';
 import { ENTITY_KINDS, type EntityState } from '@core/model/kinds';
 import { schemaOf, type World } from '@core/model/world';
 import {
+  editIntent,
   initialIntent,
+  intentAt,
+  nextIntentX,
   sampleCurve,
   storedIntentX,
   type CurvePart,
+  type CurveSample,
   type NumbersAnalysis,
 } from '@core/numbers';
 import { useActions } from '../../actions';
@@ -29,6 +33,19 @@ export function newCurve(analysis: NumbersAnalysis, curves: Curve[]): Curve {
 
 const axisValue = (o: CurveAxis): string =>
   o.axis === 'attribute' ? `attr:${o.kind}.${o.key}` : o.axis;
+
+/** Stores intent points given in numeric x (as on the plot); none removes the intent. */
+function setIntent(curve: Curve, sample: CurveSample, points: { x: number; y: number }[]): void {
+  void dispatch(
+    cmd('numbers.setIntent', {
+      id: curve.id,
+      points:
+        points.length === 0
+          ? null
+          : points.map((p) => ({ x: storedIntentX(p.x, sample.ticks, curve.over), y: p.y })),
+    }),
+  );
+}
 
 async function put(curve: Curve): Promise<boolean> {
   const r = await dispatch(cmd('numbers.putCurve', { curve }));
@@ -89,10 +106,12 @@ function CurveCard({
   curve,
   world,
   analysis,
+  onHandleFocus,
 }: {
   curve: Curve;
   world: World;
   analysis: NumbersAnalysis;
+  onHandleFocus: (index: number) => void;
 }): ReactNode {
   const sample = useMemo(() => sampleCurve(analysis, world, curve), [analysis, world, curve]);
   const schema = schemaOf(world);
@@ -252,17 +271,8 @@ function CurveCard({
         sample={sample}
         states={states}
         label={curve.y}
-        onIntent={(points) =>
-          void dispatch(
-            cmd('numbers.setIntent', {
-              id: curve.id,
-              points: points.map((p) => ({
-                x: storedIntentX(p.x, sample.ticks, curve.over),
-                y: p.y,
-              })),
-            }),
-          )
-        }
+        onIntent={(points) => setIntent(curve, sample, points)}
+        onHandleFocus={onHandleFocus}
       />
     </article>
   );
@@ -277,13 +287,62 @@ export function Curves({
 }): ReactNode {
   const curves = world.numbers.curves ?? [];
   const add = (): void => void put(newCurve(analysis, curves));
+  // The intent point that last had keyboard focus: the palette's intent
+  // actions work on it (on the plot, `+` and delete do the same).
+  const last = useRef<{ id: string; index: number } | null>(null);
+  const target = (): { curve: Curve; sample: CurveSample; index: number } | null => {
+    const l = last.current;
+    const curve = l ? curves.find((c) => c.id === l.id) : undefined;
+    if (!l || !curve) return null;
+    const sample = sampleCurve(analysis, world, curve);
+    return l.index < sample.intent.length ? { curve, sample, index: l.index } : null;
+  };
   useActions([
     { id: 'numbers.newCurve', label: 'New curve', group: 'Numbers', keys: ['c'], run: add },
+    {
+      id: 'numbers.addIntentPoint',
+      label: 'Add an intent point',
+      group: 'Numbers',
+      enabled: () => {
+        const t = target();
+        return !!t && nextIntentX(t.sample.intent, t.index, t.sample) !== null;
+      },
+      run: () => {
+        const t = target();
+        if (!t) return;
+        const x = nextIntentX(t.sample.intent, t.index, t.sample);
+        if (x === null) return;
+        const y = intentAt(t.sample.intent, x) ?? 0;
+        setIntent(t.curve, t.sample, editIntent(t.sample.intent, { type: 'add', x, y }, t.sample));
+      },
+    },
+    {
+      id: 'numbers.removeIntentPoint',
+      label: 'Remove an intent point',
+      group: 'Numbers',
+      enabled: () => target() !== null,
+      run: () => {
+        const t = target();
+        if (!t) return;
+        setIntent(
+          t.curve,
+          t.sample,
+          editIntent(t.sample.intent, { type: 'remove', index: t.index }, t.sample),
+        );
+        last.current = null;
+      },
+    },
   ]);
   return (
     <section className={cx('numbers-curves')} aria-label="Curves" data-testid="numbers-curves">
       {curves.map((c) => (
-        <CurveCard key={c.id} curve={c} world={world} analysis={analysis} />
+        <CurveCard
+          key={c.id}
+          curve={c}
+          world={world}
+          analysis={analysis}
+          onHandleFocus={(index) => (last.current = { id: c.id, index })}
+        />
       ))}
       {curves.length === 0 ? (
         <p className="numbers-empty ui-empty">
