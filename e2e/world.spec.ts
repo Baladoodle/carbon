@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
 import { cmd } from '@core/commands/registry';
@@ -202,6 +202,8 @@ test("codex remembers each tab's sort and column widths", async () => {
 });
 
 test('codex stays virtualised with 2,000 entities', async () => {
+  const materials = path.join(carbon.worldDir, 'entities/material');
+  const filesBefore = readdirSync(materials).length;
   const many = Array.from({ length: 2000 }, (_, i) =>
     cmd('entity.create', {
       kind: 'material',
@@ -228,6 +230,10 @@ test('codex stays virtualised with 2,000 entities', async () => {
   await body().press('Control+z');
   await filter('');
   await expect(page().locator('tr[data-entity="ore-0000"]')).toHaveCount(0);
+  // The store writes 2,000 files and then removes them, one durable write at a time. Finish
+  // only once that has reached the disk, or later tests that read files wait behind this
+  // test's writes (on a busy machine, past their own timeouts).
+  await expect.poll(() => readdirSync(materials).length, { timeout: 120_000 }).toBe(filesBefore);
 });
 
 test('codex screenshots', async () => {
@@ -415,6 +421,102 @@ test('climate: a biome made on a band without edges shows on its plane', async (
   await body().press('Control+z');
   await expect(region('new-biome')).toHaveCount(0);
   await body().press('Control+z');
+});
+
+test('climate: a click or a drag faster than a render never leaves the plane stuck', async () => {
+  await carbon.gotoView('climate', '2');
+  await page().getByRole('tab', { name: 'Hollows' }).click();
+  await expect(region('ash-vents')).toBeVisible();
+  // Pointer events with no render between them, as on a busy machine: down, moves, up (the
+  // mouse's own pointer, so pointer capture accepts it).
+  await page().mouse.move(5, 5);
+  const fire = (dx: number) =>
+    page().evaluate((dx) => {
+      const el = document.querySelector('[data-testid="climate-region"][data-entity="ash-vents"]')!;
+      const plane = document.querySelector('[data-testid="climate-plane"]')!;
+      const r = el.getBoundingClientRect();
+      const w = plane.getBoundingClientRect().width;
+      const at = (x: number) => ({
+        bubbles: true,
+        cancelable: true,
+        pointerId: 1,
+        button: 0,
+        buttons: 1,
+        clientX: r.left + r.width / 2 + x,
+        clientY: r.top + r.height / 2,
+      });
+      el.dispatchEvent(new PointerEvent('pointerdown', at(0)));
+      for (const f of [0.25, 0.5, 0.75, 1])
+        el.dispatchEvent(new PointerEvent('pointermove', at(dx * w * f)));
+      el.dispatchEvent(new PointerEvent('pointerup', at(dx * w)));
+    }, dx);
+  // A quick click: nothing moves, and the keys still work afterwards.
+  await fire(0);
+  await body().press('ArrowLeft');
+  await expect.poll(() => climateOf('ash-vents')).toMatch(/min: 0\.7\s+max: 0\.95/);
+  await body().press('Control+z');
+  await expect.poll(() => climateOf('ash-vents')).toMatch(/min: 0\.75\s+max: 1/);
+  // A quick drag 10% colder: it lands where the pointer let go, as one step.
+  await fire(-0.1);
+  await expect.poll(() => climateOf('ash-vents')).toMatch(/min: 0\.65\s+max: 0\.9/);
+  await body().press('Control+z');
+  await expect.poll(() => climateOf('ash-vents')).toMatch(/min: 0\.75\s+max: 1/);
+});
+
+test('codex: a column resize faster than a render lands and never sticks', async () => {
+  await carbon.gotoView('codex', '3');
+  const th = page().locator('th[data-col="identity"]');
+  const before = (await th.boundingBox())!.width;
+  await page().mouse.move(5, 5);
+  await page().evaluate(() => {
+    const h = document.querySelector('th[data-col="identity"] .codex-resize')!;
+    const r = h.getBoundingClientRect();
+    const at = (x: number) => ({
+      bubbles: true,
+      cancelable: true,
+      pointerId: 1,
+      button: 0,
+      buttons: 1,
+      clientX: r.left + r.width / 2 + x,
+      clientY: r.top + r.height / 2,
+    });
+    h.dispatchEvent(new PointerEvent('pointerdown', at(0)));
+    h.dispatchEvent(new PointerEvent('pointermove', at(20)));
+    h.dispatchEvent(new PointerEvent('pointermove', at(40)));
+    h.dispatchEvent(new PointerEvent('pointerup', at(40)));
+  });
+  await expect.poll(async () => (await th.boundingBox())!.width).toBe(before + 40);
+  const stored = await page().evaluate(() => localStorage.getItem('carbon.codex'));
+  const widths = (JSON.parse(stored ?? '{}') as { widths?: Record<string, Record<string, number>> })
+    .widths;
+  // Remembered for whichever tab is showing.
+  expect(Object.values(widths ?? {}).some((w) => w.identity === before + 40)).toBe(true);
+  await th.locator('.codex-resize').dblclick();
+  await expect.poll(async () => (await th.boundingBox())!.width).toBe(before);
+});
+
+test('a tab click hands the keys back without taking them from what opens next', async () => {
+  // Click a tab, then something else takes focus before the next frame (the palette opening on
+  // ctrl+k right after the click): focus must stay there.
+  const stolen = async (tab: string, view: string, key: string): Promise<boolean> => {
+    await carbon.gotoView(view, key);
+    return page().evaluate(async (name) => {
+      const t = [...document.querySelectorAll('[role="tab"]')].find((x) =>
+        x.textContent.startsWith(name),
+      )!;
+      t.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 }));
+      t.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, button: 0 }));
+      const other = document.createElement('input');
+      document.body.append(other);
+      other.focus();
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      const kept = document.activeElement === other;
+      other.remove();
+      return !kept;
+    }, tab);
+  };
+  expect(await stolen('Groundline', 'climate', '2')).toBe(false);
+  expect(await stolen('All', 'codex', '3')).toBe(false);
 });
 
 test('climate screenshots', async () => {

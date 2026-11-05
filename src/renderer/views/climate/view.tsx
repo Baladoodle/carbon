@@ -117,7 +117,15 @@ function ClimateView(): ReactNode {
   const [selectedRaw, setSelected] = useState<string | null>(null);
   // The Bench focus a deselect turned away from: the selection stops following it.
   const [unfollowed, setUnfollowed] = useState<string | null>(null);
-  const [drag, setDrag] = useState<Drag | null>(null);
+  const [drag, setDragState] = useState<Drag | null>(null);
+  // The drag the pointer handlers read and write. Pointer events can come faster than React
+  // renders (a quick click, a busy machine): a handler that read the rendered state could miss
+  // the down that started a drag, leave it set forever (every key disabled), or end it short.
+  const dragRef = useRef<Drag | null>(null);
+  const setDrag = (d: Drag | null): void => {
+    dragRef.current = d;
+    setDragState(d);
+  };
   const planeRef = useRef<HTMLDivElement>(null);
 
   // Arrow-key nudges: a live draft per burst, committed as one undo step once the keys rest.
@@ -236,7 +244,7 @@ function ClimateView(): ReactNode {
     if (next) select(next.id);
   };
 
-  const idle = (): boolean => drag === null;
+  const idle = (): boolean => dragRef.current === null;
   useActions([
     {
       id: 'climate.prev-band',
@@ -355,8 +363,8 @@ function ClimateView(): ReactNode {
       label: 'Deselect',
       keys: ['escape'],
       hidden: true,
-      enabled: () => !!sel || drag !== null,
-      run: () => (drag ? setDrag(null) : deselect()),
+      enabled: () => !!sel || dragRef.current !== null,
+      run: () => (dragRef.current ? setDrag(null) : deselect()),
     },
     {
       id: 'climate.undo-nudge',
@@ -406,23 +414,28 @@ function ClimateView(): ReactNode {
     select(id);
     setDrag({ id, handle, startX: e.clientX, startY: e.clientY, start: r.rect, rect: r.rect });
   };
-  const onMove = (e: ReactPointerEvent): void => {
+  /** Where the dragged rect is with the pointer at `e`. */
+  const dragged = (d: Drag, e: { clientX: number; clientY: number }): Rect | null => {
     const plane = planeRef.current;
-    if (!drag || !plane) return;
+    if (!plane) return null;
     const box = plane.getBoundingClientRect();
-    const dx = (e.clientX - drag.startX) / box.width;
-    const dy = -(e.clientY - drag.startY) / box.height;
-    const rect =
-      drag.handle === 'move'
-        ? moveRect(drag.start, dx, dy)
-        : resizeRect(drag.start, drag.handle, dx, dy);
-    if (!sameRect(rect, drag.rect)) setDrag({ ...drag, rect });
+    const dx = (e.clientX - d.startX) / box.width;
+    const dy = -(e.clientY - d.startY) / box.height;
+    return d.handle === 'move' ? moveRect(d.start, dx, dy) : resizeRect(d.start, d.handle, dx, dy);
   };
-  const endDrag = (): void => {
-    if (!drag) return;
-    const d = drag;
+  const onMove = (e: ReactPointerEvent): void => {
+    const d = dragRef.current;
+    if (!d) return;
+    const rect = dragged(d, e);
+    if (rect && !sameRect(rect, d.rect)) setDrag({ ...d, rect });
+  };
+  const endDrag = (e: ReactPointerEvent): void => {
+    const d = dragRef.current;
+    if (!d) return;
     setDrag(null);
-    if (!sameRect(d.rect, d.start)) void save(d.id, d.rect);
+    // Where the pointer let go, not the last move that happened to render.
+    const rect = dragged(d, e) ?? d.rect;
+    if (!sameRect(rect, d.start)) void save(d.id, rect);
   };
 
   if (!world) return <div className="view-empty" />;
@@ -439,7 +452,11 @@ function ClimateView(): ReactNode {
           (the tab strip would keep the arrows and switch bands with them). */}
       <div
         style={{ display: 'contents' }}
-        onPointerUp={() => requestAnimationFrame(() => planeRef.current?.focus())}
+        onPointerUp={(e) => {
+          // Now, not on a later frame: by then something else (the palette, opened right
+          // after the click) may have focus, and taking it would swallow its keys.
+          if (e.currentTarget.contains(document.activeElement)) planeRef.current?.focus();
+        }}
       >
         <Tabs
           className="climate-bands"

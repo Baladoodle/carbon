@@ -234,13 +234,15 @@ function CodexView(): ReactNode {
   const setQueryRaw = (q: string): void => setPrefs((p) => ({ ...p, query: q }));
   const sort = prefs.sort[tab] ?? null;
   const toggleSort = (col: string): void => setPrefs((p) => cycleSort(p, tab, col));
-  // A column being resized by its header edge: its live width.
-  const [resizing, setResizing] = useState<{
-    col: string;
-    x0: number;
-    w0: number;
-    w: number;
-  } | null>(null);
+  // A column being resized by its header edge: its live width. The pointer handlers read the
+  // ref: pointer events can come faster than a render, and a stale read would drop the drag.
+  type Resize = { col: string; x0: number; w0: number; w: number };
+  const [resizing, setResizingState] = useState<Resize | null>(null);
+  const resizeRef = useRef<Resize | null>(null);
+  const setResizing = (r: Resize | null): void => {
+    resizeRef.current = r;
+    setResizingState(r);
+  };
   const [cursor, setCursor] = useState<{ id: string | null; col: number }>({ id: null, col: 0 });
   const [anchor, setAnchor] = useState<string | null>(null);
   const [editing, setEditing] = useState<Editing | null>(null);
@@ -668,7 +670,11 @@ function CodexView(): ReactNode {
         {/* A click on a tab, even the current one, hands the keys back to the table. */}
         <div
           style={{ display: 'contents' }}
-          onPointerUp={() => requestAnimationFrame(() => scrollRef.current?.focus())}
+          onPointerUp={(e) => {
+            // Now, not on a later frame: by then something else (the palette, opened right
+            // after the click) may have focus, and taking it would swallow its keys.
+            if (e.currentTarget.contains(document.activeElement)) scrollRef.current?.focus();
+          }}
         >
           <Tabs
             value={tab}
@@ -787,15 +793,18 @@ function CodexView(): ReactNode {
                         setResizing({ col: c.id, x0: e.clientX, w0, w: w0 });
                       }}
                       onPointerMove={(e) => {
-                        if (resizing?.col !== c.id) return;
-                        const w = clampWidth(resizing.w0 + e.clientX - resizing.x0);
-                        if (w !== resizing.w) setResizing({ ...resizing, w });
+                        const r = resizeRef.current;
+                        if (r?.col !== c.id) return;
+                        const w = clampWidth(r.w0 + e.clientX - r.x0);
+                        if (w !== r.w) setResizing({ ...r, w });
                       }}
-                      onPointerUp={() => {
-                        if (resizing?.col !== c.id) return;
-                        const w = resizing.w;
+                      onPointerUp={(e) => {
+                        const r = resizeRef.current;
+                        if (r?.col !== c.id) return;
+                        // Where the pointer let go, not the last move that happened to render.
+                        const w = clampWidth(r.w0 + e.clientX - r.x0);
                         setResizing(null);
-                        if (w !== resizing.w0) setPrefs((p) => withWidth(p, tab, c.id, w));
+                        if (w !== r.w0) setPrefs((p) => withWidth(p, tab, c.id, w));
                       }}
                       onPointerCancel={() => setResizing(null)}
                     />

@@ -35,6 +35,8 @@ and now assert the corrected rule; each is named in its row.
 | 10 | **Critique notes outlived their entity** (status count, notes store), and a critique out when its entity was deleted was published after | `core/bench › stale critiques`; `bench.test › drops a critique that lands after its entity was deleted` (a gateway that answers as asked, then late); `column.spec › deleting an entity takes its critique notes with it` | the controller withdraws `ai:<id>` notes of missing entities on every change of the entity set and cancels their requests; `critique()` drops a result for a missing entity |
 | 11 | **Codex numbers:** a range with a negative upper end (`-5..-2`) was refused (`[\d.]+` swallowed the `..`); the typographic minus the ruler and cells display was refused in the filter and replaced only once in cells; `0x10`, `0b11`, `Infinity` passed as numbers | `columns.test › reads numbers as the Bench and the ruler write them`; `query.test › numbers in filters` | a strict number pattern in ranges; cells and filter values use the Bench's `parseNumber` |
 | 12 | **Climate hid the biomes of a band without edges**: such bands are tabs, but a biome showed only where the resolver placed it, which is nowhere. `n` there made an invisible biome | `world.spec › climate: a biome made on a band without edges shows on its plane`; `climate/bands.test` | a biome belongs to a band when the resolver places it there or it names the band (its `band` field or an `in_band` pin). `climate/bands.ts`, pure |
+| 13 | **A pointer gesture faster than a render left Climate stuck** (and the Codex resize dropped): handlers read rendered state, so a quick click left a drag set forever, disabling every Climate key | `world.spec › climate: a click or a drag faster than a render never leaves the plane stuck`; `codex: a column resize faster than a render lands and never sticks` | handlers read a ref; the drop lands where the pointer let go. See §9 |
+| 14 | **The tab click's focus hand-back (defect 6's fix) stole focus a frame later**, from whatever had it by then: the palette opened right after the click lost its input, and the typed query went to the view | `world.spec › a tab click hands the keys back without taking them from what opens next` | hand back at once on pointer-up, only while focus is still in the strip. See §9 |
 
 ## 2. Known gaps closed (integrate §10)
 
@@ -197,3 +199,75 @@ rename: Column model 3.2 → 0.8 ms, geometry 2.0 → 0.6 ms.
    The budget stays a 16 ms median. Headroom on the final merged main:
    rename median 8.5–11.0 ms (p90 13–18), identity 5.6–6.1 ms, over four
    runs including one inside the full suite.
+
+## 9. The flaky `world.spec` the coordinator saw
+
+**Report:** in the coordinator's container, "a burst of arrow keys" and
+"climate actions are all in the palette" failed in full runs but passed
+alone. I couldn't reproduce it on a quiet machine (6 of 6 green). With every
+core kept busy (`while :; do :; done` × 4), `world.spec` failed 10 of 10.
+
+**Three causes, found by instrumenting the failing runs:**
+
+1. **A real app defect: a pointer gesture faster than a render left Climate
+   stuck** (defect 13).
+   - Climate's pointer handlers read the drag from rendered React state. When
+     a `pointerup` came before the `pointerdown`'s state had rendered (a quick
+     click on a busy machine), `endDrag` saw no drag and returned. The drag
+     was then set and never cleared, so `idle()` stayed false and every
+     Climate key and action was off (arrows, `j`, `n`, "Place … on the
+     plane") until `escape`.
+   - A quick drag could also end where the last *rendered* move was, short
+     of where the pointer let go.
+   - The Codex column resize had the same pattern.
+   - Fix: the handlers read and write a ref (state is only for drawing), and
+     the drop lands where the pointer let go.
+   - Test: `world.spec › climate: a click or a drag faster than a render
+     never leaves the plane stuck`, and the Codex resize equivalent. They
+     dispatch down, moves and up with no render between them. Both failed on
+     the old code and pass now; no load is needed to reproduce.
+2. **A test-isolation leak: the 2,000-entity Codex test left its I/O
+   behind.**
+   - It creates 2,000 entity files and its `ctrl+z` deletes them: about
+     4,000 durable writes. It finished as soon as the table updated.
+   - Under load the store was still writing for 14 s or more afterwards
+     (`store:status` stuck at `saving`). Any later test that polls a file
+     (the drag, the arrow-key burst) or waits on a patch timed out behind
+     that queue.
+   - Instrumented proof: the drag's command succeeded (`ok`, world updated,
+     no conflicts) while the file lagged by over 10 s.
+   - Fix: that test now finishes only when the material folder is back to
+     its original file count, an exact condition rather than a sleep. No
+     assertion was weakened and no retry was added.
+
+3. **A real app defect of my own: the tab click's focus hand-back stole
+   focus later** (defect 14).
+   - Defect 6's fix handed focus from the tab strip back to the plane or
+     table on the next animation frame. If something else took focus first,
+     that frame took it away. The palette opened with `ctrl+k` right after a
+     tab click is one case: its input lost focus and the typed query went to
+     the view (the palette then showed its empty list, topped by "AI log").
+     This was the remaining 1-in-10 failure of the palette test.
+   - Fix: hand focus back at once on pointer-up (the mouse-down has already
+     focused the tab), and only while focus is still in the strip.
+   - Test: `world.spec › a tab click hands the keys back without taking them
+     from what opens next`. Deterministic: another input takes focus right
+     after the click, and after two frames it must still have it. It failed
+     on the old code, in both Climate and the Codex.
+   - Also ruled out: typing straight after `ctrl+k` reaches the palette's
+     input (15 of 15).
+
+**Stability, on the final code:**
+- `world.spec`: 10 of 10 runs green without load, and 10 of 10 under full
+  CPU load. Before the fixes, the loaded runs failed 10 of 10 and the plain
+  ones about 1 in 10.
+- `npm run check`: green (646 unit and property tests, 20 smoke).
+- The full `npm run test:e2e`: 108 of 108, twice.
+- Rename round trip in those runs: median 8.6 and 9.0 ms over 80 runs each
+  (p90 13.6–13.9 ms).
+
+
+**For W6 / the coordinator:** a 2,000-command transaction (and its undo)
+takes the store over 10 s to write under CPU contention, one durable write
+per file. Nothing in SYSTEM.md budgets that, but batching the fsyncs of one
+transaction would shorten it a lot.
