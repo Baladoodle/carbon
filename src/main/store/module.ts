@@ -109,7 +109,8 @@ const storeModule: MainModule = {
         void session
           .flush()
           .then(() => snapshots.snapshot('idle'))
-          .then(report);
+          .then(report)
+          .catch((e: unknown) => console.warn('carbon: idle snapshot', e));
       }, minutes * 60_000);
     };
     const offPatch = session.onPatch(() => armIdle());
@@ -117,7 +118,8 @@ const storeModule: MainModule = {
     if (enabled())
       void snapshots
         .prepare()
-        .then((r) => (r.ok ? undefined : report({ status: 'unavailable', reason: r.reason })));
+        .then((r) => (r.ok ? undefined : report({ status: 'unavailable', reason: r.reason })))
+        .catch((e: unknown) => console.warn('carbon: git check', e));
 
     // ── Note dismissals ─────────────────────────────────────────────────────
     const dismissals = new Dismissals(dir);

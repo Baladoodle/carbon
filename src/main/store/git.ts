@@ -26,41 +26,56 @@ export interface GitResult {
 
 export type GitRunner = (args: string[], cwd: string) => Promise<GitResult>;
 
+const errorText = (e: unknown): string => (e instanceof Error ? e.message : String(e));
+
 export function systemGit(
   bin = 'git',
   opts: { timeoutMs?: number; env?: NodeJS.ProcessEnv } = {},
 ): GitRunner {
   return (args, cwd) =>
     new Promise((resolve) => {
-      execFile(
-        bin,
-        args,
-        {
-          cwd,
-          timeout: opts.timeoutMs ?? 20_000,
-          maxBuffer: 32 * 1024 * 1024,
-          windowsHide: true,
-          env: {
-            ...(opts.env ?? process.env),
-            GIT_TERMINAL_PROMPT: '0',
-            GIT_ASKPASS: '',
-            SSH_ASKPASS: '',
-            GIT_EDITOR: 'true',
-            LC_ALL: 'C',
+      // execFile throws at once on an argument it can't pass (one with a NUL):
+      // a result, like a git that can't start, never a rejection.
+      const failed = (e: unknown): void =>
+        resolve({
+          code: -1,
+          stdout: '',
+          stderr: e instanceof Error ? e.message : String(e),
+          spawnError: String((e as { code?: unknown } | null)?.code ?? 'EINVAL'),
+        });
+      try {
+        execFile(
+          bin,
+          args,
+          {
+            cwd,
+            timeout: opts.timeoutMs ?? 20_000,
+            maxBuffer: 32 * 1024 * 1024,
+            windowsHide: true,
+            env: {
+              ...(opts.env ?? process.env),
+              GIT_TERMINAL_PROMPT: '0',
+              GIT_ASKPASS: '',
+              SSH_ASKPASS: '',
+              GIT_EDITOR: 'true',
+              LC_ALL: 'C',
+            },
           },
-        },
-        (error, stdout, stderr) => {
-          const e = error as (NodeJS.ErrnoException & { code?: unknown }) | null;
-          if (e && typeof e.code === 'string')
-            resolve({ code: -1, stdout: '', stderr: '', spawnError: e.code });
-          else
-            resolve({
-              code: e ? (typeof e.code === 'number' ? e.code : 1) : 0,
-              stdout,
-              stderr,
-            });
-        },
-      );
+          (error, stdout, stderr) => {
+            const e = error as (NodeJS.ErrnoException & { code?: unknown }) | null;
+            if (e && typeof e.code === 'string')
+              resolve({ code: -1, stdout: '', stderr: '', spawnError: e.code });
+            else
+              resolve({
+                code: e ? (typeof e.code === 'number' ? e.code : 1) : 0,
+                stdout,
+                stderr,
+              });
+          },
+        );
+      } catch (e) {
+        failed(e);
+      }
     });
 }
 
@@ -95,7 +110,12 @@ export class Snapshotter {
 
   /** Checks git and the repository once; initialises the directory if it isn't in one. */
   prepare(): Promise<{ ok: true } | { ok: false; reason: string }> {
-    this.ready ??= this.check();
+    // A check that threw (the folder gone, git failing to start) is a result,
+    // not a verdict: the next call checks again.
+    this.ready ??= this.check().catch((e: unknown) => {
+      this.ready = null;
+      return { ok: false as const, reason: `git check failed: ${errorText(e)}` };
+    });
     return this.ready;
   }
 
@@ -129,7 +149,13 @@ export class Snapshotter {
 
   /** Commits every change under the world directory. Serialised: one snapshot at a time. */
   snapshot(reason: SnapshotReason): Promise<SnapshotResult> {
-    const run = this.queue.then(() => this.commit(reason));
+    // Never rejects: callers fire and forget (an idle snapshot).
+    const run = this.queue.then(() =>
+      this.commit(reason).catch((e: unknown): SnapshotResult => ({
+        status: 'failed',
+        message: errorText(e),
+      })),
+    );
     this.queue = run.catch(() => undefined);
     return run;
   }
@@ -155,7 +181,8 @@ export class Snapshotter {
       const r = old.code === 0 ? entityFromMarkdown(old.stdout) : null;
       if (r?.ok) names.set(e.path, r.value.name);
     }
-    const message = snapshotMessage(entries, world, reason, names);
+    // git can't take a NUL in an argument (a name can hold one).
+    const message = snapshotMessage(entries, world, reason, names).replace(/\0/g, '');
     const identity = await this.identity();
     const commit = await this.git(
       [

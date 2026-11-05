@@ -94,6 +94,8 @@ async function start(): Promise<void> {
     quitting = true;
     void stopModules()
       .then(() => session.flush())
+      // A module that fails to stop must not keep carbon from quitting, or go unreported.
+      .catch((e: unknown) => console.error('carbon: stopping', e))
       .finally(() => app.quit());
   });
 }
