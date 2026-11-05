@@ -5,6 +5,7 @@ import { cmd, type Command } from '../commands/registry';
 import { LANES } from '../model/kinds';
 import { validateWorld } from '../model/validate';
 import type { World } from '../model/world';
+import { resolvePlacement } from '../placement';
 import { sampleWorld } from '../testing/sample';
 import {
   columnModel,
@@ -249,7 +250,9 @@ describe('rows', () => {
     const e = { ...w.entities['high-drift']!, fields: {} };
     expect(bandSpan(e)).toBeNull();
     expect(bandSpan({ ...e, fields: { y_bottom: 5, y_top: 5 } })).toBeNull();
-    expect(bandSpan({ ...e, fields: { y_bottom: 9, y_top: 5 } })).toMatchObject({
+    // Inverted edges are no edges (the resolver's band.no_edges): not flipped into a band.
+    expect(bandSpan({ ...e, fields: { y_bottom: 9, y_top: 5 } })).toBeNull();
+    expect(bandSpan({ ...e, fields: { y_bottom: 5, y_top: 9 } })).toMatchObject({
       bottom: 5,
       top: 9,
     });
@@ -985,6 +988,30 @@ describe('geometry', () => {
     expect(g.frame).toEqual(geo().frame);
     expect(g.rows.find((r) => r.row.key === 'groundline')?.top).toBeLessThan(
       geo().rows.find((r) => r.row.key === 'groundline')?.top as number,
+    );
+  });
+});
+
+describe('bands agree with the resolver', () => {
+  it('draws a band exactly when the resolver places it (property)', () => {
+    const height = fc.oneof(
+      fc.integer({ min: -2000, max: 2000 }),
+      fc.constantFrom('+inf', '-inf', 'x', null),
+    );
+    fc.assert(
+      fc.property(height, height, (bottom, top) => {
+        const w = sampleWorld();
+        const band = w.entities['groundline']!;
+        const fields = { ...band.fields, y_bottom: bottom, y_top: top };
+        const next = { ...w, entities: { ...w.entities, groundline: { ...band, fields } } };
+        const placed = resolvePlacement(next)['groundline']?.mode !== 'unplaced';
+        const span = bandSpan(next.entities['groundline']);
+        expect(span !== null).toBe(placed);
+        if (span) expect(span.bottom).toBeLessThan(span.top);
+        const m = columnModel(next);
+        expect(m.bands.some((b) => b.id === 'groundline')).toBe(placed);
+        expect(m.index.unplacedBands.some((b) => b.id === 'groundline')).toBe(!placed);
+      }),
     );
   });
 });

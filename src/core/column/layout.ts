@@ -1,7 +1,7 @@
 import type { Entity } from '../model/entity';
-import { heightValue, HeightSchema } from '../model/fields';
 import { ITEM_SUBKINDS, LANE_OF_KIND, type EntityState, type Lane } from '../model/kinds';
 import type { World } from '../model/world';
+import { bandRange } from '../placement/resolve';
 import type { Placement } from './placement';
 import { toU } from './scale';
 
@@ -24,17 +24,15 @@ export interface BandSpan {
   top: number;
 }
 
-/** A band's span, or null when its edges are missing or invalid (it then waits in the Inbox). */
+/**
+ * A band's span, or null when its edges are missing or invalid (it then waits
+ * in the Inbox). Usable edges are the resolver's (`bandRange`): both set and
+ * bottom below top. An inverted band is not silently flipped, so the Column
+ * never draws a band the rest of carbon treats as having no place.
+ */
 export function bandSpan(e: Entity): BandSpan | null {
-  if (e.kind !== 'band') return null;
-  const b = HeightSchema.safeParse(e.fields.y_bottom);
-  const t = HeightSchema.safeParse(e.fields.y_top);
-  if (!b.success || !t.success) return null;
-  let bottom = heightValue(b.data);
-  let top = heightValue(t.data);
-  if (bottom > top) [bottom, top] = [top, bottom];
-  if (bottom === top) return null;
-  return { id: e.id, name: e.name, state: e.state, bottom, top };
+  const r = bandRange(e);
+  return r ? { id: e.id, name: e.name, state: e.state, bottom: r.min, top: r.max } : null;
 }
 
 export function bandSpans(world: World): BandSpan[] {
