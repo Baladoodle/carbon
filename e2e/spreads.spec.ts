@@ -252,7 +252,12 @@ test.describe('moves, findings and pattern learning', () => {
       await page().locator('body').press('x');
       await page().keyboard.press(i % 2 ? '2' : '5');
     }
-    await expect(page().getByText(/patterns? to review/)).toBeVisible();
+    // The toast itself: Radix also announces its text in a hidden live region for a moment.
+    await expect(
+      page()
+        .getByTestId('toast')
+        .filter({ hasText: /patterns? to review/ }),
+    ).toBeVisible();
     const w = await world();
     expect(w.taste.patterns.length).toBeGreaterThan(0);
     expect((w.settings as { patterns?: { judged?: number } }).patterns?.judged).toBe(25);
