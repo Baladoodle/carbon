@@ -8,9 +8,10 @@ recorded real images.
 
 **Merged in before the final runs** (for the coordinator):
 
-- `origin/claude/blissful-einstein-8u27ty` up to `c6ff34f`, which brings the
-  critique worker's work and the §2a sheets spec
-- `origin/claude/blissful-einstein-8u27ty-images-core` up to `ad24428`
+- `origin/claude/blissful-einstein-8u27ty` up to `f1d9c4c`, which brings the
+  critique worker's work, the §2a sheets spec and the 2.5-flare default in the
+  docs
+- `origin/claude/blissful-einstein-8u27ty-images-core` up to `103ff10`
 
 ---
 
@@ -108,12 +109,19 @@ takes `itemsAt(target, point)` and draws the same entries and look as `Menu`.
        `1 call · N icons`. It's re-planned locally when replace, model or
        quality change, and edited lines survive the re-plan.
     2. The run is `images:sheetRun`.
-    3. The review shows the sheet and each cell's 16×16 result. Unflagged
-       cells start accepted, and flagged ones get a `--warn` hairline. A
-       click toggles a cell.
+    3. **The review**, as the coordinator's sheet message asked:
+       - the sheet with its grid drawn over it (from the sheet's
+         `SheetGrid`), and the cursor's cell outlined
+       - each cell's crop beside its 16×16 result (pixelated), its item's
+         name, and its flags in `--warn`
+       - keyboard triage like a spread: arrows (or `h`/`l`) move, `k`
+         accepts, `x` rejects, `a` accepts every unflagged cell; also the
+         **Accept unflagged** button and a click per cell
+       - unflagged cells start accepted
     4. Regenerate N makes a smaller sheet of the rejected cells; it's a
        deliberate button.
     5. Accept N calls `images:sheetAccept`, one undo step per sheet.
+  - The plan shows the grid: `1 call · 4 icons · 2×2`.
 - **Taste:** an **Art direction** panel under Rules holds the direction
   paragraph and per-kind notes (`+ Kind`). It commits on blur, `enter` or
   `ctrl+enter`; `esc` reverts. Each edit is one `art.set` undo step.
@@ -168,7 +176,8 @@ takes `itemsAt(target, point)` and draws the same entries and look as `Menu`.
 - **Keys:** `keys.spec` passes, and the GUIDE table is regenerated
   (`npm run guide:keys`).
 - **Full `npm run test:e2e`:**
-  - Two runs in a row after the final merges: **134 of 134**, both times.
+  - Two runs in a row after the final merges (with the sheet review):
+    **134 of 134**, both times. Two earlier full runs were green too.
   - A run just before them had one failure, in `acceptance.spec`: `x` in a
     spread showed no kill prompt. It passed 3 of 3 alone and in both later
     full runs, and nothing in this work touches spread keys. It's worth
@@ -177,7 +186,8 @@ takes `itemsAt(target, point)` and draws the same entries and look as `Menu`.
 
 ## 5. Screens (`docs/screens/`, 2×)
 
-- **New:** `bench-images.png`, `images-confirm.png` and `images-batch.png`.
+- **New:** `bench-images.png`, `images-confirm.png`, `images-batch.png` and
+  `images-sheet.png` (the fake's synthetic sheet in review).
 - **Replaced:** `climate.png`, now Hollows with Glowmoss Caverns filled by
   images-core's recorded real sunburst concept.
 - **Regenerated:** the rest, because the Codex image column, the Taste
@@ -195,8 +205,11 @@ takes `itemsAt(target, point)` and draws the same entries and look as `Menu`.
 - **Re-crop of a kept sheet:** `images:sheetCrop` is wired in `client.ts`,
   but nothing calls it. Reopening a past sheet's review (from the Bench
   version list, say) is a small next step.
-- **Grid overlay:** the review shows the sheet preview without its grid
-  drawn over it.
+- **The default model:** `IMAGES.md` now names `gpt-image-2.5-flare`, but
+  core's `IMAGE_MODELS` doesn't list it yet. The confirm step and the batch
+  dialog read core's list and settings, so they'll follow once core adds it
+  (its label is ready). The e2e tests that assert the 2.6-flare default will
+  need that one-word change then.
 - **Choose in the `…` menu:** it lists the three most recent other versions;
   the strip lists all of them.
 - **Closing the batch dialog** with `esc` while it runs cancels the rest. It
