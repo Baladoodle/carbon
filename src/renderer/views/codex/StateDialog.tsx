@@ -17,7 +17,10 @@ const STATE_KEY: Record<EntityState, string> = {
 };
 
 type Step =
-  { step: 'pick' } | { step: 'why' } | { step: 'kill' } | { step: 'note'; reason: string };
+  | { step: 'pick' }
+  | { step: 'why' }
+  | { step: 'kill' }
+  | { step: 'note'; reason: string; key: string };
 
 /**
  * Sets the state of many entities in one transaction (one undo step). Deciding
@@ -46,7 +49,7 @@ export function StateDialog({
 
   const apply = async (
     state: EntityState,
-    opts: { why?: string; killed?: { reason: string; note?: string } } = {},
+    opts: { why?: string; killed?: { reason: string; note?: string }; reasonKey?: string } = {},
   ): Promise<void> => {
     const w = currentWorld();
     if (!w) return;
@@ -87,8 +90,8 @@ export function StateDialog({
   const pickReason = (key: string): void => {
     const r = reasons.find((x) => x.key === key);
     if (!r) return;
-    if (r.key === '0') setStep({ step: 'note', reason: r.label });
-    else void apply('graveyard', { killed: { reason: r.label } });
+    if (r.key === '0') setStep({ step: 'note', reason: r.label, key: r.key });
+    else void apply('graveyard', { killed: { reason: r.label }, reasonKey: r.key });
   };
 
   useActions(
@@ -138,6 +141,7 @@ export function StateDialog({
                         reason: step.reason,
                         ...(note.trim() ? { note: note.trim() } : {}),
                       },
+                      reasonKey: step.key,
                     })
               }
             >
@@ -213,6 +217,7 @@ export function StateDialog({
                   e.preventDefault();
                   void apply('graveyard', {
                     killed: { reason: step.reason, ...(note.trim() ? { note: note.trim() } : {}) },
+                    reasonKey: step.key,
                   });
                 }
               }}

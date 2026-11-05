@@ -404,7 +404,7 @@ export function planBulkState(
   schema: WorldSchema,
   ids: readonly string[],
   state: EntityState,
-  opts: { why?: string; killed?: { reason: string; note?: string } } = {},
+  opts: { why?: string; killed?: { reason: string; note?: string }; reasonKey?: string } = {},
 ): BulkPlan {
   const commands: Command[] = [];
   const skipped: BulkPlan['skipped'] = [];
@@ -442,6 +442,9 @@ export function planBulkState(
       }),
     );
   }
+  // Each kill counts its reason in Taste (EXPERIENCE §6), in the same undo step.
+  if (state === 'graveyard' && opts.reasonKey && commands.length > 0)
+    commands.push(cmd('taste.countReason', { key: opts.reasonKey, by: commands.length }));
   return { commands, skipped };
 }
 

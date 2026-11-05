@@ -244,6 +244,21 @@ describe('planBulkState', () => {
     expect(r.ok).toBe(true);
   });
 
+  it('a bulk kill counts its reason once per entity killed, in the same transaction', () => {
+    const plan = planBulkState(world, schema, ['vent-glass', 'sky-coral', 'ghost'], 'graveyard', {
+      killed: { reason: 'seen it' },
+      reasonKey: '2',
+    });
+    expect(plan.commands.at(-1)).toEqual({
+      type: 'taste.countReason',
+      payload: { key: '2', by: 2 },
+    });
+    const r = applyCommands(world, plan.commands, { now: '2026-11-04T10:00:00.000Z' });
+    if (!r.ok) throw new Error(r.error.message);
+    const before = world.taste.reasons.find((x) => x.key === '2')?.count ?? 0;
+    expect(r.value.world.taste.reasons.find((x) => x.key === '2')?.count).toBe(before + 2);
+  });
+
   it('fills a missing Why when deciding, and needs a kill reason for the graveyard', () => {
     expect(needsWhy(world, ['lumen-spore'])).toBe(true);
     expect(needsWhy(world, ['glide', 'vent-glass'])).toBe(false);
