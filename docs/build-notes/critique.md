@@ -238,3 +238,43 @@ No image-related files were touched.
   avoids values already shown (`avoid`), like `tab`.
 - `r` acts on the first rewritable note. With several, use the palette or
   the buttons.
+
+## 6. Follow-up: `k` then `x` dropped in the acceptance walk
+
+**Cause:** the coordinator's hypothesis was right, with one detail added.
+
+- After a keep (or a kill or merge), the focus moved only once `transact`
+  resolved. In between, the world patch had already marked the card judged,
+  so the focused card was no longer open. `canTriage` went false and the next
+  key was disabled and dropped.
+- There was a second, smaller window: the triage actions captured `focusKey`
+  from the last render.
+
+**Fix**, in `src/renderer/views/spread/`:
+
+- `actions.ts`: `advance()` now moves the focus to the next open card
+  **before** the transaction is sent. It puts the focus back if the world
+  refuses the transaction, unless you've moved it since.
+- New `triageTarget()`: `k`, `x` and space read their target from the stores
+  when pressed. It is never a card that is judged, queued while streaming,
+  or missing.
+- `view.tsx` uses `triageTarget()`.
+
+**Reproduced without load:**
+
+- `actions.test.ts` holds the transaction open: 4 of its first 5 tests fail
+  on the old code.
+- `spreads.spec.ts › k then x with no wait` dispatches `k` and `x` in one JS
+  task: it failed 2 of 2 on the old code.
+
+**A second, unrelated flake** turned up under load in `spreads.spec.ts ›
+after 25 judgements`. Radix Toast also renders its text in a hidden live
+region for a moment, so `getByText(/patterns? to review/)` matched 2
+elements, and the next test failed in turn. The assertion now targets
+`getByTestId('toast')`: the same check, made strict.
+
+**Stability:**
+
+- spreads + acceptance: 5 of 5, under parallel unit-test load
+- `npm run check`: passes
+- the full `npm run test:e2e`: 123 passed, twice
