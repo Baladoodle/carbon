@@ -49,6 +49,12 @@ test('@smoke mechanical checks show as notes, and a dismissal persists until its
   expect(notes.length).toBeGreaterThan(0);
   const status = page().getByTestId('status-line');
   await expect(status).toContainText(`${notes.length} note`);
+  // The checks run in a worker, off the renderer's main thread.
+  expect(
+    page()
+      .workers()
+      .some((w) => /checks\.worker/.test(w.url())),
+  ).toBe(true);
 
   // Dismiss one the way the margin does (persisted with its inputs hash), then reload the renderer.
   const n = notes.find((x) => x.id === 'check:material-nowhere:sky-coral');
