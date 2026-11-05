@@ -78,7 +78,9 @@ suite under xvfb:
 | Check runner, first run (Node) | 288 ms, now in the worker | off the main thread |
 | Check runner, one edit, median of 30 (Node) | 11 ms, now in the worker | off the main thread |
 | Of that: the numbers engine's update (W3) | ~4 ms | — |
-| Column panning, the round trip and Codex `shift+g` | see the full e2e run's output, quoted in §3.1 | 50 fps, 16 ms, 2 s |
+| Column panning (e2e) | 60.4 fps | 50 fps |
+| Round trip, an edit the Column doesn't draw (e2e) | 6.6 ms median, 12.0 ms max | 16 ms |
+| Round trip, a rename the Column redraws (e2e) | 11.9 ms median, 26.2 ms max | 16 ms (median) |
 
 Coverage of `src/core` in my areas, by lines and functions:
 
@@ -93,7 +95,9 @@ Overall: 97.4% lines and 96.8% functions.
 
 ### 3.1 The full suite
 
-Filled in after the final run (below).
+- **`npm run check`:** passes. That covers lint, prettier, `tsc`, **534** unit and property tests in 49 files (502 before), the build, and 20 smoke tests.
+- **The full `npm run test:e2e`:** **92** tests, all passing (90 before, plus "triage while streaming" and the export palette test).
+- **Not measured again:** cold start. No change of mine is on the startup path, except that the first check run moved off the main thread.
 
 ## 4. Shared files touched (minimal, additive)
 
