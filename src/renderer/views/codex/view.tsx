@@ -678,26 +678,17 @@ function CodexView(): ReactNode {
   return (
     <div className="codex" data-testid="codex">
       <div className="codex-top">
-        {/* A click on a tab, even the current one, hands the keys back to the table. */}
-        <div
-          style={{ display: 'contents' }}
-          onPointerUp={(e) => {
-            // Now, not on a later frame: by then something else (the palette, opened right
-            // after the click) may have focus, and taking it would swallow its keys.
-            if (e.currentTarget.contains(document.activeElement)) scrollRef.current?.focus();
-          }}
-        >
-          <Tabs
-            value={tab}
-            onValueChange={(v) => setTab(v as Tab)}
-            aria-label="Kind"
-            tabs={TABS.map((t) => ({
-              value: t,
-              label: t === 'all' ? 'All' : schema.kinds[t].plural,
-              count: counts[t] ?? 0,
-            }))}
-          />
-        </div>
+        <Tabs
+          value={tab}
+          onValueChange={(v) => setTab(v as Tab)}
+          aria-label="Kind"
+          focusAfterClick={scrollRef}
+          tabs={TABS.map((t) => ({
+            value: t,
+            label: t === 'all' ? 'All' : schema.kinds[t].plural,
+            count: counts[t] ?? 0,
+          }))}
+        />
         <FilterBar
           value={query}
           onChange={setQuery}

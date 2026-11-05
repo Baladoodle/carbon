@@ -44,3 +44,22 @@ test('@smoke the UI kit renders and its controls work from the keyboard', async 
   await kit.getByRole('button', { name: 'New entity' }).hover();
   await expect(page.locator('.ui-tooltip').filter({ hasText: 'New entity' })).toContainText('n');
 });
+
+test('a click on a tab, even the current one, leaves no focus in the strip', async () => {
+  const page = carbon.page;
+  const kit = page.getByTestId('ui-kit');
+  await expect(kit).toBeVisible();
+  const inStrip = (): Promise<boolean> =>
+    page.evaluate(() => !!document.activeElement?.closest('[role="tablist"]'));
+  // The current tab, then another: neither keeps the arrow keys in the strip.
+  await kit.getByRole('tab', { name: /Items/ }).click();
+  expect(await inStrip()).toBe(false);
+  await kit.getByRole('tab', { name: /Materials/ }).click();
+  await expect(kit.getByRole('tab', { selected: true })).toContainText('Materials');
+  expect(await inStrip()).toBe(false);
+  // The keyboard still walks the strip: focus there stays put.
+  await kit.getByRole('tab', { name: /Materials/ }).focus();
+  await page.keyboard.press('ArrowLeft');
+  await expect(kit.getByRole('tab', { selected: true })).toContainText('Items');
+  expect(await inStrip()).toBe(true);
+});

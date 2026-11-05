@@ -503,24 +503,14 @@ function ClimateView(): ReactNode {
 
   return (
     <div className="climate" data-testid="climate">
-      {/* A click on a tab, even the current one, hands the keys back to the plane
-          (the tab strip would keep the arrows and switch bands with them). */}
-      <div
-        style={{ display: 'contents' }}
-        onPointerUp={(e) => {
-          // Now, not on a later frame: by then something else (the palette, opened right
-          // after the click) may have focus, and taking it would swallow its keys.
-          if (e.currentTarget.contains(document.activeElement)) planeRef.current?.focus();
-        }}
-      >
-        <Tabs
-          className="climate-bands"
-          value={band}
-          onValueChange={chooseBand}
-          aria-label="Band"
-          tabs={bands.map((b) => ({ value: b.id, label: b.name }))}
-        />
-      </div>
+      <Tabs
+        className="climate-bands"
+        value={band}
+        onValueChange={chooseBand}
+        aria-label="Band"
+        focusAfterClick={planeRef}
+        tabs={bands.map((b) => ({ value: b.id, label: b.name }))}
+      />
       <div className="climate-stage">
         <div className="climate-frame">
           <span className="climate-axis climate-axis-y t-3">wet</span>
