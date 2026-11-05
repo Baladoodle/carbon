@@ -40,6 +40,9 @@ const imagesModule: MainModule = {
     handle('images:iconFromConcept', (req) => g.iconFromConcept(req));
     handle('images:batchPlan', (req) => g.batchPlan(req));
     handle('images:batchRun', (req) => g.batchRun(req, (p) => push('images:progress', p)));
+    handle('images:sheetRun', (req) => g.sheetRun(req, (p) => push('images:progress', p)));
+    handle('images:sheetCrop', (req) => g.sheetCrop(req));
+    handle('images:sheetAccept', (req) => g.sheetAccept(req));
     handle('images:cancel', (req) => {
       g.cancel(req.id);
       prompts.get(req.id)?.abort();

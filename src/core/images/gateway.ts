@@ -3,6 +3,7 @@ import { EntityIdSchema } from '../model/ids';
 import {
   ImageIdSchema,
   ImageKindSchema,
+  ImageMetaKindSchema,
   ImageMetaSchema,
   ImageModelSchema,
   ImageQualitySchema,
@@ -81,7 +82,7 @@ export type ImageAttempt = z.infer<typeof ImageAttemptSchema>;
 export const ImageReceiptSchema = z.object({
   /** The plan: what was asked. */
   entity: EntityIdSchema,
-  kind: ImageKindSchema,
+  kind: ImageMetaKindSchema,
   prompt: z.string(),
   attempts: z.array(ImageAttemptSchema),
   /** The image made, if any. */
@@ -163,6 +164,21 @@ export const IconFromConceptRequestSchema = z.object({
   select: z.boolean().default(true),
 });
 
+export const CELL_FLAGS = ['empty', 'background_only', 'touches_edge', 'fragmented'] as const;
+export const CellFlagSchema = z.enum(CELL_FLAGS);
+
+/** One planned sheet: up to 100 icons in one paid call. */
+export const SheetPlanSchema = z.object({
+  index: z.number().int().min(0),
+  cols: z.number().int().min(1),
+  rows: z.number().int().min(1),
+  size: ImageSizeSchema,
+  /** Each cell's prompt line, written from the entity (editable in the dialog). */
+  items: z.array(z.object({ entityId: EntityIdSchema, name: z.string(), line: z.string() })),
+  estimateUsd: z.number().min(0),
+});
+export type SheetPlan = z.infer<typeof SheetPlanSchema>;
+
 export const BatchPlanRequestSchema = ImageCallOptionsSchema.extend({
   kind: ImageKindSchema,
   entityIds: z.array(EntityIdSchema).min(1).max(500),
@@ -176,6 +192,8 @@ export const BatchPlanItemSchema = z.object({
   name: z.string(),
   /** The prompt Claude wrote (editable in the dialog); absent when skipped or failed. */
   prompt: z.string().optional(),
+  /** Icons (sheets): the cell's prompt line. */
+  line: z.string().optional(),
   /** Why the entity isn't in the run: it already has one (and replace is off), or its prompt failed. */
   skip: z.enum(['has_image', 'prompt_failed', 'not_found']).optional(),
   error: ImageErrorSchema.optional(),
@@ -190,6 +208,12 @@ export const BatchPlanSchema = z.object({
   calls: z.number().int().min(0),
   estimate: ImageEstimateSchema,
   claudeCostUsd: z.number().min(0),
+  /**
+   * Icons only (IMAGES.md §2a): the sheets the run will make. Each item then
+   * has a `line` instead of a Claude-written prompt; `calls` counts sheets,
+   * and the estimate is per sheet. Run it with `images:sheetRun`.
+   */
+  sheets: z.array(SheetPlanSchema).optional(),
 });
 export type BatchPlan = z.infer<typeof BatchPlanSchema>;
 
@@ -225,6 +249,88 @@ export const BatchProgressSchema = z.object({
   costUsd: z.number().min(0),
 });
 export type BatchProgress = z.infer<typeof BatchProgressSchema>;
+
+// ── icon sheets (IMAGES.md §2a) ───────────────────────────────────────────
+
+export const SheetRunRequestSchema = ImageCallOptionsSchema.omit({ size: true }).extend({
+  /** Chosen by the renderer: progress events carry it, and `cancel` takes it. */
+  batchId: z.string().min(1),
+  /** The confirmed items and their (possibly edited) lines; main splits them into sheets of ≤ 100. */
+  items: z
+    .array(z.object({ entityId: EntityIdSchema, line: z.string().min(1).max(600) }))
+    .min(1)
+    .max(500),
+});
+
+/** A data URL and its size. */
+export const ImageDataSchema = z.object({
+  dataUrl: z.string(),
+  width: z.number().int(),
+  height: z.number().int(),
+});
+
+export const SheetCellReviewSchema = z.object({
+  index: z.number().int().min(0),
+  entityId: EntityIdSchema,
+  row: z.number().int().min(0),
+  col: z.number().int().min(0),
+  /** Reasons to look twice; accepting a flagged cell is allowed. */
+  flags: z.array(CellFlagSchema),
+  /** The sprite as cut from the sheet (at most 128px), or null when the cell is empty. */
+  crop: ImageDataSchema.nullable(),
+  /** The 16×16 icon it would become (the `item` filter), or null. */
+  icon: ImageDataSchema.nullable(),
+});
+export type SheetCellReview = z.infer<typeof SheetCellReviewSchema>;
+
+/** A generated sheet ready for review: it's already in the world (kind `sheet`); its cells are not icons yet. */
+export const SheetReviewSchema = z.object({
+  sheet: ImageMetaSchema,
+  /** The sheet itself at most 1024px, for the review. */
+  preview: ImageDataSchema,
+  cells: z.array(SheetCellReviewSchema),
+});
+export type SheetReview = z.infer<typeof SheetReviewSchema>;
+
+export const SheetOutcomeSchema = z.discriminatedUnion('ok', [
+  z.object({ ok: z.literal(true), review: SheetReviewSchema, receipt: ImageReceiptSchema }),
+  z.object({
+    ok: z.literal(false),
+    error: ImageErrorSchema,
+    receipt: ImageReceiptSchema.optional(),
+    /** The items this sheet would have held, to regenerate them. */
+    entityIds: z.array(EntityIdSchema),
+  }),
+]);
+export type SheetOutcome = z.infer<typeof SheetOutcomeSchema>;
+
+export const SheetRunResultSchema = z.object({
+  batchId: z.string(),
+  sheets: z.array(SheetOutcomeSchema),
+  costUsd: z.number().min(0),
+  cancelled: z.boolean(),
+});
+export type SheetRunResult = z.infer<typeof SheetRunResultSchema>;
+
+export const SheetCropRequestSchema = z.object({
+  /** The entity the sheet belongs to (its first cell's). */
+  entityId: EntityIdSchema,
+  imageId: ImageIdSchema,
+});
+
+export const SheetAcceptRequestSchema = z.object({
+  entityId: EntityIdSchema,
+  imageId: ImageIdSchema,
+  /** The cells to turn into icons (by index). */
+  cells: z.array(z.number().int().min(0)).min(1),
+  /** Make each new icon its entity's chosen icon (default true). */
+  select: z.boolean().default(true),
+});
+export const SheetAcceptResultSchema = z.discriminatedUnion('ok', [
+  z.object({ ok: z.literal(true), images: z.array(ImageMetaSchema) }),
+  z.object({ ok: z.literal(false), error: ImageErrorSchema }),
+]);
+export type SheetAcceptResult = z.infer<typeof SheetAcceptResultSchema>;
 
 export const ImageStatusSchema = z.object({
   /** `real`: OpenAI; `fake`: deterministic images (CARBON_IMAGES=fake); `off`: no images. */
@@ -267,7 +373,7 @@ export const ImageLogEntrySchema = z.object({
   at: z.iso.datetime(),
   provider: z.enum(['openai', 'fake']),
   entity: EntityIdSchema,
-  kind: ImageKindSchema,
+  kind: ImageMetaKindSchema,
   endpoint: z.enum(['generate', 'edit']),
   model: z.string(),
   size: z.string(),
@@ -291,6 +397,9 @@ export type ImageGenerateRequest = z.input<typeof ImageGenerateRequestSchema>;
 export type IconFromConceptRequest = z.input<typeof IconFromConceptRequestSchema>;
 export type BatchPlanRequest = z.input<typeof BatchPlanRequestSchema>;
 export type BatchRunRequest = z.input<typeof BatchRunRequestSchema>;
+export type SheetRunRequest = z.input<typeof SheetRunRequestSchema>;
+export type SheetCropRequest = z.input<typeof SheetCropRequestSchema>;
+export type SheetAcceptRequest = z.input<typeof SheetAcceptRequestSchema>;
 
 /**
  * The gateway. Methods resolve to outcomes; they never throw for expected
@@ -309,7 +418,13 @@ export interface ImageGateway {
   batchPlan(req: BatchPlanRequest, signal?: AbortSignal): Promise<BatchPlan>;
   /** Runs a confirmed plan, concurrency 2, with progress events. Stops starting new items on cancel or budget. */
   batchRun(req: BatchRunRequest, onProgress?: (p: BatchProgress) => void): Promise<BatchResult>;
-  /** Cancels a `generate` (by requestId), a `batchPlan` (by requestId) or a `batchRun` (by batchId). */
+  /** Icon sheets (IMAGES.md §2a): one paid call per sheet of ≤ 100, cropped and filtered for review. Nothing becomes an icon yet. */
+  sheetRun(req: SheetRunRequest, onProgress?: (p: BatchProgress) => void): Promise<SheetRunResult>;
+  /** Re-crops a kept sheet for review. Free. Null when the sheet or its file is gone. */
+  sheetCrop(req: SheetCropRequest): Promise<SheetReview | null>;
+  /** Turns accepted cells into icons (`origin.by: 'sheet'`), one undo step. Free. */
+  sheetAccept(req: SheetAcceptRequest): Promise<SheetAcceptResult>;
+  /** Cancels a `generate` (by requestId), a `batchPlan` (by requestId), or a `batchRun` or `sheetRun` (by batchId). */
   cancel(id: string): void;
   status(): ImageStatus;
   onStatus(listener: (s: ImageStatus) => void): () => void;

@@ -9,9 +9,19 @@ import { EntityKindSchema } from '../model/kinds';
  * (`<world>/images/<entity>/<image-id>.png`, `.src.png`, `.json`).
  */
 
+/** What you generate, choose and select: a concept image or an icon. */
 export const IMAGE_KINDS = ['concept', 'icon'] as const;
 export const ImageKindSchema = z.enum(IMAGE_KINDS);
 export type ImageKind = z.infer<typeof ImageKindSchema>;
+
+/**
+ * Every kind an image in the world can have: also `sheet`, a generated icon
+ * sheet (IMAGES.md §2a), kept so its cells can be re-cropped for free. A
+ * sheet is never selected.
+ */
+export const IMAGE_META_KINDS = ['concept', 'icon', 'sheet'] as const;
+export const ImageMetaKindSchema = z.enum(IMAGE_META_KINDS);
+export type ImageMetaKind = z.infer<typeof ImageMetaKindSchema>;
 
 /** The OpenAI image models carbon offers. The first is the default. */
 export const IMAGE_MODELS = ['gpt-image-2.6-flare', 'gpt-image-2.6-sunburst'] as const;
@@ -26,13 +36,19 @@ export type ImageQuality = z.infer<typeof ImageQualitySchema>;
 export const DEFAULT_IMAGE_QUALITY: ImageQuality = 'low';
 
 /** Provider sizes. Concepts: 1024×1024 or 1536×1024 (landscape, for Climate panels). Icons are generated at 1024×1024 and filtered to 16×16. */
-export const IMAGE_SIZES = ['1024x1024', '1536x1024', '1024x1536'] as const;
+export const IMAGE_SIZES = ['1024x1024', '1536x1024', '1024x1536', '2880x2880'] as const;
 export const ImageSizeSchema = z.enum(IMAGE_SIZES);
 export type ImageSize = z.infer<typeof ImageSizeSchema>;
 export const DEFAULT_SIZE: Record<ImageKind, ImageSize> = {
   concept: '1536x1024',
   icon: '1024x1024',
 };
+/**
+ * Icon sheets (IMAGES.md §2a) use the largest square the 2.6 models accept:
+ * 2880×2880 (custom sizes are multiples of 16 up to 8,294,400 pixels; see the
+ * build notes for the verifying call).
+ */
+export const SHEET_SIZE: ImageSize = '2880x2880';
 /** The icon's output size (Infinite's item icons). */
 export const ICON_PX = 16;
 
@@ -64,6 +80,14 @@ export const ImageOriginSchema = z.discriminatedUnion('by', [
     settings: z.unknown().optional(),
   }),
   z.object({
+    // IMAGES.md §2a: an icon cropped from a sheet's cell.
+    by: z.literal('sheet'),
+    /** The sheet image's id (it may belong to another entity: the sheet's first). */
+    sheet: ImageIdSchema,
+    cell: z.number().int().min(0).max(9999),
+    preset: z.string().min(1),
+  }),
+  z.object({
     // Added: a fake provider's image (CARBON_IMAGES=fake, tests). Never from a paid call.
     by: z.literal('fake'),
     prompt: z.string(),
@@ -79,10 +103,26 @@ export const ImageUsageSchema = z.object({
 });
 export type ImageUsage = z.infer<typeof ImageUsageSchema>;
 
+/** A sheet's grid, kept with the sheet so it can be re-cropped (IMAGES.md §2a). */
+export const SheetGridSchema = z.object({
+  cols: z.number().int().min(1).max(100),
+  rows: z.number().int().min(1).max(100),
+  gutter: z.number().int().min(0),
+  /** The canvas the grid was laid out on (the requested size). */
+  canvas: z.object({ w: z.number().int().positive(), h: z.number().int().positive() }),
+  /** The entity in each cell, in reading order. */
+  cells: z
+    .array(z.object({ index: z.number().int().min(0), entity: EntityIdSchema }))
+    .min(1)
+    .max(100),
+});
+export type SheetGrid = z.infer<typeof SheetGridSchema>;
+
 export const ImageMetaSchema = z.object({
   id: ImageIdSchema,
+  /** The entity it belongs to. A sheet belongs to the entity in its first cell. */
   entity: EntityIdSchema,
-  kind: ImageKindSchema,
+  kind: ImageMetaKindSchema,
   origin: ImageOriginSchema,
   usage: ImageUsageSchema.optional(),
   costUsd: z.number().min(0).optional(),
@@ -91,6 +131,8 @@ export const ImageMetaSchema = z.object({
   width: z.number().int().positive().optional(),
   height: z.number().int().positive().optional(),
   hashes: z.object({ output: Sha256Schema, source: Sha256Schema.optional() }),
+  /** Sheets only: the grid. */
+  sheet: SheetGridSchema.optional(),
 });
 export type ImageMeta = z.infer<typeof ImageMetaSchema>;
 

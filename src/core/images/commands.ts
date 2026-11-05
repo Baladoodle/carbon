@@ -56,7 +56,12 @@ function findImage(world: World, entity: string, image: string): Result<ImageMet
 /** Adds an image main has written to disk; selects it unless `select: false`. */
 export const addImage = defineCommand({
   payload: z.object({ image: ImageMetaSchema, select: z.boolean().default(true) }),
-  label: (p) => (p.image.kind === 'icon' ? 'Add icon' : 'Add concept image'),
+  label: (p) =>
+    p.image.kind === 'icon'
+      ? 'Add icon'
+      : p.image.kind === 'sheet'
+        ? 'Add icon sheet'
+        : 'Add concept image',
   plan(world, p) {
     const m = p.image;
     if (!has(world.entities, m.entity))
@@ -69,8 +74,18 @@ export const addImage = defineCommand({
       if (!cur.all.some((x) => x.id === fromId))
         return err('image.not_found', `the image it was filtered from ("${fromId}") isn't there`);
     }
+    if (m.origin.by === 'sheet') {
+      const sheetId = m.origin.sheet;
+      const sheet = Object.values(world.images ?? {})
+        .flatMap((e) => e.all)
+        .find((x) => x.id === sheetId);
+      if (sheet?.kind !== 'sheet')
+        return err('image.not_found', `the sheet it was cropped from ("${sheetId}") isn't there`);
+    }
+    if ((m.kind === 'sheet') !== (m.sheet !== undefined))
+      return err('image.sheet', 'a sheet carries its grid, and only a sheet does');
     const next: EntityImages = { ...cur, all: [...cur.all, m] };
-    if (p.select) next[m.kind] = m.id;
+    if (p.select && m.kind !== 'sheet') next[m.kind] = m.id;
     return ok(patchEntityImages(world, m.entity, next));
   },
 });
@@ -84,9 +99,12 @@ export const selectImage = defineCommand({
   plan(world, p) {
     const f = findImage(world, p.entity, p.image);
     if (!f.ok) return f;
+    const kind = f.value.kind;
+    if (kind === 'sheet')
+      return err('image.sheet', 'a sheet is not chosen; its cells become icons');
     const cur = imagesOf(world, p.entity) as EntityImages;
-    if (cur[f.value.kind] === p.image) return ok([]);
-    return ok(patchEntityImages(world, p.entity, { ...cur, [f.value.kind]: p.image }));
+    if (cur[kind] === p.image) return ok([]);
+    return ok(patchEntityImages(world, p.entity, { ...cur, [kind]: p.image }));
   },
 });
 

@@ -15,6 +15,7 @@ import type { ImageError, ImageErrorCode } from '@core/images/gateway';
 import type { ImageQuality } from '@core/images/model';
 import { OUTPUT_TOKENS, REFERENCE_IMAGE_TOKENS } from '@core/images/pricing';
 import { createHash } from 'node:crypto';
+import { sheetLayout } from './pixel';
 import { encodePng, type Rgba } from './png';
 
 /**
@@ -241,6 +242,43 @@ export class OpenAiImageProvider implements ImageProvider {
   }
 }
 
+/**
+ * A deterministic icon sheet for a sheet prompt ("A sprite sheet of N … on a
+ * C×R grid"): one disc per cell on transparency, coloured by the cell's line,
+ * so cropping and review run on something sheet-shaped.
+ */
+export function fakeSheet(prompt: string, size: string): Rgba | null {
+  const m = /A sprite sheet of (\d+) .*? on a (\d+)×(\d+) grid/.exec(prompt);
+  if (!m) return null;
+  const n = Number(m[1]);
+  const cols = Number(m[2]);
+  const rows = Number(m[3]);
+  const [w0, h0] = size.split('x').map(Number);
+  const W = Math.max(64, Math.round((w0 ?? 1024) / 8));
+  const H = Math.max(64, Math.round((h0 ?? 1024) / 8));
+  const layout = sheetLayout(n, { w: W, h: H }, { cols, rows });
+  const lines = prompt.split('\n').filter((l) => /^row \d+, col \d+: /.test(l));
+  const data = new Uint8ClampedArray(W * H * 4);
+  for (const cell of layout.cells) {
+    const hex = createHash('sha256')
+      .update(lines[cell.index] ?? String(cell.index))
+      .digest();
+    const cx = cell.x + cell.w / 2;
+    const cy = cell.y + cell.h / 2;
+    const r = Math.min(cell.w, cell.h) * 0.32;
+    for (let y = Math.floor(cy - r); y <= Math.ceil(cy + r); y++)
+      for (let x = Math.floor(cx - r); x <= Math.ceil(cx + r); x++) {
+        if ((x - cx) ** 2 + (y - cy) ** 2 > r * r || x < 0 || y < 0 || x >= W || y >= H) continue;
+        const o = (y * W + x) * 4;
+        data[o] = hex[0] as number;
+        data[o + 1] = hex[1] as number;
+        data[o + 2] = hex[2] as number;
+        data[o + 3] = 255;
+      }
+  }
+  return { width: W, height: H, data };
+}
+
 /** A deterministic picture for a prompt: a two-colour gradient with a disc, or a silhouette on transparency for icons. */
 export function fakePicture(prompt: string, size: string, transparent: boolean): Rgba {
   const [w0, h0] = size.split('x').map(Number);
@@ -312,13 +350,16 @@ export class FakeImageProvider implements ImageProvider {
         ),
         this.opts.failWith === 'rate_limited' ? 429 : undefined,
       );
-    const png = encodePng(
-      fakePicture(
-        req.prompt + (req.reference ? ':edit' : ''),
-        req.size,
-        req.background === 'transparent',
-      ),
-    );
+    const sheet = fakeSheet(req.prompt, req.size);
+    const png = sheet
+      ? encodePng(sheet)
+      : encodePng(
+          fakePicture(
+            req.prompt + (req.reference ? ':edit' : ''),
+            req.size,
+            req.background === 'transparent',
+          ),
+        );
     const table = OUTPUT_TOKENS[req.quality as ImageQuality] as Record<string, number> | undefined;
     const out = table?.[req.size] ?? OUTPUT_TOKENS.low['1024x1024'];
     const text = Math.max(1, Math.ceil(req.prompt.length / 4));

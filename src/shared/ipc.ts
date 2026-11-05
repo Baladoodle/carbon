@@ -28,6 +28,12 @@ import {
   ImagePromptResultSchema,
   ImageResultSchema,
   ImageStatusSchema,
+  SheetAcceptRequestSchema,
+  SheetAcceptResultSchema,
+  SheetCropRequestSchema,
+  SheetReviewSchema,
+  SheetRunRequestSchema,
+  SheetRunResultSchema,
 } from '@core/images/gateway';
 
 /**
@@ -230,6 +236,9 @@ export const INVOKE = {
   'images:iconFromConcept': { request: IconFromConceptRequestSchema, response: ImageResultSchema },
   'images:batchPlan': { request: BatchPlanRequestSchema, response: BatchPlanSchema },
   'images:batchRun': { request: BatchRunRequestSchema, response: BatchResultSchema },
+  'images:sheetRun': { request: SheetRunRequestSchema, response: SheetRunResultSchema },
+  'images:sheetCrop': { request: SheetCropRequestSchema, response: SheetReviewSchema.nullable() },
+  'images:sheetAccept': { request: SheetAcceptRequestSchema, response: SheetAcceptResultSchema },
   'images:cancel': { request: z.object({ id: z.string().min(1) }), response: done },
   'images:status': { request: none, response: ImageStatusSchema },
   'images:file': { request: ImageFileRequestSchema, response: ImageFileSchema },
