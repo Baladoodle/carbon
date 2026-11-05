@@ -70,7 +70,7 @@ function hugeWorld(seed: string, count: number, scale: number, junk: string): Wo
 
 function requestFor(m: Moment, w: World, junk: string): unknown {
   const ids = Object.keys(w.entities);
-  const item = ids.find((id) => w.entities[id]?.kind === 'item') ?? (ids[0] as string);
+  const item = ids.find((id) => w.entities[id]?.kind === 'item') ?? ids[0];
   const first = ids[0] as string;
   const avoid = Array.from({ length: 300 }, () => junk.repeat(200));
   switch (m) {
@@ -119,7 +119,7 @@ describe('every request stays under 100k tokens', () => {
             if (!builder) throw new Error(`no builder for ${m}`);
             const req = MOMENT_SCHEMAS[m].request.safeParse(requestFor(m, w, junk));
             if (!req.success) throw new Error(`${m}: ${req.error.message}`);
-            const built = builder.build(w, req.data as never, { pack: { budget: packBudget } });
+            const built = builder.build(w, req.data, { pack: { budget: packBudget } });
             if (!built.ok) continue; // e.g. nothing to fill
             const bound = requestBound(built.value);
             expect(bound, `${m} (${junk}, budget ${packBudget})`).toBeLessThanOrEqual(HARD_LIMIT);

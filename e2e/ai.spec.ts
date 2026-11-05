@@ -207,7 +207,7 @@ test('without a key the AI is off and says why', async () => {
   const off = await launchCarbon({ env: { CARBON_AI: 'real', ANTHROPIC_API_KEY: '' } });
   try {
     await expect(off.page.getByTestId('status-ai')).toHaveText(
-      'AI off: No API key: set ANTHROPIC_API_KEY to turn the AI on',
+      'AI off: No API key: store one in the keyring or set ANTHROPIC_API_KEY',
     );
     await expect(off.page.getByTestId('status-ai')).toHaveAttribute('data-mode', 'off');
   } finally {

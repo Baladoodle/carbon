@@ -311,6 +311,8 @@ export interface Report {
   costUsd: number;
   usage: Usage;
   metrics: Metric[];
+  /** Cases that never produced an answer to measure (API, network, refusal, truncation). */
+  unrun: { id: string; error: string }[];
   pass: boolean;
   runs: {
     id: string;
@@ -341,6 +343,14 @@ export function buildReport(
     }),
     { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
   );
+  // An answer that fails validation is measured (schema validity); anything
+  // else that failed means the case was never measured, so the run can't pass.
+  const unrun = runs
+    .filter((r) => !r.ok && r.error?.code !== 'invalid_output')
+    .map((r) => ({
+      id: r.case.id,
+      error: r.error ? `${r.error.code}: ${r.error.message}` : 'failed',
+    }));
   return {
     mode,
     at,
@@ -349,7 +359,8 @@ export function buildReport(
     costUsd: runs.reduce((a, r) => a + r.costUsd, 0),
     usage,
     metrics,
-    pass: metrics.every((m) => m.pass !== false),
+    unrun,
+    pass: runs.length > 0 && unrun.length === 0 && metrics.every((m) => m.pass !== false),
     runs: runs.map((r) => ({
       id: r.case.id,
       moment: r.case.moment,
@@ -381,6 +392,14 @@ export function reportMarkdown(r: Report): string {
     ...(r.mode === 'dry'
       ? [
           '> Dry run: the answers were generated offline from each request’s schema, not by Claude. The pipeline ran end to end; the quality metrics are not meaningful.',
+          '',
+        ]
+      : []),
+    ...(r.unrun.length > 0
+      ? [
+          `**${r.unrun.length} ${r.unrun.length === 1 ? 'case' : 'cases'} could not run**, so this run can't pass:`,
+          '',
+          ...r.unrun.map((u) => `- ${u.id}: ${u.error}`),
           '',
         ]
       : []),
