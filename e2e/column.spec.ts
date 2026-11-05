@@ -1,8 +1,9 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { cmd } from '@core/commands/registry';
+import { entityFromMarkdown, entityToMarkdown } from '@core/files/entity-file';
 import { writeWorldDir } from '../src/main/store/world-dir';
 import { nudge } from '../src/core/column/edges';
 import { stressWorld } from '../src/core/testing/stress';
@@ -298,6 +299,44 @@ test.describe('the Bench', () => {
   });
   test.afterAll(async () => {
     await carbon.close();
+  });
+
+  test('an outside edit of a field you are typing in asks which to keep', async () => {
+    const { page } = carbon;
+    await focusOn(carbon, 'reef-ray');
+    const file = path.join(carbon.worldDir, 'entities/creature/reef-ray.md');
+    const editOutside = (identity: string): void => {
+      const r = entityFromMarkdown(readFileSync(file, 'utf8'));
+      if (!r.ok) throw new Error(r.error.message);
+      writeFileSync(file, entityToMarkdown({ ...r.value, identity }));
+    };
+    const identity = field(page, 'identity').locator('input');
+    const conflict = field(page, 'identity').getByTestId('field-conflict');
+    // An outside edit of a field you're not typing in just shows.
+    editOutside('Quietly changed.');
+    await expect(identity).toHaveValue('Quietly changed.');
+    await expect(conflict).toHaveCount(0);
+    // Typing, not yet committed, when the file changes: your text stays, and carbon asks.
+    await identity.click();
+    await identity.fill('Mine, typed.');
+    editOutside('Theirs, from outside.');
+    await expect(conflict).toContainText('Theirs, from outside.');
+    await expect(identity).toHaveValue('Mine, typed.');
+    // Leaving the field doesn't decide for you.
+    await identity.press('Enter');
+    await expect(conflict).toBeVisible();
+    expect(read(carbon, 'entities/creature/reef-ray.md')).toContain('Theirs, from outside.');
+    await conflict.getByRole('button', { name: 'Use theirs' }).click();
+    await expect(conflict).toHaveCount(0);
+    await expect(identity).toHaveValue('Theirs, from outside.');
+    // Again, keeping yours this time.
+    await identity.click();
+    await identity.fill('Mine again.');
+    editOutside('Theirs again.');
+    await expect(conflict).toContainText('Theirs again.');
+    await conflict.getByRole('button', { name: 'Keep mine' }).click();
+    await expect(conflict).toHaveCount(0);
+    await expect.poll(() => read(carbon, 'entities/creature/reef-ray.md')).toContain('Mine again.');
   });
 
   test('@smoke tab suggests inline, tab accepts with the ai marker, and it undoes', async () => {

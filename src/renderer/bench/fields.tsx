@@ -27,6 +27,7 @@ import {
 } from '../ui';
 import { benchAi, commitField } from './controller';
 import { refTargets } from '@core/bench/relations';
+import { outsideStamp } from './outside';
 import { benchStore, fieldId, setBench, useBench } from './store';
 import { checkValue, formatValue, isTextual, parseNumber, parseText } from '@core/bench/value';
 
@@ -200,9 +201,56 @@ function useDraft(stored: string): [string, (v: string) => void, () => boolean] 
   return [draft, setDraft, () => draft !== stored];
 }
 
+/**
+ * A draft that, unlike `useDraft`, doesn't give way to a change from outside
+ * carbon while you're typing (docs/SYSTEM.md §4: conflicts with unsaved edits
+ * ask which to keep). Changes carbon made itself (an accepted suggestion, an
+ * undo) still replace it. `theirs` is the outside value waiting for a choice.
+ */
+function useTypedDraft(
+  stored: string,
+  entityId: string,
+): {
+  draft: string;
+  setDraft: (v: string) => void;
+  dirty: () => boolean;
+  theirs: string | null;
+  choose: (keep: 'mine' | 'theirs') => void;
+  /** Call when typing starts: only outside changes from then on count. */
+  rebase: () => void;
+} {
+  const [draft, setDraft] = useState(stored);
+  const [base, setBase] = useState({ text: stored, stamp: outsideStamp(entityId) });
+  const [theirs, setTheirs] = useState<string | null>(null);
+  if (stored !== base.text) {
+    const stamp = outsideStamp(entityId);
+    const typing = draft !== base.text || theirs !== null;
+    setBase({ text: stored, stamp });
+    if (stamp !== base.stamp && typing) setTheirs(stored);
+    else {
+      setDraft(stored);
+      setTheirs(null);
+    }
+  }
+  return {
+    draft,
+    setDraft,
+    dirty: () => draft !== stored,
+    theirs,
+    choose: (keep) => {
+      setTheirs(null);
+      if (keep === 'theirs') setDraft(stored);
+    },
+    rebase: () => {
+      const stamp = outsideStamp(entityId);
+      if (stamp !== base.stamp) setBase({ text: base.text, stamp });
+    },
+  };
+}
+
 function TextControl({ entity, def, suggestion, onError, variant }: ControlProps): ReactNode {
   const stored = formatValue(def, fieldValue(entity, def.key));
-  const [draft, setDraft, dirty] = useDraft(stored);
+  const { draft, setDraft, dirty, theirs, choose, rebase } = useTypedDraft(stored, entity.id);
   const focus = useFieldFocus(entity.id, def.key);
   // The kit's Input wraps itself when a suggestion shows, which remounts the
   // <input>: keep focus (and the caret at the end) on this field across that.
@@ -216,12 +264,37 @@ function TextControl({ entity, def, suggestion, onError, variant }: ControlProps
     node.focus();
     node.setSelectionRange(node.value.length, node.value.length);
   }, [showing, entity.id, def.key]);
-  const commit = async (): Promise<void> => {
+  const commit = async (force = false): Promise<void> => {
+    // With an outside change waiting, leaving the field decides nothing.
+    if (theirs !== null && !force) return;
     if (!dirty()) return onError(null);
     const p = parseText(def, draft);
     if (!p.ok) return onError(p.error);
     onError(await commitField(entity.id, def.key, p.value));
   };
+  const conflict =
+    theirs === null ? null : (
+      <div className="bench-conflict" role="alert" data-testid="field-conflict">
+        <span className="bench-conflict-text">
+          Changed outside carbon: <q>{theirs === '' ? '(empty)' : theirs}</q>
+        </span>
+        <span className="bench-conflict-actions">
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              choose('mine');
+              void commit(true);
+            }}
+          >
+            Keep mine
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => choose('theirs')}>
+            Use theirs
+          </Button>
+        </span>
+      </div>
+    );
   const common = {
     ref: el,
     id: `bench-${fieldId(entity.id, def.key)}`,
@@ -229,7 +302,10 @@ function TextControl({ entity, def, suggestion, onError, variant }: ControlProps
     suggestion,
     mono: def.type === 'number' || def.type === 'height',
     'aria-label': def.label,
-    onFocus: focus.onFocus,
+    onFocus: () => {
+      rebase();
+      focus.onFocus();
+    },
     onChange: (e: { target: { value: string } }) => setDraft(e.target.value),
     onBlur: () => {
       focus.onBlurField();
@@ -238,29 +314,35 @@ function TextControl({ entity, def, suggestion, onError, variant }: ControlProps
   };
   if (def.type === 'longtext')
     return (
-      <Textarea
-        {...common}
-        rows={3}
-        onKeyDown={(e) => e.key === 'Enter' && e.ctrlKey && e.preventDefault()}
-      />
+      <>
+        <Textarea
+          {...common}
+          rows={3}
+          onKeyDown={(e) => e.key === 'Enter' && e.ctrlKey && e.preventDefault()}
+        />
+        {conflict}
+      </>
     );
   return (
-    <Input
-      {...common}
-      className={
-        variant === 'title'
-          ? 'bench-title-input'
-          : variant === 'identity'
-            ? 'bench-identity-input'
-            : undefined
-      }
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' && !e.ctrlKey) {
-          e.preventDefault();
-          void commit();
+    <>
+      <Input
+        {...common}
+        className={
+          variant === 'title'
+            ? 'bench-title-input'
+            : variant === 'identity'
+              ? 'bench-identity-input'
+              : undefined
         }
-      }}
-    />
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && !e.ctrlKey) {
+            e.preventDefault();
+            void commit();
+          }
+        }}
+      />
+      {conflict}
+    </>
   );
 }
 

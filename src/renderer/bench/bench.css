@@ -435,3 +435,28 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* An outside change to a field you're typing in: which to keep. */
+.bench-conflict {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  font-size: var(--text-meta);
+  color: var(--warn);
+}
+.bench-conflict-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bench-conflict-text q {
+  color: var(--text);
+}
+.bench-conflict-actions {
+  display: flex;
+  flex: none;
+  gap: 4px;
+}

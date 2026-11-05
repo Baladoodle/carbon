@@ -23,6 +23,7 @@ import { finishEditing } from '../ai/triggers';
 import { entityConsequences } from '@core/numbers';
 import { useNumbers } from '../views/numbers/analysis';
 import { benchAi, commitAttribute, settled } from './controller';
+import { watchOutside } from './outside';
 import { FieldRow, focusSibling, useFocusRequest } from './fields';
 import { Relations } from './Relations';
 import { KillDialog, neededStore, stateDialog, transitions, WhyDialog } from './StateControl';
@@ -35,6 +36,7 @@ import { attributesFor, COMMON_DEFS, defOf, parseNumber } from '@core/bench/valu
  * their keys; with nothing in focus it shows nothing (VISUAL.md §1).
  */
 export function Bench(): ReactNode {
+  useEffect(watchOutside, []);
   const focus = useUi((s) => s.focus);
   const entity = useEntity(focus);
   const world = useWorld((w) => w, Object.is);
