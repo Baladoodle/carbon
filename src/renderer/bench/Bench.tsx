@@ -98,6 +98,7 @@ function EntityBench({ world, entity }: { world: World; entity: Entity }): React
   const notes = useNotes(entity.id);
   useFocusRequest(root, entity.id);
   // A refused state change shows every field the target state needs, not only the first step's.
+  const revealAfter = useRef<string | null>(null);
   const optional = useOptional(
     world,
     entity,
@@ -431,9 +432,14 @@ function EntityBench({ world, entity }: { world: World; entity: Entity }): React
             }
             items={optional.hidden.map((d) => ({
               label: d.label,
-              onSelect: () => optional.reveal(d.key),
+              onSelect: () => (revealAfter.current = d.key),
             }))}
-            returnFocus={false}
+            onClosed={() => {
+              const k = revealAfter.current;
+              revealAfter.current = null;
+              if (k) optional.reveal(k);
+              else document.querySelector<HTMLElement>('[data-testid="bench-add-field"]')?.focus();
+            }}
           />
         )}
       </section>

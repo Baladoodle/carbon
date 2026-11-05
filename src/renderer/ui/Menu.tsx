@@ -17,17 +17,16 @@ export interface MenuProps {
   trigger: ReactNode;
   items: MenuEntry[];
   align?: 'start' | 'center' | 'end';
-  /** Return focus to the trigger on close (default). Off when an item moves focus itself. */
-  returnFocus?: boolean;
+  /**
+   * Runs once the menu has closed, instead of returning focus to the trigger:
+   * for an item that moves focus itself (inside the open menu, its focus trap
+   * would take focus straight back).
+   */
+  onClosed?: () => void;
 }
 
 /** A dropdown menu of actions. Keys appear here (they are allowed in menus). */
-export function Menu({
-  trigger,
-  items,
-  align = 'start',
-  returnFocus = true,
-}: MenuProps): ReactNode {
+export function Menu({ trigger, items, align = 'start', onClosed }: MenuProps): ReactNode {
   return (
     <M.Root>
       <M.Trigger asChild>{trigger}</M.Trigger>
@@ -37,7 +36,14 @@ export function Menu({
           align={align}
           sideOffset={4}
           collisionPadding={8}
-          {...(returnFocus ? {} : { onCloseAutoFocus: (e: Event) => e.preventDefault() })}
+          {...(onClosed
+            ? {
+                onCloseAutoFocus: (e: Event) => {
+                  e.preventDefault();
+                  onClosed();
+                },
+              }
+            : {})}
         >
           {items.map((it, i) =>
             it === 'separator' ? (
