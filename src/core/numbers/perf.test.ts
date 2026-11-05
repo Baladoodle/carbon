@@ -55,9 +55,6 @@ describe('a keystroke in the formula editor, on 2,000 entities', () => {
       engine.update({ ...w, numbers: { ...w.numbers, formulas: text } });
       times.push(performance.now() - t);
     }
-    process.stderr.write(
-      `keystroke re-analysis: median ${median(times).toFixed(2)} ms, max ${Math.max(...times).toFixed(2)} ms\n`,
-    );
     expect(median(times)).toBeLessThan(16);
   });
 
@@ -70,7 +67,6 @@ describe('a keystroke in the formula editor, on 2,000 entities', () => {
       completions(a, `${FORMULAS}\nx = ba`, FORMULAS.length + 7, opts);
       times.push(performance.now() - t);
     }
-    process.stderr.write(`completion: median ${median(times).toFixed(2)} ms\n`);
     expect(median(times)).toBeLessThan(8);
   });
 });
