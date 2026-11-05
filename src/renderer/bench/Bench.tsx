@@ -37,6 +37,7 @@ import type { FieldDef } from '@core/model/fields';
 import { splitFields } from '@core/bench/optional';
 import { missingFor, requiredFor } from '@core/model/lifecycle';
 import { requestFieldFocus } from './store';
+import { BenchImages, benchImageMenu } from '../images/BenchImages';
 
 /**
  * The Bench (docs/EXPERIENCE.md §3): the entity in focus, rendered from its
@@ -323,6 +324,8 @@ function EntityBench({ world, entity }: { world: World; entity: Entity }): React
       onSelect: () => void benchAi.critique(entity.id, 'on_demand'),
     },
     'separator',
+    ...benchImageMenu(world, entity),
+    'separator',
     ...transitions(world, entity).map((t): MenuEntry => ({
       label: t.label,
       onSelect: t.run,
@@ -399,6 +402,8 @@ function EntityBench({ world, entity }: { world: World; entity: Entity }): React
         bare
         needed={neededFor('identity')}
       />
+
+      <BenchImages world={world} entity={entity} />
 
       {proposals > 0 && (
         <div className="bench-proposals" data-testid="bench-proposals">

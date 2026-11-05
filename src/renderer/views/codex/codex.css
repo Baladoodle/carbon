@@ -240,3 +240,16 @@
 .codex-resize[data-resizing]::after {
   background: var(--accent);
 }
+
+/* The image column: the icon (pixelated) or a concept thumbnail (docs/IMAGES.md §6). */
+.codex-img {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+.codex-img-thumb {
+  width: 20px;
+  height: 20px;
+}
+.codex-img-thumb.img-icon {
+  border-radius: 4px;
+}

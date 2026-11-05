@@ -20,6 +20,8 @@ import { flash, focusEntity, setUi, startSpreadAt, useUi } from '../../state/ui'
 import { currentWorld, dispatch, useWorld, whenRev } from '../../state/world';
 import {
   Button,
+  ContextMenu,
+  type MenuEntry,
   Combobox,
   Input,
   Empty,
@@ -31,6 +33,10 @@ import {
   cx,
 } from '../../ui';
 import { IconCodex } from '../../ui/icons';
+import { canHave, imageMenu, KEYS as IMAGE_KEYS, requestBatch, requestImage } from '../../images/actions';
+import { selected as selectedImage } from '../../images/model';
+import { usePending } from '../../images/store';
+import { Shimmer, Thumb, describe } from '../../images/Thumb';
 import { defineView } from '../define';
 import {
   columnsFor,
@@ -384,6 +390,27 @@ function CodexView(): ReactNode {
   const { acting, hidden } = visibleSelection(selection, index);
   const targets = (): string[] => (acting.length > 0 ? acting : curEntity ? [curEntity.id] : []);
 
+  const canIcon = (id: string): boolean => !!world && canHave(world, id, 'icon');
+  // A row's menu: its image actions, and the batch over the selection it's part of.
+  const rowMenu = (t: Element): MenuEntry[] | null => {
+    const id = t.closest('[data-entity]')?.getAttribute('data-entity');
+    if (!id || !world?.entities[id]) return null;
+    const own = imageMenu(world, id);
+    if (!(acting.length > 1 && acting.includes(id))) return own;
+    const icons = acting.filter((x) => canIcon(x)).length;
+    return [
+      {
+        label: `Generate concepts (${acting.length})`,
+        onSelect: () => requestBatch(acting, 'concept'),
+      },
+      ...(icons > 0
+        ? [{ label: `Generate icons (${icons})`, onSelect: () => requestBatch(acting, 'icon') }]
+        : []),
+      'separator',
+      ...own,
+    ];
+  };
+
   const startEdit = (e: Entity | undefined, col: Column | undefined): void => {
     if (!e || !col?.edit) {
       if (e) focusEntity(e.id);
@@ -545,6 +572,41 @@ function CodexView(): ReactNode {
       enabled: () => idle() && !!curEntity,
       run: () => curEntity && toggle(curEntity.id),
     },
+    // Images on the rows the filter shows (the shell's keys would also reach hidden ones).
+    {
+      id: 'codex.images.concept',
+      label:
+        acting.length > 1
+          ? `Generate concepts (${acting.length})`
+          : curEntity
+            ? `Generate concept: ${curEntity.name}`
+            : 'Generate concept',
+      group: 'Images',
+      keys: [IMAGE_KEYS.concept],
+      enabled: () => idle() && targets().length > 0,
+      run: () => {
+        const t = targets();
+        if (t.length > 1) requestBatch(t, 'concept');
+        else if (t[0]) requestImage(t[0], 'concept');
+      },
+    },
+    {
+      id: 'codex.images.icon',
+      label:
+        acting.length > 1
+          ? `Generate icons (${acting.filter((id) => canIcon(id)).length})`
+          : curEntity
+            ? `Generate icon: ${curEntity.name}`
+            : 'Generate icon',
+      group: 'Images',
+      keys: [IMAGE_KEYS.icon],
+      enabled: () => idle() && targets().some((id) => canIcon(id)),
+      run: () => {
+        const t = targets();
+        if (t.length > 1) requestBatch(t, 'icon');
+        else if (t[0]) requestImage(t[0], 'icon');
+      },
+    },
     {
       id: 'codex.select-all',
       label: 'Select all rows',
@@ -682,7 +744,7 @@ function CodexView(): ReactNode {
     rows.length,
     Math.ceil((viewport.top + viewport.height) / ROW_H) + OVERSCAN,
   );
-  const width = 28 + 28 + columns.reduce((s, c) => s + widthOf(c), 0);
+  const width = 28 + 28 + IMG_W + columns.reduce((s, c) => s + widthOf(c), 0);
   const selected = new Set(selection);
 
   return (
@@ -721,6 +783,35 @@ function CodexView(): ReactNode {
                 </Tooltip>
               </>
             )}
+            {acting.length > 0 && (
+              <>
+                <Tooltip content={`Generate concepts (${acting.length})`} keys={IMAGE_KEYS.concept}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => requestBatch(acting, 'concept')}
+                    data-testid="codex-bulk-concepts"
+                  >
+                    Concepts…
+                  </Button>
+                </Tooltip>
+                {acting.some((id) => canIcon(id)) && (
+                  <Tooltip
+                    content={`Generate icons (${acting.filter((id) => canIcon(id)).length})`}
+                    keys={IMAGE_KEYS.icon}
+                  >
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => requestBatch(acting, 'icon')}
+                      data-testid="codex-bulk-icons"
+                    >
+                      Icons…
+                    </Button>
+                  </Tooltip>
+                )}
+              </>
+            )}
             {hidden > 0 && (
               <Tooltip content="Selected, but not shown: bulk actions skip them">
                 <span className="codex-selection-hidden num" data-testid="codex-selection-hidden">
@@ -736,6 +827,7 @@ function CodexView(): ReactNode {
           </div>
         )}
       </div>
+      <ContextMenu itemsAt={rowMenu}>
       <div
         className="codex-scroll"
         ref={scrollRef}
@@ -771,6 +863,7 @@ function CodexView(): ReactNode {
             <colgroup>
               <col style={{ width: 28 }} />
               <col style={{ width: 28 }} />
+              <col style={{ width: IMG_W }} />
               {columns.map((c) => (
                 <col key={c.id} style={{ width: widthOf(c) }} />
               ))}
@@ -779,6 +872,7 @@ function CodexView(): ReactNode {
               <tr>
                 <th aria-label="selected" />
                 <th aria-label="state" />
+                <th aria-label="image" />
                 {columns.map((c, i) => (
                   <th
                     key={c.id}
@@ -860,6 +954,9 @@ function CodexView(): ReactNode {
                     <td onClick={(ev) => clickRow(e, ev, 0)}>
                       <StateGlyph state={e.state} />
                     </td>
+                    <td className="codex-img" onClick={(ev) => clickRow(e, ev, 0)}>
+                      <RowImage world={world} id={e.id} />
+                    </td>
                     {columns.map((c, i) => {
                       const isEditing = editing?.id === e.id && editing.col === c.id;
                       return (
@@ -905,6 +1002,7 @@ function CodexView(): ReactNode {
           </table>
         )}
       </div>
+      </ContextMenu>
       {stateDialog && (
         <StateDialog
           ids={stateDialog.ids}
@@ -924,3 +1022,17 @@ export default defineView({
   icon: IconCodex,
   component: CodexView,
 });
+
+const IMG_W = 34;
+
+/** The Codex's image cell: the icon (pixelated), else a concept thumbnail. */
+function RowImage({ world, id }: { world: World; id: string }): ReactNode {
+  const icon = selectedImage(world, id, 'icon');
+  const concept = selectedImage(world, id, 'concept');
+  const pending = usePending(id, icon || !concept ? 'icon' : 'concept');
+  const pendingConcept = usePending(id, 'concept');
+  if (pending || (pendingConcept && !icon)) return <Shimmer className="codex-img-thumb" />;
+  const m = icon ?? concept;
+  if (!m) return null;
+  return <Thumb meta={m} className="codex-img-thumb" title={describe(m)} testId="codex-image" />;
+}

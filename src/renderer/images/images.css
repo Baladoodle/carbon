@@ -1,0 +1,300 @@
+/* Images (docs/IMAGES.md §6, VISUAL.md). Thumbnails: 6px radius, hairline borders.
+   Icons are always pixelated. A generated image carries --ai as a hairline only. */
+
+.img-thumb {
+  display: block;
+  box-sizing: border-box;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--surface-2);
+  object-fit: cover;
+}
+.img-thumb.img-ai {
+  border-color: color-mix(in srgb, var(--ai) 40%, var(--line));
+}
+.img-icon {
+  image-rendering: pixelated;
+  object-fit: contain;
+}
+
+/* Loading: a slow light passing over the glass. */
+.img-shimmer {
+  position: relative;
+  display: block;
+  box-sizing: border-box;
+  overflow: hidden;
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--surface-2) 70%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ai) 28%, var(--line));
+}
+.img-shimmer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 20%,
+    color-mix(in srgb, var(--ai) 13%, transparent) 50%,
+    transparent 80%
+  );
+  transform: translateX(-100%);
+  animation: img-shimmer 1.6s ease-in-out infinite;
+}
+@keyframes img-shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .img-shimmer::after {
+    animation: none;
+    transform: none;
+    opacity: 0.5;
+  }
+}
+
+/* ── The confirm step and the batch dialog ─────────────────────────────── */
+
+.img-confirm {
+  width: min(620px, 92vw);
+}
+.img-confirm-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.img-confirm-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 20px;
+}
+.img-confirm-name {
+  font-size: var(--text-name);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+.img-confirm-kind {
+  font-size: var(--text-meta);
+}
+.img-prompt {
+  position: relative;
+}
+.img-prompt textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+.img-prompt-ai textarea {
+  color: color-mix(in srgb, var(--ai) 80%, var(--text));
+}
+.img-prompt .img-shimmer {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-control);
+}
+.img-options {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: end;
+}
+.img-cost {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  min-width: 72px;
+  padding-bottom: 6px;
+}
+.img-cost-total {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-name);
+}
+.img-cost-left {
+  font-size: var(--text-meta);
+}
+.img-error {
+  font-size: var(--text-dense);
+}
+
+.img-batch {
+  width: min(820px, 94vw);
+}
+.img-batch-list {
+  display: flex;
+  flex-direction: column;
+  max-height: 46vh;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+}
+.img-batch-row {
+  display: grid;
+  grid-template-columns: 20px 150px minmax(0, 1fr) 72px;
+  gap: 10px;
+  align-items: start;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+}
+.img-batch-row:last-child {
+  border-bottom: none;
+}
+.img-batch-row[data-skip] {
+  color: var(--text-3);
+}
+.img-batch-name {
+  padding-top: 5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.img-batch-row textarea {
+  min-height: 34px;
+  font-size: var(--text-dense);
+  resize: vertical;
+}
+.img-batch-skip {
+  padding-top: 5px;
+  font-size: var(--text-dense);
+}
+.img-batch-result {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 2px;
+}
+.img-batch-state {
+  padding-top: 5px;
+  width: 8px;
+  height: 8px;
+}
+.img-batch-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 28px;
+}
+.img-progress {
+  flex: 1 1 auto;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.img-progress > span {
+  display: block;
+  height: 100%;
+  background: var(--ai);
+  transition: width var(--dur-panel) var(--ease);
+}
+
+/* ── The lightbox ──────────────────────────────────────────────────────── */
+
+.img-lightbox {
+  width: auto;
+  max-width: 92vw;
+  padding: 8px;
+}
+.img-lightbox img {
+  display: block;
+  max-width: calc(92vw - 16px);
+  max-height: 82vh;
+  border-radius: var(--radius-card);
+}
+.img-lightbox .img-icon {
+  width: 512px;
+  height: 512px;
+}
+.img-options-5 {
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 0.8fr) minmax(0, 1fr) minmax(0, 0.8fr) auto;
+}
+.img-batch-state {
+  display: block;
+  margin-top: 9px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  border: 1px solid var(--line-strong);
+}
+.img-batch-state-running {
+  border-color: var(--ai);
+  background: color-mix(in srgb, var(--ai) 35%, transparent);
+}
+.img-batch-state-ok {
+  border-color: var(--ai);
+  background: var(--ai);
+}
+.img-batch-state-failed {
+  border-color: var(--danger);
+  background: var(--danger);
+}
+
+/* ── The Bench's image strip ───────────────────────────────────────────── */
+
+.bench-images {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.bench-img-main {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+.bench-img-open {
+  display: block;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  border-radius: var(--radius-control);
+  cursor: zoom-in;
+}
+.bench-img-concept {
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  max-height: 220px;
+}
+.img-shimmer.bench-img-concept {
+  flex: 1 1 auto;
+}
+.bench-img-icon {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+.bench-img-1x {
+  padding: 0;
+  border-radius: 4px;
+}
+.bench-img-versions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.bench-img-version {
+  padding: 0;
+  border: none;
+  background: none;
+  border-radius: var(--radius-control);
+  opacity: 0.75;
+  transition: opacity var(--dur-hover) var(--ease);
+}
+.bench-img-version:hover,
+.bench-img-version:focus-visible {
+  opacity: 1;
+}
+.bench-img-actions {
+  display: flex;
+  gap: 2px;
+  margin-left: -8px;
+}
+.bench-img-actions svg {
+  width: 13px;
+  height: 13px;
+}
+.bench-images-none .bench-img-actions {
+  opacity: 0.7;
+}

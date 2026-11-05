@@ -389,3 +389,125 @@
   outline: none;
   box-shadow: none;
 }
+
+/* ── Concept art in a panel (docs/IMAGES.md §6) ─────────────────────────────
+   The image covers the panel; a soft scrim keeps the name, identity and
+   signature readable at every size. Text sits above both. */
+.climate-art,
+.climate-art-scrim,
+.climate-art-shimmer {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+.climate-art {
+  background-color: var(--surface-2);
+  background-size: cover;
+  background-position: center;
+  opacity: 0;
+  transition: opacity var(--dur-panel) var(--ease);
+}
+.climate-art[data-loaded] {
+  opacity: 1;
+}
+.climate-art-scrim {
+  background:
+    linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--bg) 78%, transparent) 0,
+      color-mix(in srgb, var(--bg) 52%, transparent) 46px,
+      color-mix(in srgb, var(--bg) 30%, transparent) 60%,
+      color-mix(in srgb, var(--bg) 10%, transparent) 100%
+    );
+}
+.climate-region-head,
+.climate-region-identity,
+.climate-sig {
+  position: relative;
+  z-index: 1;
+}
+.climate-region-range {
+  z-index: 1;
+}
+.climate-region-art {
+  backdrop-filter: none;
+  /* The AI made the art: its colour, as a hairline only. */
+  border-color: color-mix(in srgb, var(--ai) 38%, var(--line-strong));
+}
+.climate-region-art .climate-region-name,
+.climate-region-art .climate-region-identity,
+.climate-region-art .climate-sig-item,
+.climate-region-art .climate-sig dt {
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.6);
+}
+.climate-region-art .climate-region-identity,
+.climate-region-art .climate-sig dt {
+  color: color-mix(in srgb, var(--text) 78%, transparent);
+}
+.climate-region-art.climate-region-selected {
+  border-color: var(--accent);
+}
+.climate-art-shimmer {
+  overflow: hidden;
+  background: color-mix(in srgb, var(--ai) 5%, transparent);
+}
+.climate-art-shimmer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 25%,
+    color-mix(in srgb, var(--ai) 12%, transparent) 50%,
+    transparent 75%
+  );
+  transform: translateX(-100%);
+  animation: img-shimmer 1.8s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .climate-art-shimmer::after {
+    animation: none;
+    transform: none;
+    opacity: 0.5;
+  }
+}
+
+/* The quiet generate affordance: only on hover or selection, never a badge. */
+.climate-region-gen {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-3);
+  opacity: 0;
+  cursor: pointer;
+  transition:
+    opacity var(--dur-hover) var(--ease),
+    color var(--dur-hover) var(--ease),
+    border-color var(--dur-hover) var(--ease);
+}
+.climate-region-gen svg {
+  width: 14px;
+  height: 14px;
+}
+.climate-region:hover .climate-region-gen,
+.climate-region-selected .climate-region-gen,
+.climate-region-gen:focus-visible {
+  opacity: 1;
+}
+.climate-region-gen:hover {
+  color: var(--ai);
+  border-color: color-mix(in srgb, var(--ai) 35%, var(--line));
+}
+.climate-region-head {
+  padding-right: 18px;
+}

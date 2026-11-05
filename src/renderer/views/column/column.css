@@ -278,3 +278,13 @@
   width: 16px;
   color: var(--accent);
 }
+
+/* Item icons on chips: always pixelated, never smoothed (docs/IMAGES.md §6). */
+.column-chip-icon {
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+.column-chip-icon-wait {
+  fill: var(--surface-3);
+  pointer-events: none;
+}

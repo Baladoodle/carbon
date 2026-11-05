@@ -534,4 +534,4 @@ export function locate(model: ColumnModel, id: string): { row: string; lane: num
 }
 
 /** The world's image index (an object that changes only when images do). */
-const imagesOf = (w: World): unknown => (w as { images?: unknown }).images;
+const imagesOf = (w: World): World['images'] => w.images;

@@ -18,8 +18,11 @@ import { flash, focusEntity, startSpreadAt, useUi } from '../../state/ui';
 import { currentWorld, dispatch, useWorld, whenRev } from '../../state/world';
 import { requestFieldFocus } from '../../bench/store';
 import { holdTypeahead, takeTypeahead } from '../../bench/typeahead';
-import { Empty, Kbd, StateGlyph, Tabs, Tooltip, cx } from '../../ui';
-import { IconClimate } from '../../ui/icons';
+import { ContextMenu, Empty, Kbd, StateGlyph, Tabs, Tooltip, cx, type MenuEntry } from '../../ui';
+import { imageMenu, KEYS as IMAGE_KEYS, requestImage } from '../../images/actions';
+import { selected as selectedImage, type ImageMeta } from '../../images/model';
+import { RegionArt } from './RegionArt';
+import { IconClimate, IconImage } from '../../ui/icons';
 import { defineView } from '../define';
 import { Burst } from '../column/burst';
 import { bandsOf, biomesInBand } from './bands';
@@ -49,6 +52,8 @@ interface Region {
   ai: boolean;
   identity: string;
   signature: { kind: string; items: { id: string; name: string; state: EntityState }[] }[];
+  /** The chosen concept art: it fills the panel (docs/IMAGES.md §6). */
+  concept: ImageMeta | undefined;
 }
 
 interface Drag {
@@ -87,6 +92,7 @@ function regionsOf(
       rect: rectOf(c.data),
       ai: e.ai_fields.includes('climate'),
       identity: e.identity,
+      concept: selectedImage(w, e.id, 'concept'),
       signature: SIGNATURE_KINDS.map((k) => ({
         kind: plural[k].plural.toLowerCase(),
         items: inside
@@ -469,6 +475,24 @@ function ClimateView(): ReactNode {
     },
   ]);
 
+  // A panel's menu: its image actions, then the Bench and a spread in its climate.
+  const regionMenu = (t: Element): MenuEntry[] | null => {
+    const id = t.closest('[data-testid="climate-region"]')?.getAttribute('data-entity');
+    const w = currentWorld();
+    const r = id ? live.find((x) => x.id === id) : undefined;
+    if (!w || !id || !r) return null;
+    return [
+      ...imageMenu(w, id),
+      'separator',
+      { label: 'Open on the Bench', keys: 'enter', onSelect: () => select(id) },
+      {
+        label: 'Spread in this climate',
+        keys: 'space',
+        onSelect: () => band && startSpreadAt({ type: 'region', band, climate: climateOf(r.rect) }),
+      },
+    ];
+  };
+
   const beginDrag = (e: ReactPointerEvent, id: string, handle: Handle | 'move'): void => {
     if (e.button !== 0) return;
     const r = live.find((x) => x.id === id);
@@ -526,6 +550,7 @@ function ClimateView(): ReactNode {
         <div className="climate-frame">
           <span className="climate-axis climate-axis-y t-3">wet</span>
           <span className="climate-axis climate-axis-y climate-axis-low t-3">dry</span>
+          <ContextMenu itemsAt={regionMenu}>
           <div
             className="climate-plane"
             ref={planeRef}
@@ -557,6 +582,7 @@ function ClimateView(): ReactNode {
                   r.id === selected && 'climate-region-selected',
                   overlapping.has(r.id) && 'climate-region-overlap',
                   drag?.id === r.id && 'climate-region-dragging',
+                  r.concept && 'climate-region-art',
                 )}
                 style={boxStyle(r.rect)}
                 data-entity={r.id}
@@ -564,6 +590,26 @@ function ClimateView(): ReactNode {
                 onPointerDown={(e) => beginDrag(e, r.id, 'move')}
                 onDoubleClick={() => focusEntity(r.id)}
               >
+                <RegionArt id={r.id} concept={r.concept} />
+                {!r.concept && (
+                  <Tooltip content="Generate concept art" keys={IMAGE_KEYS.concept}>
+                    <button
+                      type="button"
+                      className="climate-region-gen"
+                      aria-label="Generate concept art"
+                      data-testid="climate-generate"
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onDoubleClick={(e) => e.stopPropagation()}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        select(r.id);
+                        requestImage(r.id, 'concept');
+                      }}
+                    >
+                      <IconImage />
+                    </button>
+                  </Tooltip>
+                )}
                 <div className="climate-region-head">
                   <StateGlyph state={r.state} />
                   <span className={cx('climate-region-name', r.ai && 't-ai')}>{r.name}</span>
@@ -616,6 +662,7 @@ function ClimateView(): ReactNode {
               </Empty>
             )}
           </div>
+          </ContextMenu>
           <span className="climate-axis climate-axis-x t-3">cold</span>
           <span className="climate-axis climate-axis-x climate-axis-high t-3">warm</span>
         </div>

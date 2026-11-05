@@ -5,6 +5,10 @@ import { useActions } from '../actions';
 import { setUi } from '../state/ui';
 import { Empty, Table, TBody, TD, TH, THead, TR, Tabs, cx } from '../ui';
 import { ai, aiRequest, useAiStatus } from './client';
+import type { ImageLogEntry } from '@core/images/gateway';
+import { images, imageLogStore, useImageStatus } from '../images/client';
+import { useStore } from '../state/store';
+import { ImageLogRow } from '../images/LogRow';
 import './ai.css';
 
 /**
@@ -62,9 +66,14 @@ export function totals(entries: readonly AiLogEntry[]): LogTotals {
   return { calls, costUsd, cacheRate: input > 0 ? read / input : 0, cached };
 }
 
+type LogRow = { type: 'ai'; e: AiLogEntry } | { type: 'image'; e: ImageLogEntry };
+
 export function AiLog(): ReactNode {
   const [entries, setEntries] = useState<AiLogEntry[]>([]);
-  const [filter, setFilter] = useState<'all' | Moment>('all');
+  const [filter, setFilter] = useState<'all' | Moment | 'images'>('all');
+  const [imageEntries, setImageEntries] = useState<ImageLogEntry[]>([]);
+  const imageStatus = useImageStatus();
+  const imageLive = useStore(imageLogStore, (l) => l.length);
   const [cursor, setCursor] = useState(0);
   const [open, setOpen] = useState<{
     id: string;
@@ -81,12 +90,36 @@ export function AiLog(): ReactNode {
       live = false;
     };
   }, [status.pending, status.spend.sessionUsd, status.enabled]);
+  useEffect(() => {
+    let live = true;
+    void images
+      .log(1000)
+      .then((l) => live && setImageEntries(l))
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [imageLive, imageStatus.pending, imageStatus.spend.sessionUsd]);
 
-  const newest = useMemo(() => [...entries].reverse(), [entries]);
+  // Claude's calls and the image calls, newest first, in one list.
+  const newest = useMemo(
+    () =>
+      [
+        ...entries.map((e): LogRow => ({ type: 'ai', e })),
+        ...imageEntries.map((e): LogRow => ({ type: 'image', e })),
+      ].sort((a, b) => (a.e.at < b.e.at ? 1 : a.e.at > b.e.at ? -1 : 0)),
+    [entries, imageEntries],
+  );
   const rows = useMemo(
-    () => (filter === 'all' ? newest : newest.filter((e) => e.moment === filter)),
+    () =>
+      filter === 'all'
+        ? newest
+        : filter === 'images'
+          ? newest.filter((r) => r.type === 'image')
+          : newest.filter((r) => r.type === 'ai' && r.e.moment === filter),
     [newest, filter],
   );
+  const imageTotal = imageEntries.reduce((n, e) => n + e.costUsd, 0);
   const t = useMemo(() => totals(entries), [entries]);
   const at = Math.min(cursor, Math.max(0, rows.length - 1));
   const current = rows[at];
@@ -96,8 +129,9 @@ export function AiLog(): ReactNode {
   }, [at]);
 
   const close = (): void => setUi({ overlay: null });
-  const openRequest = (e: AiLogEntry | undefined): void => {
-    if (!e) return;
+  const openRequest = (row: LogRow | undefined): void => {
+    if (row?.type !== 'ai') return;
+    const e = row.e;
     void aiRequest(e.id).then((r) =>
       setOpen({ id: e.id, text: r?.text ?? null, ...(r ? { params: r.params } : {}) }),
     );
@@ -130,13 +164,17 @@ export function AiLog(): ReactNode {
 
   const present = MOMENTS.filter((m) => entries.some((e) => e.moment === m));
   const tabs = [
-    { value: 'all', label: 'all', count: entries.length },
+    { value: 'all', label: 'all', count: entries.length + imageEntries.length },
     ...present.map((m) => ({
       value: m,
       label: MOMENT_LABEL[m],
       count: entries.filter((e) => e.moment === m).length,
     })),
+    ...(imageEntries.length > 0
+      ? [{ value: 'images', label: 'images', count: imageEntries.length }]
+      : []),
   ];
+  const groups = present.length + (imageEntries.length > 0 ? 1 : 0);
 
   return (
     <div className="palette-scrim" onMouseDown={close}>
@@ -147,16 +185,16 @@ export function AiLog(): ReactNode {
         aria-label="AI log"
         onMouseDown={(e) => e.stopPropagation()}
       >
-        {entries.length === 0 ? (
+        {entries.length === 0 && imageEntries.length === 0 ? (
           <Empty className="ai-log-empty">No AI calls this session.</Empty>
         ) : (
           <>
             <div className="ai-log-head">
-              {present.length > 1 ? (
+              {groups > 1 ? (
                 <Tabs
                   value={filter}
                   onValueChange={(v) => {
-                    setFilter(v as 'all' | Moment);
+                    setFilter(v as 'all' | Moment | 'images');
                     setCursor(0);
                   }}
                   tabs={tabs}
@@ -169,6 +207,8 @@ export function AiLog(): ReactNode {
                 {`${usd(t.costUsd)} · ${t.calls} ${t.calls === 1 ? 'call' : 'calls'}`}
                 {t.cached > 0 && ` · ${t.cached} cached`}
                 {t.calls > 0 && ` · ${Math.round(t.cacheRate * 100)}% cache read`}
+                {imageEntries.length > 0 &&
+                  ` · OpenAI ${usd(imageTotal)} · ${imageEntries.length} ${imageEntries.length === 1 ? 'image call' : 'image calls'}`}
               </span>
             </div>
             <div className="ai-log-body" ref={scroller}>
@@ -187,7 +227,17 @@ export function AiLog(): ReactNode {
                   </tr>
                 </THead>
                 <TBody>
-                  {rows.map((e, i) => {
+                  {rows.map((row, i) => {
+                    if (row.type === 'image')
+                      return (
+                        <ImageLogRow
+                          key={`img:${row.e.id}`}
+                          e={row.e}
+                          current={i === at}
+                          onPick={() => setCursor(i)}
+                        />
+                      );
+                    const e = row.e;
                     const r = result(e);
                     const u = e.meta?.usage;
                     return (
@@ -198,7 +248,7 @@ export function AiLog(): ReactNode {
                         data-outcome={e.outcome}
                         onClick={() => {
                           setCursor(i);
-                          openRequest(e);
+                          openRequest(row);
                         }}
                       >
                         <TD mono className="t-3">

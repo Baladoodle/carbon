@@ -129,7 +129,7 @@ export interface CellEntity {
 
 /** An entity's selected icon, if it has one (`world.images`, docs/IMAGES.md §3). */
 export function iconOf(world: World, id: string): string | undefined {
-  const images = (world as { images?: Record<string, { icon?: string } | undefined> }).images;
+  const images = world.images;
   return images && Object.prototype.hasOwnProperty.call(images, id) ? images[id]?.icon : undefined;
 }
 

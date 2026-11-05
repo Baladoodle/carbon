@@ -10,7 +10,7 @@ export interface ContextMenuProps {
    * every right-click, so one menu can serve a whole surface (the Column's
    * chips, the Codex's rows, the Climate plane's panels).
    */
-  itemsAt: (target: Element) => MenuEntry[] | null;
+  itemsAt: (target: Element, at: { clientX: number; clientY: number }) => MenuEntry[] | null;
   /** One element: the surface. */
   children: ReactNode;
 }
@@ -19,7 +19,7 @@ export interface ContextMenuProps {
 export function ContextMenu({ itemsAt, children }: ContextMenuProps): ReactNode {
   const [items, setItems] = useState<MenuEntry[]>([]);
   const onContextMenu = (e: MouseEvent): void => {
-    const next = e.target instanceof Element ? itemsAt(e.target) : null;
+    const next = e.target instanceof Element ? itemsAt(e.target, e) : null;
     // Nothing to offer here: no menu (and no native one either).
     if (!next || next.length === 0) e.preventDefault();
     else setItems(next);

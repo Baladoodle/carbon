@@ -3,7 +3,16 @@ import { StateGlyph } from '../../ui';
 import { depthTint } from '../../ui/tokens';
 import type { Edge } from '@core/column/edges';
 import { edgeKey } from '@core/column/edges';
-import { CHIP_H, fitText, pxOfY, type Frame, type Glyph, type Rect } from '@core/column/layout';
+import {
+  CHIP_H,
+  CHIP_ICON,
+  fitText,
+  pxOfY,
+  type Frame,
+  type Glyph,
+  type Rect,
+} from '@core/column/layout';
+import { useImageSrc } from '../../images/client';
 import { LABEL_W, RULER_W, type CellBox, type RowBox } from '@core/column/model';
 import { formatY, fromU, ticks } from '@core/column/scale';
 import { measureBand } from './measure';
@@ -214,12 +223,31 @@ const Chip = memo(function Chip({
     >
       <rect width={g.w} height={CHIP_H} rx={4} className="column-chip-box" />
       <StateMark x={6} y={5} state={g.state} />
-      <text x={19} y={14} className="column-chip-text">
+      {g.icon && <ChipIcon entity={g.id} image={g.icon} />}
+      <text x={19 + (g.icon ? CHIP_ICON : 0)} y={14} className="column-chip-text">
         {g.text}
       </text>
     </g>
   );
 });
+
+/** An item's icon on its chip: 16×16, pixelated, before the name (docs/IMAGES.md §6). */
+function ChipIcon({ entity, image }: { entity: string; image: string }): ReactNode {
+  const src = useImageSrc({ entity, id: image }, 'png');
+  if (!src) return <rect x={19} y={2} width={16} height={16} rx={2} className="column-chip-icon-wait" />;
+  return (
+    <image
+      href={src}
+      x={19}
+      y={2}
+      width={16}
+      height={16}
+      className="column-chip-icon"
+      data-icon={image}
+      preserveAspectRatio="xMidYMid meet"
+    />
+  );
+}
 
 export const Cell = memo(function Cell({
   cell,
@@ -270,7 +298,8 @@ export function Reveal({ g, right }: { g: Glyph; right: number }): ReactNode {
     >
       <rect width={g.fullW} height={CHIP_H} rx={4} className="column-chip-box" />
       <StateMark x={6} y={5} state={g.state} />
-      <text x={19} y={14} className="column-chip-text">
+      {g.icon && <ChipIcon entity={g.id} image={g.icon} />}
+      <text x={19 + (g.icon ? CHIP_ICON : 0)} y={14} className="column-chip-text">
         {g.name}
       </text>
     </g>

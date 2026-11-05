@@ -11,6 +11,8 @@ export interface ImageUi {
   confirm: { entity: string; kind: ImageKind } | null;
   batch: { entities: string[]; kind: ImageKind } | null;
   lightbox: { entity: string; image: string } | null;
+  /** The "Delete image files" confirm. */
+  purge: Record<string, never> | null;
   /** `entity:kind` → true while a call for it runs. */
   pending: Record<string, true>;
 }
@@ -19,6 +21,7 @@ export const imageUi = createStore<ImageUi>({
   confirm: null,
   batch: null,
   lightbox: null,
+  purge: null,
   pending: {},
 });
 
@@ -42,6 +45,7 @@ export const OVERLAY = {
   confirm: 'image-confirm',
   batch: 'image-batch',
   lightbox: 'image-lightbox',
+  purge: 'image-purge',
 } as const;
 
 /** Opens one of the image overlays (escape closes it, like every overlay). */

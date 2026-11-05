@@ -20,8 +20,9 @@ import { requestFieldFocus } from '../../bench/store';
 import { holdTypeahead, takeTypeahead } from '../../bench/typeahead';
 import { useNotes } from '../../state/notes';
 import { flash, focusEntity, startSpreadAt, uiStore, useUi } from '../../state/ui';
+import { canHave, imageMenu, requestBatch } from '../../images/actions';
 import { currentWorld, transact, useWorld, whenRev } from '../../state/world';
-import { Empty, Kbd } from '../../ui';
+import { ContextMenu, Empty, Kbd, type MenuEntry } from '../../ui';
 import { IconColumn } from '../../ui/icons';
 import { defineView } from '../define';
 import { at, normalize, side, step, type Cursor } from '@core/column/cursor';
@@ -465,7 +466,85 @@ function Column({ world, model }: { world: World; model: ColumnModel }): ReactNo
     });
   }
 
+  // ── Images: a chip's menu, and a batch over a cell or a lane ───────────
+  const cellEntities = (c: Cursor): string[] => {
+    const lane = model.lanes[c.lane];
+    return lane ? (model.index.cells.get(cellKey(c.row, lane))?.map((x) => x.id) ?? []) : [];
+  };
+  const laneEntities = (c: Cursor): string[] => {
+    const lane = model.lanes[c.lane];
+    if (!lane) return [];
+    const ids = new Set<string>();
+    for (const [key, list] of model.index.cells)
+      if (key.endsWith(`|${lane}`)) for (const x of list) ids.add(x.id);
+    return [...ids];
+  };
+  const iconsIn = (ids: string[]): string[] => ids.filter((id) => canHave(world, id, 'icon'));
+  const batchEntries = (c: Cursor): MenuEntry[] => {
+    const cell = cellEntities(c);
+    const lane = laneEntities(c);
+    const out: MenuEntry[] = [];
+    if (iconsIn(cell).length > 1)
+      out.push({
+        label: `Generate icons in this cell (${iconsIn(cell).length})`,
+        onSelect: () => requestBatch(cell, 'icon'),
+      });
+    if (cell.length > 1)
+      out.push({
+        label: `Generate concepts in this cell (${cell.length})`,
+        onSelect: () => requestBatch(cell, 'concept'),
+      });
+    if (iconsIn(lane).length > iconsIn(cell).length)
+      out.push({
+        label: `Generate icons in this lane (${iconsIn(lane).length})`,
+        onSelect: () => requestBatch(lane, 'icon'),
+      });
+    return out;
+  };
+  const chipMenu = (t: Element, at: { clientX: number; clientY: number }): MenuEntry[] | null => {
+    const id = t.closest('[data-id]')?.getAttribute('data-id') ?? null;
+    const p = contentPoint(at);
+    const row = t.closest('[data-id]')?.getAttribute('data-row') ?? rowAtPx(p.y);
+    const lane = laneAt(p.x);
+    if (!row || lane < 0) return null;
+    const c: Cursor = { row, lane, entity: id };
+    const batch = batchEntries(c);
+    const own = id ? imageMenu(world, id) : [];
+    const out = [...own, ...(own.length && batch.length ? ['separator' as const] : []), ...batch];
+    return out.length > 0 ? out : null;
+  };
+  const cursorCell = cellEntities(cursor);
+  const cursorLane = laneEntities(cursor);
+
   const actions: Action[] = [
+    {
+      id: 'column.images.cell-icons',
+      label: `Generate icons in this cell (${iconsIn(cursorCell).length})`,
+      group: 'Images',
+      enabled: () => iconsIn(cellEntities(cursorRef.current)).length > 0,
+      run: () => requestBatch(cellEntities(cursorRef.current), 'icon'),
+    },
+    {
+      id: 'column.images.cell-concepts',
+      label: `Generate concepts in this cell (${cursorCell.length})`,
+      group: 'Images',
+      enabled: () => cellEntities(cursorRef.current).length > 0,
+      run: () => requestBatch(cellEntities(cursorRef.current), 'concept'),
+    },
+    {
+      id: 'column.images.lane-icons',
+      label: `Generate icons in this lane (${iconsIn(cursorLane).length})`,
+      group: 'Images',
+      enabled: () => iconsIn(laneEntities(cursorRef.current)).length > 0,
+      run: () => requestBatch(laneEntities(cursorRef.current), 'icon'),
+    },
+    {
+      id: 'column.images.lane-concepts',
+      label: `Generate concepts in this lane (${cursorLane.length})`,
+      group: 'Images',
+      enabled: () => laneEntities(cursorRef.current).length > 0,
+      run: () => requestBatch(laneEntities(cursorRef.current), 'concept'),
+    },
     {
       id: 'column.down',
       label: 'Move down',
@@ -820,6 +899,7 @@ function Column({ world, model }: { world: World; model: ColumnModel }): ReactNo
           ref={contentRef}
           style={{ height: geo.frame.height, width: geo.width }}
         >
+          <ContextMenu itemsAt={chipMenu}>
           <svg
             className="column-svg"
             width={geo.width}
@@ -859,6 +939,7 @@ function Column({ world, model }: { world: World; model: ColumnModel }): ReactNo
               />
             )}
           </svg>
+          </ContextMenu>
           <Margin
             notes={notes}
             model={model}

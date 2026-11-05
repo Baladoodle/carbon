@@ -9,6 +9,8 @@ import { flash, setUi, uiStore, useUi } from '../state/ui';
 import { redo, startWorldSync, undo, useWorldMeta } from '../state/world';
 import { Toaster, TooltipProvider } from '../ui';
 import { Gallery } from '../ui/Gallery';
+import { startImageSync } from '../images/client';
+import { ImageOverlays } from '../images/Overlays';
 import { invoke } from '../bridge';
 import { VIEWS, viewById } from '../views/registry';
 import { Rail } from './Rail';
@@ -96,6 +98,7 @@ function useShellActions(): void {
 export function App(): ReactNode {
   useEffect(() => {
     startAiSync();
+    startImageSync();
     void startWorldSync();
     return installKeymap();
   }, []);
@@ -146,6 +149,7 @@ export function App(): ReactNode {
         {overlay === 'palette' && <Palette />}
         {overlay === 'ai-log' && <AiLog />}
         {overlay === 'ui-kit' && <Gallery />}
+        <ImageOverlays />
         <PlatformRuntime />
         <Toaster />
       </div>

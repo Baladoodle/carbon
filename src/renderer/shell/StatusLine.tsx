@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import type { SaveStatus } from '@shared/ipc';
 import { AiStatus } from '../ai/AiStatus';
+import { ImageStatusPiece } from '../images/StatusPiece';
 import { invoke, on } from '../bridge';
 import { useNotes } from '../state/notes';
 import { useWorldMeta } from '../state/world';
@@ -65,6 +66,7 @@ export function StatusLine(): ReactNode {
       )}
       <span className="spacer" />
       <AiStatus />
+      <ImageStatusPiece />
       <span
         data-testid="status-save"
         data-state={save.state}
