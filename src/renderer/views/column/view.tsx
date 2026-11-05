@@ -17,6 +17,7 @@ import { ENTITY_KINDS, LANE_OF_KIND, type EntityKind, type Lane } from '@core/mo
 import { getEntity, schemaOf, type World } from '@core/model/world';
 import { useActions, type Action } from '../../actions';
 import { requestFieldFocus } from '../../bench/store';
+import { holdTypeahead, takeTypeahead } from '../../bench/typeahead';
 import { useNotes } from '../../state/notes';
 import { flash, focusEntity, startSpreadAt, uiStore, useUi } from '../../state/ui';
 import { currentWorld, transact, useWorld, whenRev } from '../../state/world';
@@ -384,7 +385,10 @@ function Column({ world, model }: { world: World; model: ColumnModel }): ReactNo
         const span = newBandSpan(row);
         const id = uniqueId('New band', (x) => getEntity(w, x) !== undefined);
         const r = await transact('Create band', [createBandCommand(span, id)]);
-        if (!r.ok) return flash(r.error.message, 'error');
+        if (!r.ok) {
+          takeTypeahead();
+          return flash(r.error.message, 'error');
+        }
         // The cursor goes to the new band once the mirror has it (not to a row it can't find yet).
         await whenRev(r.rev);
         focusEntity(id);
@@ -408,7 +412,10 @@ function Column({ world, model }: { world: World; model: ColumnModel }): ReactNo
       const r = await transact(`Create ${name}`, [
         cmd('entity.create', { kind, name, id, fields, relations }),
       ]);
-      if (!r.ok) return flash(r.error.message, 'error');
+      if (!r.ok) {
+        takeTypeahead();
+        return flash(r.error.message, 'error');
+      }
       await whenRev(r.rev);
       focusEntity(id);
       setColumn({ cursor: { ...c, entity: id } });
@@ -520,7 +527,11 @@ function Column({ world, model }: { world: World; model: ColumnModel }): ReactNo
       enabled: () =>
         cursorRef.current.lane >= 0 ||
         model.rows.find((r) => r.key === cursorRef.current.row)?.kind === 'gap',
-      run: () => void createAt(cursorRef.current),
+      run: () => {
+        // The name is typed next: hold those keys until it has focus.
+        holdTypeahead();
+        void createAt(cursorRef.current);
+      },
     },
     {
       id: 'column.spread',

@@ -28,6 +28,7 @@ import {
 import { benchAi, commitField } from './controller';
 import { refTargets } from '@core/bench/relations';
 import { ConflictPrompt, useTypedDraft } from './draft';
+import { takeTypeahead, typeInto } from './typeahead';
 import { benchStore, fieldId, setBench, useBench } from './store';
 import { checkValue, formatValue, isTextual, parseNumber, parseText } from '@core/bench/value';
 
@@ -707,6 +708,9 @@ export function useFocusRequest(
   const req = useBench((s) => s.focusRequest);
   useEffect(() => {
     if (!req || req.entity !== entityId) return;
-    if (focusField(root.current, req.key, req.select)) setBench({ focusRequest: null });
+    if (!focusField(root.current, req.key, req.select)) return;
+    setBench({ focusRequest: null });
+    // Keys typed after the create key, before this field had focus (typeahead.ts).
+    typeInto(document.activeElement, takeTypeahead(), req.select === true);
   });
 }

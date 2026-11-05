@@ -33,6 +33,8 @@ interface Editing {
   name: string;
   field: 'name' | 'value';
   text: string;
+  /** A variable just made with `v`: enter on its name goes on to its value. */
+  fresh?: boolean;
 }
 
 /** The variables, edited inline: `k = 100`. Uses per variable come from the analysis. */
@@ -119,7 +121,7 @@ export function Variables({
       return;
     }
     setError(null);
-    setEditing({ name, field: 'name', text: name });
+    setEditing({ name, field: 'name', text: name, fresh: true });
   };
 
   const remove = async (name: string): Promise<void> => {
@@ -159,7 +161,7 @@ export function Variables({
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === 'Tab') {
                       e.preventDefault();
-                      void finish(e.key === 'Tab' ? 'value' : undefined);
+                      void finish(e.key === 'Tab' || ed.fresh ? 'value' : undefined);
                     }
                     if (e.key === 'Escape') {
                       e.stopPropagation();

@@ -372,6 +372,27 @@ test('climate keys: select, nudge, new biome, and space aims a spread at the reg
   await page().waitForSelector('[data-testid="view-spread"]');
 });
 
+test("climate: letters typed straight after n land in the new biome's name", async () => {
+  await carbon.gotoView('climate', '2');
+  await page().getByRole('tab', { name: 'Groundline' }).click();
+  // n and the name in one burst, before the create command can round-trip.
+  await page().evaluate(() => {
+    for (const key of ['n', 'G', 'l', 'o', 'w'])
+      document.body.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
+  });
+  const name = page().getByTestId('bench-entity').locator('.bench-title-input');
+  await expect(name).toBeFocused();
+  await expect(name).toHaveValue('Glow');
+  await name.press('Enter');
+  await expect(page().locator('[data-testid="climate-region"]', { hasText: 'Glow' })).toHaveCount(
+    1,
+  );
+  await body().press('Escape');
+  await body().press('Control+z');
+  await body().press('Control+z');
+  await expect(page().locator('[data-testid="climate-region"]')).toHaveCount(1);
+});
+
 test('climate escape and a click on the empty plane deselect the biome', async () => {
   await carbon.gotoView('climate', '2');
   await page().getByRole('tab', { name: 'Groundline' }).click();

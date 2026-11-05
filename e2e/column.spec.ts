@@ -102,6 +102,24 @@ test.describe('the Column', () => {
     await expect(chip(page, 'new-creature')).toHaveCount(0);
   });
 
+  test("letters typed straight after n land in the new entity's name", async () => {
+    const { page } = carbon;
+    await chip(page, 'glide').click();
+    // n and the name in one burst, before the create command can round-trip.
+    await page.evaluate(() => {
+      for (const key of ['n', 'S', 'o', 'a', 'r'])
+        document.body.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
+    });
+    const name = field(page, 'name').locator('input');
+    await expect(name).toBeFocused();
+    await expect(name).toHaveValue('Soar');
+    await press(page, 'Escape');
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    await expect(bench(page).locator('.bench-title-input')).toHaveValue('Soar');
+    await press(page, 'Control+z');
+    await press(page, 'Control+z');
+  });
+
   test('dragging a shared band edge moves both bands in one undo step', async () => {
     const { page } = carbon;
     const edge = page.locator('[data-edge="low-sky^groundline"] rect');

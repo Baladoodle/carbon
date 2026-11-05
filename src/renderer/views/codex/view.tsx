@@ -113,6 +113,8 @@ function FilterBar({
           invalid={errors.length > 0}
           spellCheck={false}
           aria-label="Filter"
+          // The syntax isn't guessable: an example, shown only while the filter is empty.
+          placeholder='Filter: state:idea band:"Low Sky" lane:items'
           data-testid="codex-filter"
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={(e) => {

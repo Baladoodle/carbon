@@ -35,7 +35,7 @@ import { benchStore, fieldId, setBench, useBench } from './store';
 import { attributesFor, COMMON_DEFS, defOf, parseNumber } from '@core/bench/value';
 import type { FieldDef } from '@core/model/fields';
 import { splitFields } from '@core/bench/optional';
-import { requiredFor } from '@core/model/lifecycle';
+import { missingFor, requiredFor } from '@core/model/lifecycle';
 import { requestFieldFocus } from './store';
 
 /**
@@ -332,8 +332,12 @@ function EntityBench({ world, entity }: { world: World; entity: Entity }): React
     'separator',
     { label: 'Delete', destructive: true, onSelect: () => void remove(entity) },
   ];
+  // Only while it's still missing: a field filled since the refusal no longer says so.
+  const stillMissing = needed ? missingFor(schemaOf(world), entity, needed.state) : [];
   const neededFor = (key: string): string | undefined =>
-    needed?.keys.includes(key) ? `Needed to be ${needed.state}` : undefined;
+    needed?.keys.includes(key) && stillMissing.includes(key)
+      ? `Needed to be ${needed.state}`
+      : undefined;
   const attrs = attributesFor(kind, entity);
   // Live consequences (EXPERIENCE §3): the formulas that read this entity, evaluated for it.
   const consequences = numbers
