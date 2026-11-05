@@ -404,6 +404,19 @@ test('climate actions are all in the palette, placing a biome without climate to
   await body().press('Control+z');
 });
 
+test('climate: a biome made on a band without edges shows on its plane', async () => {
+  await carbon.dispatch(cmd('entity.create', { kind: 'band', name: 'Aether', id: 'aether' }));
+  await carbon.gotoView('climate', '2');
+  await page().getByRole('tab', { name: 'Aether' }).click();
+  await expect(page().getByTestId('climate-region')).toHaveCount(0);
+  await body().press('n');
+  await expect(page().getByTestId('bench-entity')).toHaveAttribute('data-entity', 'new-biome');
+  await expect(region('new-biome')).toBeVisible();
+  await body().press('Control+z');
+  await expect(region('new-biome')).toHaveCount(0);
+  await body().press('Control+z');
+});
+
 test('climate screenshots', async () => {
   await carbon.gotoView('climate', '2');
   await page().getByRole('tab', { name: 'Hollows' }).click();

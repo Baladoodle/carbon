@@ -12,7 +12,7 @@ import { ClimateSchema } from '@core/model/fields';
 import { uniqueId } from '@core/model/ids';
 import type { EntityState } from '@core/model/kinds';
 import { schemaOf, type World } from '@core/model/world';
-import { entitiesInBiome, knownBands, resolvePlacement } from '@core/placement';
+import { entitiesInBiome } from '@core/placement';
 import { useActions } from '../../actions';
 import { flash, focusEntity, startSpreadAt, useUi } from '../../state/ui';
 import { currentWorld, dispatch, useWorld, whenRev } from '../../state/world';
@@ -20,6 +20,7 @@ import { Kbd, StateGlyph, Tabs, Tooltip, cx } from '../../ui';
 import { IconClimate } from '../../ui/icons';
 import { defineView } from '../define';
 import { Burst } from '../column/burst';
+import { bandsOf, biomesInBand } from './bands';
 import {
   climateOf,
   emptyRegions,
@@ -56,30 +57,18 @@ interface Drag {
   rect: Rect;
 }
 
-/** The bands, ordered top (sky) to bottom (depths), as on the Column; unknown-edge bands last. */
-function bandsOf(w: World): { id: string; name: string }[] {
-  const known = knownBands(w)
-    .reverse()
-    .map((b) => ({ id: b.id, name: b.name }));
-  const rest = Object.values(w.entities)
-    .filter((e) => e.kind === 'band' && !known.some((k) => k.id === e.id))
-    .sort((a, b) => a.name.localeCompare(b.name))
-    .map((e) => ({ id: e.id, name: e.name }));
-  return [...known, ...rest];
-}
-
 const SIGNATURE_KINDS = ['material', 'creature', 'structure'] as const;
 
 function regionsOf(
   w: World,
   band: string,
 ): { placed: Region[]; loose: { id: string; name: string }[] } {
-  const all = resolvePlacement(w);
   const plural = schemaOf(w).kinds;
   const placed: Region[] = [];
   const loose: { id: string; name: string }[] = [];
-  for (const e of Object.values(w.entities)) {
-    if (e.kind !== 'biome' || !all[e.id]?.bands.includes(band)) continue;
+  for (const id of biomesInBand(w, band)) {
+    const e = w.entities[id];
+    if (!e) continue;
     const c = ClimateSchema.safeParse(e.fields.climate);
     if (!c.success) {
       loose.push({ id: e.id, name: e.name });
