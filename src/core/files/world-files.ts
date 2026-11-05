@@ -17,6 +17,7 @@ import {
 } from '../model/world';
 import type { Entity } from '../model/entity';
 import { entityFromMarkdown, entityToMarkdown } from './entity-file';
+import { imageFilesForChange, imageFilesOf, imagesFromFiles } from '../images/files';
 
 /**
  * The world directory layout (docs/SYSTEM.md §4), as pure functions between a
@@ -175,6 +176,10 @@ export function worldFromFiles(files: FileMap): { world: World; issues: LoadIssu
       else if (rec) world.spreads[rec.id] = rec;
     }
   }
+  // Added by images-core: `images/<entity>/*.json` (core/images/files.ts).
+  const img = imagesFromFiles([...files].filter(([p]) => p.startsWith('images/')));
+  issues.push(...img.issues);
+  if (img.images) world.images = img.images;
   return { world, issues };
 }
 
@@ -199,6 +204,7 @@ export function worldToFiles(world: World): FileMap {
   ]);
   for (const e of Object.values(world.entities)) files.set(...entityFile(e));
   for (const s of Object.values(world.spreads)) files.set(PATHS.spread(s.id), json(s));
+  for (const [p, c] of imageFilesOf(world.images)) files.set(p, c);
   return files;
 }
 
@@ -266,6 +272,16 @@ export function filesForPatch(before: World, after: World, patch: Patch): FileCh
             remove.delete(PATHS.spread(id));
           } else if (before.spreads[id]) remove.add(PATHS.spread(id));
         }
+        break;
+      }
+      case 'images': {
+        // Added by images-core: only the image files that changed.
+        const ch = imageFilesForChange(before.images, after.images, key);
+        for (const [p, c] of ch.write) {
+          write.set(p, c);
+          remove.delete(p);
+        }
+        for (const p of ch.remove) if (!write.has(p)) remove.add(p);
         break;
       }
       default:

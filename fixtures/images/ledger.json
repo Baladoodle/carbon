@@ -1,0 +1,74 @@
+{
+  "calls": [
+    {
+      "at": "2026-11-05T09:20:34.450Z",
+      "name": "cloud-anklet-icon-flare",
+      "outcome": "ok",
+      "costUsd": 0.02532,
+      "requestId": "req_c7dedab43a2f447ea118d7d9b37b2615"
+    },
+    {
+      "at": "2026-11-05T09:20:57.259Z",
+      "name": "cloud-reef-concept-flare",
+      "outcome": "ok",
+      "costUsd": 0.020255,
+      "requestId": "req_9db9238c2fa24f9ab2a4f54773f0bad4"
+    },
+    {
+      "at": "2026-11-05T09:21:05.866Z",
+      "name": "spore-lantern-icon-flare",
+      "outcome": "ok",
+      "costUsd": 0.025315,
+      "requestId": "req_0afe9a29a819407c8d8a6eb8e38e0e34"
+    },
+    {
+      "at": "2026-11-05T09:21:13.121Z",
+      "name": "spore-lantern-concept-flare",
+      "outcome": "ok",
+      "costUsd": 0.02505,
+      "requestId": "req_6e301268603c4673a62ea062eaa586a4"
+    },
+    {
+      "at": "2026-11-05T09:21:19.908Z",
+      "name": "spore-lantern-icon-edit-flare",
+      "outcome": "ok",
+      "costUsd": 0.033557,
+      "requestId": "req_d5fa429149e441748fb39daa85dec2cf"
+    },
+    {
+      "at": "2026-11-05T09:21:27.648Z",
+      "name": "glowmoss-caverns-concept-sunburst",
+      "outcome": "ok",
+      "costUsd": 0.020265,
+      "requestId": "req_28810b3f322540c7b50db7feb3391813"
+    },
+    {
+      "at": "2026-11-05T09:21:55.763Z",
+      "name": "cinder-sting-icon-sunburst",
+      "outcome": "ok",
+      "costUsd": 0.02532,
+      "requestId": "req_211cd02143df4d03ac71311a6be0e9a7"
+    },
+    {
+      "at": "2026-11-05T09:40:21.906Z",
+      "name": "items-sheet-100-flare",
+      "outcome": "ok",
+      "costUsd": 0.106393,
+      "requestId": "req_93df42789a4f4508bd15b0f2ebaf6fb0"
+    },
+    {
+      "at": "2026-11-05T10:20:52.891Z",
+      "name": "items-sheet-100-flare25",
+      "outcome": "ok",
+      "costUsd": 0.043123,
+      "requestId": "req_f1e9b5e15caf4a0b92a9036f6990e135"
+    },
+    {
+      "at": "2026-11-05T10:41:29.130Z",
+      "name": "items-sheet-100-flare25-pixel",
+      "outcome": "ok",
+      "costUsd": 0.049553,
+      "requestId": "req_c411cdf1bd4641339fd234928ffcb2c7"
+    }
+  ]
+}

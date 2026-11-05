@@ -28,7 +28,8 @@
     "postinstall": "node scripts/ensure-electron.mjs",
     "fixtures:sample": "UPDATE_FIXTURES=1 vitest run src/main/store/world-dir.test.ts",
     "dev:sample": "node scripts/dev-sample.mjs",
-    "guide:keys": "npm run build && UPDATE_GUIDE=1 node scripts/run-e2e.mjs e2e/keys.spec.ts"
+    "guide:keys": "npm run build && UPDATE_GUIDE=1 node scripts/run-e2e.mjs e2e/keys.spec.ts",
+    "smoke:images": "node scripts/smoke-images.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -56,6 +57,7 @@
     "@fontsource-variable/geist-mono": "^5.3.0",
     "@fontsource-variable/inter": "^5.3.0",
     "fast-png": "8.0.0",
+    "openai": "^7.51.0",
     "radix-ui": "^1.8.1",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",

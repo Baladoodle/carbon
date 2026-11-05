@@ -3,6 +3,8 @@ import { entityFromMarkdown } from '@core/files/entity-file';
 import { entityProblems, TOLERATED_ON_LOAD } from '@core/model/validate';
 import { schemaOf, SpreadRecordSchema, type World } from '@core/model/world';
 import type { Entity } from '@core/model/entity';
+import { entityImageFiles, IMAGE_FILE, imagesFromFiles } from '@core/images/files';
+import type { WorldImages } from '@core/images/model';
 
 /**
  * Applies changed files to a world without re-reading the rest (pure). Gives
@@ -184,5 +186,62 @@ export function applyFileChanges(
   }
   if (entities) next = { ...next, entities };
   if (spreads) next = { ...next, spreads };
+  next = applyImageChanges(next, changes, issues);
   return { world: next, issues };
+}
+
+/**
+ * Added by images-core: changed `images/<entity>/*.json` files. Each touched
+ * entity's image files are rebuilt from the world, the changes applied, and
+ * that entity re-read. A changed file that is invalid is not applied: the
+ * world keeps its version of it, and the problem comes back as an issue.
+ */
+function applyImageChanges(
+  world: World,
+  changes: ReadonlyMap<string, string | null>,
+  issues: LoadIssue[],
+): World {
+  const touched = new Map<string, Map<string, string | null>>();
+  for (const [p, c] of changes) {
+    const m = IMAGE_FILE.exec(p);
+    if (!m) continue;
+    const entity = m[1] as string;
+    const per = touched.get(entity) ?? new Map<string, string | null>();
+    per.set(p, c);
+    touched.set(entity, per);
+  }
+  if (touched.size === 0) return world;
+  const images: WorldImages = { ...(world.images ?? {}) };
+  for (const [entity, per] of [...touched].sort(([a], [b]) => (a < b ? -1 : 1))) {
+    const ours = world.images?.[entity]
+      ? entityImageFiles(entity, world.images[entity])
+      : new Map<string, string>();
+    const files = new Map(ours);
+    for (const [p, c] of per) {
+      if (c === null) files.delete(p);
+      else files.set(p, c);
+    }
+    let r = imagesFromFiles(files);
+    const bad = r.issues.filter((i) => i.code !== 'image.selection').map((i) => i.path);
+    if (bad.length > 0) {
+      for (const p of bad) {
+        const o = ours.get(p);
+        if (o === undefined) files.delete(p);
+        else files.set(p, o);
+      }
+      const again = imagesFromFiles(files);
+      issues.push(...r.issues.filter((i) => bad.includes(i.path)), ...again.issues);
+      r = again;
+    } else issues.push(...r.issues);
+    const e = r.images?.[entity];
+    if (e) images[entity] = e;
+    else delete images[entity];
+  }
+  const sorted = Object.fromEntries(
+    Object.keys(images)
+      .sort()
+      .map((k) => [k, images[k] as WorldImages[string]]),
+  );
+  const { images: _old, ...rest } = world;
+  return Object.keys(sorted).length > 0 ? { ...rest, images: sorted } : rest;
 }

@@ -1,4 +1,4 @@
-import { readdir, readFile } from 'node:fs/promises';
+import { copyFile, mkdir, readdir, readFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 import {
   exportCommands,
@@ -8,6 +8,12 @@ import {
   withExportHeader,
 } from '@core/export/spec';
 import { getEntity } from '@core/model/world';
+import {
+  exportImages,
+  exportImagesDir,
+  imagesSection,
+  type ExportImage,
+} from '@core/images/export';
 import type { ExportRecord, InvokeResponse } from '@shared/ipc';
 import { removeFileDurable, writeFileAtomic } from './atomic';
 import type { StepEffect, WorldSession } from '../world-session';
@@ -64,6 +70,54 @@ function specEffect(file: string, written: string): StepEffect {
   };
 }
 
+/** Copies the export's images; a missing source file is skipped (the spec still lists the path). */
+async function copyImages(dir: string, images: readonly ExportImage[]): Promise<number> {
+  let n = 0;
+  for (const img of images) {
+    try {
+      await mkdir(path.dirname(path.join(dir, img.to)), { recursive: true });
+      await copyFile(path.join(dir, img.from), path.join(dir, img.to));
+      n++;
+    } catch {
+      // The pixels were purged or never written: nothing to copy.
+    }
+  }
+  return n;
+}
+
+async function removeImages(dir: string, specRel: string): Promise<void> {
+  await rm(path.join(dir, path.dirname(exportImagesDir(specRel))), {
+    recursive: true,
+    force: true,
+  });
+}
+
+/**
+ * Undo removes the copied images (the spec's folder) and redo copies them
+ * again, like the spec file itself (review-c's export undo).
+ */
+function imagesEffect(dir: string, specRel: string, images: readonly ExportImage[]): StepEffect {
+  return {
+    async undo() {
+      await removeImages(dir, specRel);
+    },
+    async redo() {
+      await copyImages(dir, images);
+    },
+  };
+}
+
+const both = (a: StepEffect, b: StepEffect): StepEffect => ({
+  async undo() {
+    await a.undo();
+    await b.undo();
+  },
+  async redo() {
+    await a.redo();
+    await b.redo();
+  },
+});
+
 async function writeOne(
   session: Pick<WorldSession, 'dir' | 'world' | 'dispatch' | 'flush'>,
   req: { name: string; markdown: string; entityIds: string[] },
@@ -81,13 +135,23 @@ async function writeOne(
   }
   const rel = exportPath(date, req.name, new Set(await existingExports(session.dir)));
   const file = path.join(session.dir, rel);
-  const text = withExportHeader(req.markdown, { name: req.name, date, entities: ids });
+  // images-core: the selected icons and concepts go beside the spec, which lists them.
+  const images = exportImages(session.world, ids, rel);
+  const section = imagesSection(session.world, images);
+  const body = section ? `${req.markdown.replace(/\s*$/, '')}\n\n${section}` : req.markdown;
+  const text = withExportHeader(body, { name: req.name, date, entities: ids });
+  await copyImages(session.dir, images);
   await writeFileAtomic(file, text);
   const cmds = exportCommands(session.world, ids);
   if (cmds.length > 0) {
-    const r = session.dispatch(cmds, `Export ${req.name}`, specEffect(file, text));
+    const effect =
+      images.length > 0
+        ? both(specEffect(file, text), imagesEffect(session.dir, rel, images))
+        : specEffect(file, text);
+    const r = session.dispatch(cmds, `Export ${req.name}`, effect);
     if (!r.ok) {
       await removeFileDurable(file);
+      await removeImages(session.dir, rel);
       return { ok: false, error: r.error };
     }
   }

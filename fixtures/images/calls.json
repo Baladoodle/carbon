@@ -1,0 +1,324 @@
+[
+  {
+    "name": "cloud-anklet-icon-flare",
+    "entity": "cloud-anklet",
+    "kind": "icon",
+    "prompt": "Cloud Anklet, as a game item icon. One extra step on air. A single game item icon, centred, shown whole, three-quarter view, filling about 80% of a square frame. Bold readable silhouette, chunky proportions, simple shapes that survive being shrunk to 16×16 pixels. Flat-shaded with one soft top-left key light and a darker outline; few colours, high contrast. Fully transparent background. No text, no letters, no border, no frame, no shadow on the ground, no scene. Palette: muted earth tones.",
+    "ok": true,
+    "attempts": [
+      {
+        "at": "2026-11-05T09:20:34.450Z",
+        "provider": "openai",
+        "endpoint": "generate",
+        "model": "gpt-image-2.6-flare",
+        "quality": "low",
+        "size": "1024x1024",
+        "status": "ok",
+        "latencyMs": 7140,
+        "costUsd": 0.02532,
+        "costFrom": "usage",
+        "requestId": "req_c7dedab43a2f447ea118d7d9b37b2615",
+        "usage": {
+          "inputTokens": 120,
+          "outputTokens": 824,
+          "inputTextTokens": 120,
+          "inputImageTokens": 0
+        }
+      }
+    ],
+    "costUsd": 0.02532,
+    "image": {
+      "id": "01M6NG5B587NWNQ28MEJQ9K8VA",
+      "width": 16,
+      "height": 16
+    }
+  },
+  {
+    "name": "cloud-reef-concept-flare",
+    "entity": "cloud-reef",
+    "kind": "concept",
+    "prompt": "Concept art of Cloud Reef. Coral that grows on condensed cloud. Concept art for a game: one clear subject or place, readable at thumbnail size. No text, no letters, no logos, no UI, no border, no watermark. painterly, muted earth tones, soft rim light, readable silhouettes",
+    "ok": true,
+    "attempts": [
+      {
+        "at": "2026-11-05T09:20:57.259Z",
+        "provider": "openai",
+        "endpoint": "generate",
+        "model": "gpt-image-2.6-flare",
+        "quality": "low",
+        "size": "1536x1024",
+        "status": "ok",
+        "latencyMs": 8419,
+        "costUsd": 0.020255,
+        "costFrom": "usage",
+        "requestId": "req_9db9238c2fa24f9ab2a4f54773f0bad4",
+        "usage": {
+          "inputTokens": 67,
+          "outputTokens": 664,
+          "inputTextTokens": 67,
+          "inputImageTokens": 0
+        }
+      }
+    ],
+    "costUsd": 0.020255,
+    "image": {
+      "id": "01M6NG62Q19738JP26AN4H2A6Y",
+      "width": 1536,
+      "height": 1024
+    }
+  },
+  {
+    "name": "spore-lantern-icon-flare",
+    "entity": "spore-lantern",
+    "kind": "icon",
+    "prompt": "Spore Lantern, as a game item icon. Light that breathes. A single game item icon, centred, shown whole, three-quarter view, filling about 80% of a square frame. Bold readable silhouette, chunky proportions, simple shapes that survive being shrunk to 16×16 pixels. Flat-shaded with one soft top-left key light and a darker outline; few colours, high contrast. Fully transparent background. No text, no letters, no border, no frame, no shadow on the ground, no scene. Palette: muted earth tones.",
+    "ok": true,
+    "attempts": [
+      {
+        "at": "2026-11-05T09:21:05.866Z",
+        "provider": "openai",
+        "endpoint": "generate",
+        "model": "gpt-image-2.6-flare",
+        "quality": "low",
+        "size": "1024x1024",
+        "status": "ok",
+        "latencyMs": 7085,
+        "costUsd": 0.025315,
+        "costFrom": "usage",
+        "requestId": "req_0afe9a29a819407c8d8a6eb8e38e0e34",
+        "usage": {
+          "inputTokens": 119,
+          "outputTokens": 824,
+          "inputTextTokens": 119,
+          "inputImageTokens": 0
+        }
+      }
+    ],
+    "costUsd": 0.025315,
+    "image": {
+      "id": "01M6NG69SECCFQHTKPGDYZFEY2",
+      "width": 16,
+      "height": 16
+    }
+  },
+  {
+    "name": "spore-lantern-concept-flare",
+    "entity": "spore-lantern",
+    "kind": "concept",
+    "prompt": "Concept art of Spore Lantern. Light that breathes. Concept art for a game: one clear subject or place, readable at thumbnail size. No text, no letters, no logos, no UI, no border, no watermark. painterly, muted earth tones, soft rim light, readable silhouettes",
+    "ok": true,
+    "attempts": [
+      {
+        "at": "2026-11-05T09:21:13.121Z",
+        "provider": "openai",
+        "endpoint": "generate",
+        "model": "gpt-image-2.6-flare",
+        "quality": "low",
+        "size": "1024x1024",
+        "status": "ok",
+        "latencyMs": 6658,
+        "costUsd": 0.02505,
+        "costFrom": "usage",
+        "requestId": "req_6e301268603c4673a62ea062eaa586a4",
+        "usage": {
+          "inputTokens": 66,
+          "outputTokens": 824,
+          "inputTextTokens": 66,
+          "inputImageTokens": 0
+        }
+      }
+    ],
+    "costUsd": 0.02505,
+    "image": {
+      "id": "01M6NG6GEK2AE0D6MPD3SJ6J0K",
+      "width": 1024,
+      "height": 1024
+    }
+  },
+  {
+    "name": "spore-lantern-icon-edit-flare",
+    "entity": "spore-lantern",
+    "kind": "icon",
+    "prompt": "Spore Lantern, as a game item icon. Light that breathes. A single game item icon, centred, shown whole, three-quarter view, filling about 80% of a square frame. Bold readable silhouette, chunky proportions, simple shapes that survive being shrunk to 16×16 pixels. Flat-shaded with one soft top-left key light and a darker outline; few colours, high contrast. Fully transparent background. No text, no letters, no border, no frame, no shadow on the ground, no scene. Palette: muted earth tones.",
+    "ok": true,
+    "attempts": [
+      {
+        "at": "2026-11-05T09:21:19.908Z",
+        "provider": "openai",
+        "endpoint": "edit",
+        "model": "gpt-image-2.6-flare",
+        "quality": "low",
+        "size": "1024x1024",
+        "status": "ok",
+        "latencyMs": 7562,
+        "costUsd": 0.033557,
+        "costFrom": "usage",
+        "requestId": "req_d5fa429149e441748fb39daa85dec2cf",
+        "usage": {
+          "inputTokens": 1153,
+          "outputTokens": 824,
+          "inputTextTokens": 129,
+          "inputImageTokens": 1024
+        }
+      }
+    ],
+    "costUsd": 0.033557,
+    "image": {
+      "id": "01M6NG6QZ55V2DRWR217CT1CRP",
+      "width": 16,
+      "height": 16
+    }
+  },
+  {
+    "name": "glowmoss-caverns-concept-sunburst",
+    "entity": "glowmoss-caverns",
+    "kind": "concept",
+    "prompt": "Concept art of Glowmoss Caverns. Soft light on wet stone. Concept art for a game: one clear subject or place, readable at thumbnail size. No text, no letters, no logos, no UI, no border, no watermark. painterly, muted earth tones, soft rim light, readable silhouettes",
+    "ok": true,
+    "attempts": [
+      {
+        "at": "2026-11-05T09:21:27.648Z",
+        "provider": "openai",
+        "endpoint": "generate",
+        "model": "gpt-image-2.6-sunburst",
+        "quality": "low",
+        "size": "1536x1024",
+        "status": "ok",
+        "latencyMs": 27942,
+        "costUsd": 0.020265,
+        "costFrom": "usage",
+        "requestId": "req_28810b3f322540c7b50db7feb3391813",
+        "usage": {
+          "inputTokens": 69,
+          "outputTokens": 664,
+          "inputTextTokens": 69,
+          "inputImageTokens": 0
+        }
+      }
+    ],
+    "costUsd": 0.020265,
+    "image": {
+      "id": "01M6NG7KEN38B84JWKN5KZ20GC",
+      "width": 1536,
+      "height": 1024
+    }
+  },
+  {
+    "name": "cinder-sting-icon-sunburst",
+    "entity": "cinder-sting",
+    "kind": "icon",
+    "prompt": "Cinder Sting, as a game item icon. A blade that stays hot. A single game item icon, centred, shown whole, three-quarter view, filling about 80% of a square frame. Bold readable silhouette, chunky proportions, simple shapes that survive being shrunk to 16×16 pixels. Flat-shaded with one soft top-left key light and a darker outline; few colours, high contrast. Fully transparent background. No text, no letters, no border, no frame, no shadow on the ground, no scene. Palette: muted earth tones.",
+    "ok": true,
+    "attempts": [
+      {
+        "at": "2026-11-05T09:21:55.763Z",
+        "provider": "openai",
+        "endpoint": "generate",
+        "model": "gpt-image-2.6-sunburst",
+        "quality": "low",
+        "size": "1024x1024",
+        "status": "ok",
+        "latencyMs": 19786,
+        "costUsd": 0.02532,
+        "costFrom": "usage",
+        "requestId": "req_211cd02143df4d03ac71311a6be0e9a7",
+        "usage": {
+          "inputTokens": 120,
+          "outputTokens": 824,
+          "inputTextTokens": 120,
+          "inputImageTokens": 0
+        }
+      }
+    ],
+    "costUsd": 0.02532,
+    "image": {
+      "id": "01M6NG86XBEVGHWEHEVCDG94KR",
+      "width": 16,
+      "height": 16
+    }
+  },
+  {
+    "name": "items-sheet-100-flare",
+    "kind": "sheet",
+    "prompt": "A sprite sheet of 100 separate game item icons on a 10×10 grid, following the reference image's cell boxes exactly: one item per cell, in reading order (left to right, top to bottom).\nEvery item is centred in its cell with clear space around it, and no item crosses a cell edge. No text, no labels, no numbers, no grid lines in the result. Background: fully transparent, the same everywhere.\nHouse style for every item: A single game item icon, centred, shown whole, three-quarter view, filling about 80% of a square frame. Bold readable silhouette, chunky proportions, simple shapes that survive being shrunk to 16×16 pixels. Flat-shaded with one soft top-left key light and a darker outline; few colours, high contrast.\nPalette: muted earth tones.\n\nThe cells:\nrow 1, col 1: Iron Sword, a weapon: a sword made of iron\nrow 1, col 2: Iron Pickaxe, a tool: a pickaxe made of iron\nrow 1, col 3: Iron Lantern, a tool: a lantern made of iron\nrow 1, col 4: Iron Helmet, a tool: a helmet made of iron\nrow 1, col 5: Iron Ring, a tool: a ring made of iron\nrow 1, col 6: Iron Potion, a tool: a potion made of iron\nrow 1, col 7: Iron Shield, a tool: a shield made of iron\nrow 1, col 8: Iron Bow, a weapon: a bow made of iron\nrow 1, col 9: Iron Boots, a tool: a boots made of iron\nrow 1, col 10: Iron Key, a weapon: a key made of iron\nrow 2, col 1: Copper Sword, a weapon: a sword made of copper\nrow 2, col 2: Copper Pickaxe, a tool: a pickaxe made of copper\nrow 2, col 3: Copper Lantern, a tool: a lantern made of copper\nrow 2, col 4: Copper Helmet, a tool: a helmet made of copper\nrow 2, col 5: Copper Ring, a tool: a ring made of copper\nrow 2, col 6: Copper Potion, a tool: a potion made of copper\nrow 2, col 7: Copper Shield, a tool: a shield made of copper\nrow 2, col 8: Copper Bow, a weapon: a bow made of copper\nrow 2, col 9: Copper Boots, a tool: a boots made of copper\nrow 2, col 10: Copper Key, a weapon: a key made of copper\nrow 3, col 1: Bone Sword, a weapon: a sword made of bone\nrow 3, col 2: Bone Pickaxe, a tool: a pickaxe made of bone\nrow 3, col 3: Bone Lantern, a tool: a lantern made of bone\nrow 3, col 4: Bone Helmet, a tool: a helmet made of bone\nrow 3, col 5: Bone Ring, a tool: a ring made of bone\nrow 3, col 6: Bone Potion, a tool: a potion made of bone\nrow 3, col 7: Bone Shield, a tool: a shield made of bone\nrow 3, col 8: Bone Bow, a weapon: a bow made of bone\nrow 3, col 9: Bone Boots, a tool: a boots made of bone\nrow 3, col 10: Bone Key, a weapon: a key made of bone\nrow 4, col 1: Glass Sword, a weapon: a sword made of glass\nrow 4, col 2: Glass Pickaxe, a tool: a pickaxe made of glass\nrow 4, col 3: Glass Lantern, a tool: a lantern made of glass\nrow 4, col 4: Glass Helmet, a tool: a helmet made of glass\nrow 4, col 5: Glass Ring, a tool: a ring made of glass\nrow 4, col 6: Glass Potion, a tool: a potion made of glass\nrow 4, col 7: Glass Shield, a tool: a shield made of glass\nrow 4, col 8: Glass Bow, a weapon: a bow made of glass\nrow 4, col 9: Glass Boots, a tool: a boots made of glass\nrow 4, col 10: Glass Key, a weapon: a key made of glass\nrow 5, col 1: Moss Sword, a weapon: a sword made of moss\nrow 5, col 2: Moss Pickaxe, a tool: a pickaxe made of moss\nrow 5, col 3: Moss Lantern, a tool: a lantern made of moss\nrow 5, col 4: Moss Helmet, a tool: a helmet made of moss\nrow 5, col 5: Moss Ring, a tool: a ring made of moss\nrow 5, col 6: Moss Potion, a tool: a potion made of moss\nrow 5, col 7: Moss Shield, a tool: a shield made of moss\nrow 5, col 8: Moss Bow, a weapon: a bow made of moss\nrow 5, col 9: Moss Boots, a tool: a boots made of moss\nrow 5, col 10: Moss Key, a weapon: a key made of moss\nrow 6, col 1: Ember Sword, a weapon: a sword made of ember\nrow 6, col 2: Ember Pickaxe, a tool: a pickaxe made of ember\nrow 6, col 3: Ember Lantern, a tool: a lantern made of ember\nrow 6, col 4: Ember Helmet, a tool: a helmet made of ember\nrow 6, col 5: Ember Ring, a tool: a ring made of ember\nrow 6, col 6: Ember Potion, a tool: a potion made of ember\nrow 6, col 7: Ember Shield, a tool: a shield made of ember\nrow 6, col 8: Ember Bow, a weapon: a bow made of ember\nrow 6, col 9: Ember Boots, a tool: a boots made of ember\nrow 6, col 10: Ember Key, a weapon: a key made of ember\nrow 7, col 1: Cloud Sword, a weapon: a sword made of cloud\nrow 7, col 2: Cloud Pickaxe, a tool: a pickaxe made of cloud\nrow 7, col 3: Cloud Lantern, a tool: a lantern made of cloud\nrow 7, col 4: Cloud Helmet, a tool: a helmet made of cloud\nrow 7, col 5: Cloud Ring, a tool: a ring made of cloud\nrow 7, col 6: Cloud Potion, a tool: a potion made of cloud\nrow 7, col 7: Cloud Shield, a tool: a shield made of cloud\nrow 7, col 8: Cloud Bow, a weapon: a bow made of cloud\nrow 7, col 9: Cloud Boots, a tool: a boots made of cloud\nrow 7, col 10: Cloud Key, a weapon: a key made of cloud\nrow 8, col 1: Coral Sword, a weapon: a sword made of coral\nrow 8, col 2: Coral Pickaxe, a tool: a pickaxe made of coral\nrow 8, col 3: Coral Lantern, a tool: a lantern made of coral\nrow 8, col 4: Coral Helmet, a tool: a helmet made of coral\nrow 8, col 5: Coral Ring, a tool: a ring made of coral\nrow 8, col 6: Coral Potion, a tool: a potion made of coral\nrow 8, col 7: Coral Shield, a tool: a shield made of coral\nrow 8, col 8: Coral Bow, a weapon: a bow made of coral\nrow 8, col 9: Coral Boots, a tool: a boots made of coral\nrow 8, col 10: Coral Key, a weapon: a key made of coral\nrow 9, col 1: Brass Sword, a weapon: a sword made of brass\nrow 9, col 2: Brass Pickaxe, a tool: a pickaxe made of brass\nrow 9, col 3: Brass Lantern, a tool: a lantern made of brass\nrow 9, col 4: Brass Helmet, a tool: a helmet made of brass\nrow 9, col 5: Brass Ring, a tool: a ring made of brass\nrow 9, col 6: Brass Potion, a tool: a potion made of brass\nrow 9, col 7: Brass Shield, a tool: a shield made of brass\nrow 9, col 8: Brass Bow, a weapon: a bow made of brass\nrow 9, col 9: Brass Boots, a tool: a boots made of brass\nrow 9, col 10: Brass Key, a weapon: a key made of brass\nrow 10, col 1: Obsidian Sword, a weapon: a sword made of obsidian\nrow 10, col 2: Obsidian Pickaxe, a tool: a pickaxe made of obsidian\nrow 10, col 3: Obsidian Lantern, a tool: a lantern made of obsidian\nrow 10, col 4: Obsidian Helmet, a tool: a helmet made of obsidian\nrow 10, col 5: Obsidian Ring, a tool: a ring made of obsidian\nrow 10, col 6: Obsidian Potion, a tool: a potion made of obsidian\nrow 10, col 7: Obsidian Shield, a tool: a shield made of obsidian\nrow 10, col 8: Obsidian Bow, a weapon: a bow made of obsidian\nrow 10, col 9: Obsidian Boots, a tool: a boots made of obsidian\nrow 10, col 10: Obsidian Key, a weapon: a key made of obsidian",
+    "ok": true,
+    "attempts": [
+      {
+        "at": "2026-11-05T09:40:21.906Z",
+        "provider": "openai",
+        "endpoint": "edit",
+        "model": "gpt-image-2.6-flare",
+        "quality": "low",
+        "size": "2880x2880",
+        "status": "ok",
+        "latencyMs": 27463,
+        "costUsd": 0.106393,
+        "costFrom": "usage",
+        "requestId": "req_93df42789a4f4508bd15b0f2ebaf6fb0",
+        "usage": {
+          "inputTokens": 3758,
+          "outputTokens": 2768,
+          "inputTextTokens": 2237,
+          "inputImageTokens": 1521
+        }
+      }
+    ],
+    "costUsd": 0.106393
+  },
+  {
+    "name": "items-sheet-100-flare25",
+    "kind": "sheet",
+    "prompt": "A sprite sheet of 100 separate game item icons on a 10×10 grid, following the reference image's cell boxes exactly: one item per cell, in reading order (left to right, top to bottom).\nEvery item is centred in its cell with clear space around it, and no item crosses a cell edge. No text, no labels, no numbers, no grid lines in the result. Background: fully transparent, the same everywhere.\nHouse style for every item: A single game item icon, centred, shown whole, three-quarter view, filling about 80% of a square frame. Bold readable silhouette, chunky proportions, simple shapes that survive being shrunk to 16×16 pixels. Flat-shaded with one soft top-left key light and a darker outline; few colours, high contrast.\nPalette: muted earth tones.\n\nThe cells:\nrow 1, col 1: Iron Sword, a weapon: a sword made of iron\nrow 1, col 2: Iron Pickaxe, a tool: a pickaxe made of iron\nrow 1, col 3: Iron Lantern, a tool: a lantern made of iron\nrow 1, col 4: Iron Helmet, a tool: a helmet made of iron\nrow 1, col 5: Iron Ring, a tool: a ring made of iron\nrow 1, col 6: Iron Potion, a tool: a potion made of iron\nrow 1, col 7: Iron Shield, a tool: a shield made of iron\nrow 1, col 8: Iron Bow, a weapon: a bow made of iron\nrow 1, col 9: Iron Boots, a tool: a boots made of iron\nrow 1, col 10: Iron Key, a weapon: a key made of iron\nrow 2, col 1: Copper Sword, a weapon: a sword made of copper\nrow 2, col 2: Copper Pickaxe, a tool: a pickaxe made of copper\nrow 2, col 3: Copper Lantern, a tool: a lantern made of copper\nrow 2, col 4: Copper Helmet, a tool: a helmet made of copper\nrow 2, col 5: Copper Ring, a tool: a ring made of copper\nrow 2, col 6: Copper Potion, a tool: a potion made of copper\nrow 2, col 7: Copper Shield, a tool: a shield made of copper\nrow 2, col 8: Copper Bow, a weapon: a bow made of copper\nrow 2, col 9: Copper Boots, a tool: a boots made of copper\nrow 2, col 10: Copper Key, a weapon: a key made of copper\nrow 3, col 1: Bone Sword, a weapon: a sword made of bone\nrow 3, col 2: Bone Pickaxe, a tool: a pickaxe made of bone\nrow 3, col 3: Bone Lantern, a tool: a lantern made of bone\nrow 3, col 4: Bone Helmet, a tool: a helmet made of bone\nrow 3, col 5: Bone Ring, a tool: a ring made of bone\nrow 3, col 6: Bone Potion, a tool: a potion made of bone\nrow 3, col 7: Bone Shield, a tool: a shield made of bone\nrow 3, col 8: Bone Bow, a weapon: a bow made of bone\nrow 3, col 9: Bone Boots, a tool: a boots made of bone\nrow 3, col 10: Bone Key, a weapon: a key made of bone\nrow 4, col 1: Glass Sword, a weapon: a sword made of glass\nrow 4, col 2: Glass Pickaxe, a tool: a pickaxe made of glass\nrow 4, col 3: Glass Lantern, a tool: a lantern made of glass\nrow 4, col 4: Glass Helmet, a tool: a helmet made of glass\nrow 4, col 5: Glass Ring, a tool: a ring made of glass\nrow 4, col 6: Glass Potion, a tool: a potion made of glass\nrow 4, col 7: Glass Shield, a tool: a shield made of glass\nrow 4, col 8: Glass Bow, a weapon: a bow made of glass\nrow 4, col 9: Glass Boots, a tool: a boots made of glass\nrow 4, col 10: Glass Key, a weapon: a key made of glass\nrow 5, col 1: Moss Sword, a weapon: a sword made of moss\nrow 5, col 2: Moss Pickaxe, a tool: a pickaxe made of moss\nrow 5, col 3: Moss Lantern, a tool: a lantern made of moss\nrow 5, col 4: Moss Helmet, a tool: a helmet made of moss\nrow 5, col 5: Moss Ring, a tool: a ring made of moss\nrow 5, col 6: Moss Potion, a tool: a potion made of moss\nrow 5, col 7: Moss Shield, a tool: a shield made of moss\nrow 5, col 8: Moss Bow, a weapon: a bow made of moss\nrow 5, col 9: Moss Boots, a tool: a boots made of moss\nrow 5, col 10: Moss Key, a weapon: a key made of moss\nrow 6, col 1: Ember Sword, a weapon: a sword made of ember\nrow 6, col 2: Ember Pickaxe, a tool: a pickaxe made of ember\nrow 6, col 3: Ember Lantern, a tool: a lantern made of ember\nrow 6, col 4: Ember Helmet, a tool: a helmet made of ember\nrow 6, col 5: Ember Ring, a tool: a ring made of ember\nrow 6, col 6: Ember Potion, a tool: a potion made of ember\nrow 6, col 7: Ember Shield, a tool: a shield made of ember\nrow 6, col 8: Ember Bow, a weapon: a bow made of ember\nrow 6, col 9: Ember Boots, a tool: a boots made of ember\nrow 6, col 10: Ember Key, a weapon: a key made of ember\nrow 7, col 1: Cloud Sword, a weapon: a sword made of cloud\nrow 7, col 2: Cloud Pickaxe, a tool: a pickaxe made of cloud\nrow 7, col 3: Cloud Lantern, a tool: a lantern made of cloud\nrow 7, col 4: Cloud Helmet, a tool: a helmet made of cloud\nrow 7, col 5: Cloud Ring, a tool: a ring made of cloud\nrow 7, col 6: Cloud Potion, a tool: a potion made of cloud\nrow 7, col 7: Cloud Shield, a tool: a shield made of cloud\nrow 7, col 8: Cloud Bow, a weapon: a bow made of cloud\nrow 7, col 9: Cloud Boots, a tool: a boots made of cloud\nrow 7, col 10: Cloud Key, a weapon: a key made of cloud\nrow 8, col 1: Coral Sword, a weapon: a sword made of coral\nrow 8, col 2: Coral Pickaxe, a tool: a pickaxe made of coral\nrow 8, col 3: Coral Lantern, a tool: a lantern made of coral\nrow 8, col 4: Coral Helmet, a tool: a helmet made of coral\nrow 8, col 5: Coral Ring, a tool: a ring made of coral\nrow 8, col 6: Coral Potion, a tool: a potion made of coral\nrow 8, col 7: Coral Shield, a tool: a shield made of coral\nrow 8, col 8: Coral Bow, a weapon: a bow made of coral\nrow 8, col 9: Coral Boots, a tool: a boots made of coral\nrow 8, col 10: Coral Key, a weapon: a key made of coral\nrow 9, col 1: Brass Sword, a weapon: a sword made of brass\nrow 9, col 2: Brass Pickaxe, a tool: a pickaxe made of brass\nrow 9, col 3: Brass Lantern, a tool: a lantern made of brass\nrow 9, col 4: Brass Helmet, a tool: a helmet made of brass\nrow 9, col 5: Brass Ring, a tool: a ring made of brass\nrow 9, col 6: Brass Potion, a tool: a potion made of brass\nrow 9, col 7: Brass Shield, a tool: a shield made of brass\nrow 9, col 8: Brass Bow, a weapon: a bow made of brass\nrow 9, col 9: Brass Boots, a tool: a boots made of brass\nrow 9, col 10: Brass Key, a weapon: a key made of brass\nrow 10, col 1: Obsidian Sword, a weapon: a sword made of obsidian\nrow 10, col 2: Obsidian Pickaxe, a tool: a pickaxe made of obsidian\nrow 10, col 3: Obsidian Lantern, a tool: a lantern made of obsidian\nrow 10, col 4: Obsidian Helmet, a tool: a helmet made of obsidian\nrow 10, col 5: Obsidian Ring, a tool: a ring made of obsidian\nrow 10, col 6: Obsidian Potion, a tool: a potion made of obsidian\nrow 10, col 7: Obsidian Shield, a tool: a shield made of obsidian\nrow 10, col 8: Obsidian Bow, a weapon: a bow made of obsidian\nrow 10, col 9: Obsidian Boots, a tool: a boots made of obsidian\nrow 10, col 10: Obsidian Key, a weapon: a key made of obsidian",
+    "ok": true,
+    "attempts": [
+      {
+        "at": "2026-11-05T10:20:52.891Z",
+        "provider": "openai",
+        "endpoint": "edit",
+        "model": "gpt-image-2.5-flare",
+        "quality": "low",
+        "size": "2880x2880",
+        "status": "ok",
+        "latencyMs": 26760,
+        "costUsd": 0.043123,
+        "costFrom": "usage",
+        "requestId": "req_f1e9b5e15caf4a0b92a9036f6990e135",
+        "usage": {
+          "inputTokens": 3758,
+          "outputTokens": 659,
+          "inputTextTokens": 2237,
+          "inputImageTokens": 1521
+        }
+      }
+    ],
+    "costUsd": 0.043123
+  },
+  {
+    "name": "items-sheet-100-flare25-pixel",
+    "kind": "sheet",
+    "prompt": "Image 1 is a layout guide for a sheet of 100 separate game inventory icons, drawn in flat colours: each MID-GREY square is one cell of a 10×10 grid and the DARK GREY around them is empty gutter. Paint exactly one item, centred, inside each MID-GREY square, in reading order. Do not move, add, remove or resize any square, and no item may touch or cross the edge of its square.\nEvery item: Short, exaggerated chunky proportions, large readable shapes, muted earth tones, clean pixel-friendly illustration, flat even light, no shadow, no text, no border, no surrounding objects. Leave generous space around the silhouette.\nThe finished background is fully transparent everywhere, between and inside the squares: do not draw the squares, the gutter, grid lines, labels or numbers. Leave no square empty.\nThe cells:\n- row 1, column 1: a single Iron Sword; a sword made of iron; diagonal presentation, the grip pointing bottom left and the blade top right.\n- row 1, column 2: a single Iron Pickaxe; a pickaxe made of iron; diagonal presentation, the stout handle pointing bottom left and the head top right.\n- row 1, column 3: a single Iron Lantern; a lantern made of iron; diagonal presentation, the stout handle pointing bottom left and the head top right.\n- row 1, column 4: a single Iron Helmet; a helmet made of iron; seen from the front at a slight three-quarter angle.\n- row 1, column 5: a single Iron Ring; a ring made of iron; diagonal presentation, the stout handle pointing bottom left and the head top right.\n- row 1, column 6: a single Iron Potion; a potion made of iron; diagonal presentation, the stout handle pointing bottom left and the head top right.\n- row 1, column 7: a single Iron Shield; a shield made of iron; seen from the front.\n- row 1, column 8: a single Iron Bow; a bow made of iron; diagonal presentation, the bow arc bulging toward the top left, its tips at the top right and bottom left.\n- row 1, column 9: a single Iron Boots; a boots made of iron; seen from the front.\n- row 1, column 10: a single Iron Key; a key made of iron; diagonal presentation from bottom left to top right.\n- row 2, column 1: a single Copper Sword; a sword made of copper; diagonal presentation, the grip pointing bottom left and the blade top right.\n- row 2, column 2: a single Copper Pickaxe; a pickaxe made of copper; diagonal presentation, the stout handle pointing bottom left and the head top right.\n- row 2, column 3: a single Copper Lantern; a lantern made of copper; diagonal presentation, the stout handle pointing bottom left and the head top right.\n- row 2, column 4: a single Copper Helmet; a helmet made of copper; seen from the front at a slight three-quarter angle.\n- row 2, column 5: a single Copper Ring; a ring made of copper; diagonal presentation, the stout handle pointing bottom left and the head top right.\n- row 2, column 6: a single Copper Potion; a potion made of copper; diagonal presentation, the stout handle pointing bottom left and the head top right.\n- row 2, column 7: a single Copper Shield; a shield made of copper; seen from the front.\n- row 2, column 8: a single Copper Bow; a bow made of copper; diagonal presentation, the bow arc bulging toward the top left, its tips at the top right and bottom left.\n- row 2, column 9: a single Copper Boots; a boots made of copper; seen from the front.\n- row 2, column 10: a single Copper Key; a key made of copper; diagonal presentation from bottom left to top right.\n- row 3, column 1: a single Bone Sword; a sword made of bone; diagonal presentation, the grip pointing bottom left and the blade top right.\n- row 3, column 2: a single Bone Pickaxe; a pickaxe made of bone; diagonal presentation, the stout handle pointing bottom left and the head top right.\n- row 3, column 3: a single Bone Lantern; a lantern made of bone; diagonal presentation, the stout handle pointing bottom left and the head top right.\n- row 3, column 4: a single Bone Helmet; a helmet made of bone; seen from the front at a slight three-quarter angle.\n- row 3, column 5: a single Bone Ring; a ring made of bone; diagonal presentation, the stout handle pointing bottom left and the head top right.\n- row 3, column 6: a single Bone Potion; a potion made of bone; diagonal presentation, the stout handle pointing bottom left and the head top right.\n- row 3, column 7: a single Bone Shield; a shield made of bone; seen from the front.\n- row 3, column 8: a single Bone Bow; a bow made of bone; diagonal presentation, the bow arc bulging toward the top left, its tips at the top right and bottom left.\n- row 3, column 9: a single Bone Boots; a boots made of bone; seen from the front.\n- row 3, column 10: a single Bone Key; a key made of bone; diagonal presentation from bottom left to top right.\n- row 4, column 1: a single Glass Sword; a sword made of glass; diagonal presentation, the grip pointing bottom left and the blade top right.\n- row 4, column 2: a single Glass Pickaxe; a pickaxe made of glass; diagonal presentation, the stout handle pointing bottom left and the head top right.\n- row 4, column 3: a single Glass Lantern; a lantern made of glass; diagonal presentation, the stout handle pointing bottom left and the head top right.\n- row 4, column 4: a single Glass Helmet; a helmet made of glass; seen from the front at a slight three-quarter angle.\n- row 4, column 5: a single Glass Ring; a ring made of glass; diagonal presentation, the stout handle pointing bottom left and the head top right.\n- row 4, column 6: a single Glass Potion; a potion made of glass; diagonal presentation, the stout handle pointing bottom left and the head top right.\n- row 4, column 7: a single Glass Shield; a shield made of glass; seen from the front.\n- row 4, column 8: a single Glass Bow; a bow made of glass; diagonal presentation, the bow arc bulging toward the top left, its tips at the top right and bottom left.\n- row 4, column 9: a single Glass Boots; a boots made of glass; seen from the front.\n- row 4, column 10: a single Glass Key; a key made of glass; diagonal presentation from bottom left to top right.\n- row 5, column 1: a single Moss Sword; a sword made of moss; diagonal presentation, the grip pointing bottom left and the blade top right.\n- row 5, column 2: a single Moss Pickaxe; a pickaxe made of moss; diagonal presentation, the stout handle pointing bottom left and the head top right.\n- row 5, column 3: a single Moss Lantern; a lantern made of moss; diagonal presentation, the stout handle pointing bottom left and the head top right.\n- row 5, column 4: a single Moss Helmet; a helmet made of moss; seen from the front at a slight three-quarter angle.\n- row 5, column 5: a single Moss Ring; a ring made of moss; diagonal presentation, the stout handle pointing bottom left and the head top right.\n- row 5, column 6: a single Moss Potion; a potion made of moss; diagonal presentation, the stout handle pointing bottom left and the head top right.\n- row 5, column 7: a single Moss Shield; a shield made of moss; seen from the front.\n- row 5, column 8: a single Moss Bow; a bow made of moss; diagonal presentation, the bow arc bulging toward the top left, its tips at the top right and bottom left.\n- row 5, column 9: a single Moss Boots; a boots made of moss; seen from the front.\n- row 5, column 10: a single Moss Key; a key made of moss; diagonal presentation from bottom left to top right.\n- row 6, column 1: a single Ember Sword; a sword made of ember; diagonal presentation, the grip pointing bottom left and the blade top right.\n- row 6, column 2: a single Ember Pickaxe; a pickaxe made of ember; diagonal presentation, the stout handle pointing bottom left and the head top right.\n- row 6, column 3: a single Ember Lantern; a lantern made of ember; diagonal presentation, the stout handle pointing bottom left and the head top right.\n- row 6, column 4: a single Ember Helmet; a helmet made of ember; seen from the front at a slight three-quarter angle.\n- row 6, column 5: a single Ember Ring; a ring made of ember; diagonal presentation, the stout handle pointing bottom left and the head top right.\n- row 6, column 6: a single Ember Potion; a potion made of ember; diagonal presentation, the stout handle pointing bottom left and the head top right.\n- row 6, column 7: a single Ember Shield; a shield made of ember; seen from the front.\n- row 6, column 8: a single Ember Bow; a bow made of ember; diagonal presentation, the bow arc bulging toward the top left, its tips at the top right and bottom left.\n- row 6, column 9: a single Ember Boots; a boots made of ember; seen from the front.\n- row 6, column 10: a single Ember Key; a key made of ember; diagonal presentation from bottom left to top right.\n- row 7, column 1: a single Cloud Sword; a sword made of cloud; diagonal presentation, the grip pointing bottom left and the blade top right.\n- row 7, column 2: a single Cloud Pickaxe; a pickaxe made of cloud; diagonal presentation, the stout handle pointing bottom left and the head top right.\n- row 7, column 3: a single Cloud Lantern; a lantern made of cloud; diagonal presentation, the stout handle pointing bottom left and the head top right.\n- row 7, column 4: a single Cloud Helmet; a helmet made of cloud; seen from the front at a slight three-quarter angle.\n- row 7, column 5: a single Cloud Ring; a ring made of cloud; diagonal presentation, the stout handle pointing bottom left and the head top right.\n- row 7, column 6: a single Cloud Potion; a potion made of cloud; diagonal presentation, the stout handle pointing bottom left and the head top right.\n- row 7, column 7: a single Cloud Shield; a shield made of cloud; seen from the front.\n- row 7, column 8: a single Cloud Bow; a bow made of cloud; diagonal presentation, the bow arc bulging toward the top left, its tips at the top right and bottom left.\n- row 7, column 9: a single Cloud Boots; a boots made of cloud; seen from the front.\n- row 7, column 10: a single Cloud Key; a key made of cloud; diagonal presentation from bottom left to top right.\n- row 8, column 1: a single Coral Sword; a sword made of coral; diagonal presentation, the grip pointing bottom left and the blade top right.\n- row 8, column 2: a single Coral Pickaxe; a pickaxe made of coral; diagonal presentation, the stout handle pointing bottom left and the head top right.\n- row 8, column 3: a single Coral Lantern; a lantern made of coral; diagonal presentation, the stout handle pointing bottom left and the head top right.\n- row 8, column 4: a single Coral Helmet; a helmet made of coral; seen from the front at a slight three-quarter angle.\n- row 8, column 5: a single Coral Ring; a ring made of coral; diagonal presentation, the stout handle pointing bottom left and the head top right.\n- row 8, column 6: a single Coral Potion; a potion made of coral; diagonal presentation, the stout handle pointing bottom left and the head top right.\n- row 8, column 7: a single Coral Shield; a shield made of coral; seen from the front.\n- row 8, column 8: a single Coral Bow; a bow made of coral; diagonal presentation, the bow arc bulging toward the top left, its tips at the top right and bottom left.\n- row 8, column 9: a single Coral Boots; a boots made of coral; seen from the front.\n- row 8, column 10: a single Coral Key; a key made of coral; diagonal presentation from bottom left to top right.\n- row 9, column 1: a single Brass Sword; a sword made of brass; diagonal presentation, the grip pointing bottom left and the blade top right.\n- row 9, column 2: a single Brass Pickaxe; a pickaxe made of brass; diagonal presentation, the stout handle pointing bottom left and the head top right.\n- row 9, column 3: a single Brass Lantern; a lantern made of brass; diagonal presentation, the stout handle pointing bottom left and the head top right.\n- row 9, column 4: a single Brass Helmet; a helmet made of brass; seen from the front at a slight three-quarter angle.\n- row 9, column 5: a single Brass Ring; a ring made of brass; diagonal presentation, the stout handle pointing bottom left and the head top right.\n- row 9, column 6: a single Brass Potion; a potion made of brass; diagonal presentation, the stout handle pointing bottom left and the head top right.\n- row 9, column 7: a single Brass Shield; a shield made of brass; seen from the front.\n- row 9, column 8: a single Brass Bow; a bow made of brass; diagonal presentation, the bow arc bulging toward the top left, its tips at the top right and bottom left.\n- row 9, column 9: a single Brass Boots; a boots made of brass; seen from the front.\n- row 9, column 10: a single Brass Key; a key made of brass; diagonal presentation from bottom left to top right.\n- row 10, column 1: a single Obsidian Sword; a sword made of obsidian; diagonal presentation, the grip pointing bottom left and the blade top right.\n- row 10, column 2: a single Obsidian Pickaxe; a pickaxe made of obsidian; diagonal presentation, the stout handle pointing bottom left and the head top right.\n- row 10, column 3: a single Obsidian Lantern; a lantern made of obsidian; diagonal presentation, the stout handle pointing bottom left and the head top right.\n- row 10, column 4: a single Obsidian Helmet; a helmet made of obsidian; seen from the front at a slight three-quarter angle.\n- row 10, column 5: a single Obsidian Ring; a ring made of obsidian; diagonal presentation, the stout handle pointing bottom left and the head top right.\n- row 10, column 6: a single Obsidian Potion; a potion made of obsidian; diagonal presentation, the stout handle pointing bottom left and the head top right.\n- row 10, column 7: a single Obsidian Shield; a shield made of obsidian; seen from the front.\n- row 10, column 8: a single Obsidian Bow; a bow made of obsidian; diagonal presentation, the bow arc bulging toward the top left, its tips at the top right and bottom left.\n- row 10, column 9: a single Obsidian Boots; a boots made of obsidian; seen from the front.\n- row 10, column 10: a single Obsidian Key; a key made of obsidian; diagonal presentation from bottom left to top right.\nReturn the same framing at the same size.",
+    "ok": true,
+    "attempts": [
+      {
+        "at": "2026-11-05T10:41:29.130Z",
+        "provider": "openai",
+        "endpoint": "edit",
+        "model": "gpt-image-2.5-flare",
+        "quality": "low",
+        "size": "2880x2880",
+        "status": "ok",
+        "latencyMs": 24803,
+        "costUsd": 0.049553,
+        "costFrom": "usage",
+        "requestId": "req_c411cdf1bd4641339fd234928ffcb2c7",
+        "usage": {
+          "inputTokens": 5044,
+          "outputTokens": 659,
+          "inputTextTokens": 3523,
+          "inputImageTokens": 1521
+        }
+      }
+    ],
+    "costUsd": 0.049553
+  }
+]

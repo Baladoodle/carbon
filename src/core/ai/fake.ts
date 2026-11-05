@@ -1,3 +1,4 @@
+import { fakeImagePrompt } from '../images/prompt';
 import { z } from 'zod';
 import { fieldValueSchema, type FieldDef } from '../model/fields';
 import { ENTITY_KINDS, LANE_OF_KIND, type EntityKind } from '../model/kinds';
@@ -412,6 +413,12 @@ export class FakeAiGateway implements AiGateway {
           '',
         );
         return { title: r.name, markdown: lines.join('\n') };
+      }
+      case 'image_prompt': {
+        // Added by images-core.
+        const r = req as MomentRequest<'image_prompt'>;
+        if (!getEntity(world, r.entityId)) return null;
+        return { prompt: fakeImagePrompt(world, r.entityId, r.kind) };
       }
     }
   }

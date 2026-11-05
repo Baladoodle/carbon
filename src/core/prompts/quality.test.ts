@@ -1,3 +1,4 @@
+import { imagePromptBuilder } from '../images/prompt';
 import { describe, expect, it } from 'vitest';
 import { CRITIQUE_KINDS, MOMENT_SCHEMAS, MOVES, type Spot } from '../ai/moments';
 import { sampleWorld } from '../testing/sample';
@@ -82,6 +83,13 @@ function generatingPrompts(): { id: string; text: string }[] {
     const parts = buildSpreadPrompt(world, req);
     out.push({ id: `spread-parts:${move}`, text: Object.values(parts).join('\n\n') });
   }
+  // images-core: the image prompt carries the bar too (only two criteria apply; its exception line says so).
+  out.push({
+    id: 'image_prompt',
+    text: promptText(
+      ok(imagePromptBuilder.build(world, { entityId: 'cloud-reef', kind: 'concept' })),
+    ),
+  });
   return out;
 }
 
@@ -104,7 +112,7 @@ describe('one quality bar for the critic and every writer', () => {
     );
     expect(kindsUnder(promptText(critique), CRITIC)).toEqual(critic);
     const prompts = generatingPrompts();
-    expect(prompts.length).toBe(3 + MOVES.length * 2);
+    expect(prompts.length).toBe(4 + MOVES.length * 2);
     for (const p of prompts) {
       expect(kindsUnder(p.text, WRITER), p.id).toEqual(critic);
       for (const c of QUALITY) expect(p.text, `${p.id} › ${c.kind}`).toContain(c.must);

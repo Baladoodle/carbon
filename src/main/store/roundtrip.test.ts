@@ -6,7 +6,12 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { applyCommand } from '@core/commands/apply';
 import { cmd, type Command } from '@core/commands/registry';
 import type { World } from '@core/model/world';
-import { commandArb, everyCommandArb, EVERY_COMMAND_TYPE } from '@core/testing/arbitraries';
+import {
+  commandArb,
+  everyCommandArb,
+  EVERY_COMMAND_TYPE,
+  IMAGE_ID_POOL,
+} from '@core/testing/arbitraries';
 import { COMMANDS } from '@core/commands/registry';
 import { sampleWorld } from '@core/testing/sample';
 import { resetDiskState } from './disk-state';
@@ -154,6 +159,22 @@ describe('save and reload', () => {
         },
       }),
     );
+    // images-core: images on the two entities the image commands target, so selects and removes land.
+    const ids = Object.keys(w.entities).slice(0, 2);
+    for (const [i, image] of IMAGE_ID_POOL.entries())
+      run(
+        cmd('image.add', {
+          image: {
+            id: image,
+            entity: ids[i % 2] as string,
+            kind: i === 0 ? 'concept' : 'icon',
+            origin: { by: 'fake', prompt: 'p', size: '1024x1024' },
+            created: clock(),
+            hashes: { output: 'a'.repeat(64) },
+          },
+          select: i === 0,
+        }),
+      );
     return w;
   }
 

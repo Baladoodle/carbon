@@ -10,6 +10,11 @@ cpSync('fixtures/worlds/sample', dir, { recursive: true });
 console.log(`carbon: sample world copied to ${dir}`);
 const r = spawnSync('npx', ['electron-vite', 'dev', ...process.argv.slice(2)], {
   stdio: 'inherit',
-  env: { ...process.env, CARBON_WORLD_DIR: dir, CARBON_AI: process.env.CARBON_AI ?? 'fake' },
+  env: {
+    ...process.env,
+    CARBON_WORLD_DIR: dir,
+    CARBON_AI: process.env.CARBON_AI ?? 'fake',
+    CARBON_IMAGES: process.env.CARBON_IMAGES ?? 'fake',
+  },
 });
 process.exit(r.status ?? 1);
