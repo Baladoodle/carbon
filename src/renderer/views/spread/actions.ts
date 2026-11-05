@@ -59,7 +59,12 @@ function advance(order: readonly string[], from: string, spread: SpreadData | nu
   const open = order.filter((k) => !spread.judgements[k] && k !== from);
   const i = order.indexOf(from);
   const next = open.find((k) => order.indexOf(k) > i) ?? open[0] ?? null;
-  patchSession({ focus: next });
+  // `x` pressed while this judgement was on its way aimed at the card it
+  // judged (still focused then): it meant the next one, so the prompt moves too.
+  const p = sessionStore.get().prompt;
+  if (p?.type === 'kill' && p.key === from)
+    patchSession({ focus: next, prompt: next ? { ...p, key: next } : null });
+  else patchSession({ focus: next });
 }
 
 /** `k`. Resolves to whether it was kept, and the entity it became or changed. */

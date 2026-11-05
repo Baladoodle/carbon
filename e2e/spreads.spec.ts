@@ -167,6 +167,50 @@ test.describe('spreads', () => {
   });
 });
 
+test.describe('a fast x after a kill', () => {
+  test.beforeAll(async () => {
+    carbon = await launchCarbon();
+  });
+  test.afterAll(async () => {
+    await carbon.close();
+  });
+
+  test('x straight after a kill prompts for the next candidate, not the one just killed', async () => {
+    await carbon.gotoView('spread', '5');
+    await aim('Low Sky · items');
+    await spread();
+    await expect(openCards()).toHaveCount(12);
+    const firstKilled = await page()
+      .locator('[data-testid="spread-card"][data-focused]')
+      .getAttribute('data-key');
+    await page().locator('body').press('x');
+    await expect(page().getByTestId('spread-kill-reasons')).toBeVisible();
+    // The reason and the next x in one synchronous burst: the second x always
+    // lands before the kill's round trip, the window a busy machine opens.
+    await page().evaluate(() => {
+      for (const key of ['1', 'x'])
+        (document.activeElement ?? document.body).dispatchEvent(
+          new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }),
+        );
+    });
+    await expect(openCards()).toHaveCount(11);
+    await expect(page().getByTestId('spread-kill-reasons')).toBeVisible();
+    // It belongs to the focused (next) card: the reason kills that one.
+    const next = await page()
+      .locator('[data-testid="spread-card"][data-focused]')
+      .getAttribute('data-key');
+    expect(next).not.toBe(firstKilled);
+    await page().keyboard.press('2');
+    await expect(openCards()).toHaveCount(10);
+    await expect(
+      page().locator(`[data-testid="spread-card"][data-key="${next ?? ''}"]`),
+    ).not.toHaveAttribute('data-state', 'open');
+    await page().locator('body').press('u');
+    await page().locator('body').press('u');
+    await expect(openCards()).toHaveCount(12);
+  });
+});
+
 test.describe('moves, findings and pattern learning', () => {
   test.beforeAll(async () => {
     carbon = await launchCarbon();

@@ -141,7 +141,16 @@ function SpreadBody({ world, s }: { world: World; s: SpreadSession }): ReactNode
     direction.current?.blur();
     void runSpread().then((e) => e && flash(e, 'error'));
   };
-  const focusKey = focusCard?.candidate.key;
+  /**
+   * The candidate a key acts on: the focus as the session holds it now, not
+   * as last rendered. A judgement moves the focus at once, and a key pressed
+   * before the next render must act on the new focus (otherwise a quick `x`
+   * after a kill prompts for the card just killed, and the prompt never shows).
+   */
+  const current = (): string | undefined => {
+    const f = sessionStore.get().focus;
+    return f && cards.some((c) => c.candidate.key === f && c.state === 'open') ? f : undefined;
+  };
 
   const actions: Action[] = [
     ...MOVE_LIST.map((m) => ({
@@ -231,24 +240,33 @@ function SpreadBody({ world, s }: { world: World; s: SpreadSession }): ReactNode
       label: 'Keep',
       group: 'Spread',
       keys: ['k'],
-      enabled: () => canTriage,
-      run: () => focusKey && void keep(focusKey, order),
+      enabled: () => canTriage && !!current(),
+      run: () => {
+        const k = current();
+        if (k) void keep(k, order);
+      },
     },
     {
       id: 'spread.kill',
       label: 'Kill…',
       group: 'Spread',
       keys: ['x'],
-      enabled: () => canTriage,
-      run: () => focusKey && patchSession({ prompt: { type: 'kill', key: focusKey } }),
+      enabled: () => canTriage && !!current(),
+      run: () => {
+        const k = current();
+        if (k) patchSession({ prompt: { type: 'kill', key: k } });
+      },
     },
     {
       id: 'spread.mark',
       label: 'Mark for merging',
       group: 'Spread',
       keys: ['space'],
-      enabled: () => canTriage,
-      run: () => focusKey && toggleMark(focusKey),
+      enabled: () => canTriage && !!current(),
+      run: () => {
+        const k = current();
+        if (k) toggleMark(k);
+      },
     },
     {
       id: 'spread.merge',
@@ -576,6 +594,10 @@ function PromptFor({ world, order }: { world: World; order: string[] }): ReactNo
       ? MOVE_LIST.filter((m) => checkSpot(world, prompt.spot, m.move).ok)
       : [];
   const onKey = (e: KeyboardEvent<HTMLDivElement>): void => {
+    // Answered already (a reason picked, the prompt cleared) but not yet
+    // re-rendered away: the next key is the next triage key, not this prompt's.
+    const now = sessionStore.get().prompt;
+    if (now?.type !== prompt.type || now.key !== prompt.key) return;
     if (e.key === 'Escape') {
       e.preventDefault();
       e.stopPropagation();
