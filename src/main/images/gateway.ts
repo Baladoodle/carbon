@@ -9,6 +9,17 @@ import {
   ImageEstimateRequestSchema,
   ImageGenerateRequestSchema,
   ImagePromptRequestSchema,
+  SheetAcceptRequestSchema,
+  SheetCropRequestSchema,
+  SheetRunRequestSchema,
+  type SheetAcceptRequest,
+  type SheetAcceptResult,
+  type SheetCropRequest,
+  type SheetOutcome,
+  type SheetPlan,
+  type SheetReview,
+  type SheetRunRequest,
+  type SheetRunResult,
   type BatchItemResultSchema,
   type BatchPlan,
   type BatchPlanRequest,
@@ -30,9 +41,14 @@ import {
   type ImageResult,
   type ImageStatus,
 } from '@core/images/gateway';
+import { sheetItemLine, sheetPrompt, splitSheets } from '@core/images/sheet';
 import {
   ICON_PX,
+  SHEET_SIZE,
   imagePaths,
+  type ImageModel,
+  type ImageQuality,
+  type ImageSize,
   type EntityImages,
   type ImageKind,
   type ImageMeta,
@@ -51,8 +67,15 @@ import type { DispatchResult } from '@shared/ipc';
 import type { z } from 'zod';
 import { writeFileAtomic } from '../store/atomic';
 import { ImageLogStore } from './log';
-import { filterImage, FILTER_SOURCE } from './pixel';
-import { dataUrl, decodePng, downscale, encodePng, isPng, sha256 } from './png';
+import {
+  cropSheet,
+  drawGuide,
+  filterImage,
+  FILTER_SOURCE,
+  sheetLayout,
+  type SheetCell,
+} from './pixel';
+import { dataUrl, decodePng, downscale, encodePng, isPng, sha256, type Rgba } from './png';
 import { ProviderError, type ImageProvider, type ProviderResponse } from './provider';
 import { ulid } from './ulid';
 
@@ -345,10 +368,111 @@ export class MainImageGateway implements ImageGateway {
     }
     if (signal.aborted) return fail('cancelled', 'cancelled', receipt);
 
+    const { response, error: callError } = await this.paidCall(
+      receipt,
+      call,
+      r.prompt,
+      r.kind === 'icon' ? 'transparent' : 'auto',
+      reference,
+      signal,
+    );
+
+    const finish = (result: ImageResult): ImageResult => {
+      this.logCall(
+        receipt,
+        result.ok ? { ok: true, image: result.image.id } : { ok: false, error: result.error },
+        call,
+        reference !== undefined,
+        batchId,
+      );
+      this.emit();
+      return result;
+    };
+
+    if (!response) {
+      const e = callError ?? {
+        code: 'unknown' as const,
+        message: 'no response',
+        unknownOutcome: true,
+      };
+      return finish({ ok: false, error: e, receipt });
+    }
+    // The pixels: check what came back is a PNG we can read.
+    let decoded;
+    try {
+      if (!isPng(response.png)) throw new Error('not a PNG');
+      decoded = decodePng(response.png);
+    } catch (e) {
+      return finish(
+        fail(
+          'invalid_output',
+          `the image couldn't be read (${e instanceof Error ? e.message : 'bad bytes'})`,
+          receipt,
+        ),
+      );
+    }
+    const id = ulid(this.now().getTime());
+    const isIcon = r.kind === 'icon';
+    const output = isIcon
+      ? encodePng(
+          filterImage(decoded, { target: { w: ICON_PX, h: ICON_PX }, preset: 'item' }).image,
+        )
+      : response.png;
+    const usage = response.usage;
+    const meta: ImageMeta = {
+      id,
+      entity: r.entityId,
+      kind: r.kind,
+      origin:
+        this.o.provider.name === 'fake'
+          ? { by: 'fake', prompt: r.prompt, size: call.size }
+          : {
+              by: 'openai',
+              model: call.model,
+              quality: call.quality,
+              size: call.size,
+              prompt: r.prompt,
+              ...(response.requestId ? { requestId: response.requestId } : {}),
+              ...(r.reference ? { reference: r.reference } : {}),
+            },
+      usage: {
+        ...(usage?.inputTokens !== undefined ? { inputTokens: usage.inputTokens } : {}),
+        ...(usage?.outputTokens !== undefined ? { outputTokens: usage.outputTokens } : {}),
+        images: 1,
+      },
+      costUsd: receipt.costUsd,
+      created: this.now().toISOString(),
+      width: isIcon ? ICON_PX : decoded.width,
+      height: isIcon ? ICON_PX : decoded.height,
+      hashes: { output: sha256(output), ...(isIcon ? { source: sha256(response.png) } : {}) },
+    };
+    receipt.image = id;
+    const added = await this.addToWorld(meta, output, isIcon ? response.png : undefined, r.select);
+    if (!added.ok) return finish({ ok: false, error: added.error, receipt });
+    return finish({ ok: true, image: meta, receipt });
+  }
+
+  /**
+   * One paid call with its receipt and spend: a rate limit waits and tries
+   * again (it's known not to have run); nothing else is retried. A call whose
+   * outcome is unknown counts at its estimate.
+   */
+  private async paidCall(
+    receipt: ImageReceipt,
+    call: { model: ImageModel; quality: ImageQuality; size: ImageSize },
+    prompt: string,
+    background: 'transparent' | 'auto',
+    reference: Uint8Array | undefined,
+    signal: AbortSignal,
+  ): Promise<{ response?: ProviderResponse; error?: ImageError }> {
+    const provider = this.o.provider;
+    if (!provider)
+      return { error: { code: 'disabled', message: 'Images are off', unknownOutcome: false } };
+    const s = this.settings;
     const price = priceOf(s, call.model);
     const estimate = estimateNanos(s, {
       ...call,
-      promptChars: r.prompt.length,
+      promptChars: prompt.length,
       reference: reference !== undefined,
     });
     const retries = this.o.rateLimitRetries ?? 2;
@@ -362,12 +486,12 @@ export class MainImageGateway implements ImageGateway {
         const t0 = Date.now();
         const at = this.now().toISOString();
         try {
-          response = await this.o.provider.generate({
+          response = await provider.generate({
             model: call.model,
             quality: call.quality,
             size: call.size,
-            prompt: r.prompt,
-            background: r.kind === 'icon' ? 'transparent' : 'auto',
+            prompt,
+            background,
             ...(reference ? { reference } : {}),
             signal,
           });
@@ -425,71 +549,15 @@ export class MainImageGateway implements ImageGateway {
       receipt.costUsd = nanosToUsd(totalNanos);
     }
 
-    const finish = (result: ImageResult): ImageResult => {
-      this.logCall(receipt, result, call, reference !== undefined, batchId);
-      this.emit();
-      return result;
-    };
-
-    if (!response) {
-      const e = lastError?.error ?? {
-        code: 'unknown' as const,
-        message: 'no response',
-        unknownOutcome: true,
-      };
-      return finish({ ok: false, error: e, receipt });
-    }
-    // The pixels: check what came back is a PNG we can read.
-    let decoded;
-    try {
-      if (!isPng(response.png)) throw new Error('not a PNG');
-      decoded = decodePng(response.png);
-    } catch (e) {
-      return finish(
-        fail(
-          'invalid_output',
-          `the image couldn't be read (${e instanceof Error ? e.message : 'bad bytes'})`,
-          receipt,
-        ),
-      );
-    }
-    const id = ulid(this.now().getTime());
-    const isIcon = r.kind === 'icon';
-    const output = isIcon
-      ? encodePng(filterImage(decoded, { target: ICON_PX, preset: 'item' }))
-      : response.png;
-    const usage = response.usage;
-    const meta: ImageMeta = {
-      id,
-      entity: r.entityId,
-      kind: r.kind,
-      origin:
-        this.o.provider.name === 'fake'
-          ? { by: 'fake', prompt: r.prompt, size: call.size }
-          : {
-              by: 'openai',
-              model: call.model,
-              quality: call.quality,
-              size: call.size,
-              prompt: r.prompt,
-              ...(response.requestId ? { requestId: response.requestId } : {}),
-              ...(r.reference ? { reference: r.reference } : {}),
-            },
-      usage: {
-        ...(usage?.inputTokens !== undefined ? { inputTokens: usage.inputTokens } : {}),
-        ...(usage?.outputTokens !== undefined ? { outputTokens: usage.outputTokens } : {}),
-        images: 1,
-      },
-      costUsd: receipt.costUsd,
-      created: this.now().toISOString(),
-      width: isIcon ? ICON_PX : decoded.width,
-      height: isIcon ? ICON_PX : decoded.height,
-      hashes: { output: sha256(output), ...(isIcon ? { source: sha256(response.png) } : {}) },
-    };
-    receipt.image = id;
-    const added = await this.addToWorld(meta, output, isIcon ? response.png : undefined, r.select);
-    if (!added.ok) return finish({ ok: false, error: added.error, receipt });
-    return finish({ ok: true, image: meta, receipt });
+    return response
+      ? { response }
+      : {
+          error: lastError?.error ?? {
+            code: 'unknown',
+            message: 'no response',
+            unknownOutcome: true,
+          },
+        };
   }
 
   private attemptOf(
@@ -527,7 +595,7 @@ export class MainImageGateway implements ImageGateway {
 
   private logCall(
     receipt: ImageReceipt,
-    result: ImageResult,
+    result: { ok: true; image: string } | { ok: false; error: ImageError },
     call: { model: string; quality: string; size: string },
     edit: boolean,
     batchId?: string,
@@ -561,7 +629,7 @@ export class MainImageGateway implements ImageGateway {
         costFrom: a.costFrom,
         latencyMs: a.latencyMs,
         ...(a.requestId ? { requestId: a.requestId } : {}),
-        ...(a.status === 'ok' && result.ok ? { image: result.image.id } : {}),
+        ...(a.status === 'ok' && result.ok ? { image: result.image } : {}),
         ...(batchId ? { batchId } : {}),
       };
       this.log$.add(entry);
@@ -646,7 +714,9 @@ export class MainImageGateway implements ImageGateway {
     } catch {
       return fail('invalid_output', "the concept image couldn't be read");
     }
-    const output = encodePng(filterImage(decoded, { target: ICON_PX, preset: 'item' }));
+    const output = encodePng(
+      filterImage(decoded, { target: { w: ICON_PX, h: ICON_PX }, preset: 'item' }).image,
+    );
     const meta: ImageMeta = {
       id: ulid(this.now().getTime()),
       entity: r.entityId,
@@ -696,6 +766,35 @@ export class MainImageGateway implements ImageGateway {
       return { entityId, name: e.name };
     });
     const todo = items.filter((i) => !i.skip);
+    if (r.kind === 'icon') {
+      // Icons batch as sheets (IMAGES.md §2a): lines from the entities, no Claude call per item.
+      signal?.removeEventListener('abort', relay);
+      if (r.requestId && this.controllers.get(r.requestId) === ac)
+        this.controllers.delete(r.requestId);
+      for (const i of todo) i.line = sheetItemLine(world, i.entityId);
+      const sheetCall = resolveCall(s, 'icon', { ...r, size: SHEET_SIZE });
+      const sheets = this.planSheets(
+        todo.map((i) => i.entityId),
+        sheetCall,
+      );
+      const total = sheets.reduce((n, x) => n + Math.round(x.estimateUsd * 1e9), 0);
+      const remaining = Math.round(s.budget.sessionUsd * 1e9) - this.sessionNanos;
+      return {
+        kind: r.kind,
+        ...sheetCall,
+        items,
+        calls: sheets.length,
+        estimate: {
+          ...sheetCall,
+          calls: sheets.length,
+          perCallUsd: sheets[0]?.estimateUsd ?? 0,
+          totalUsd: nanosToUsd(total),
+          remainingUsd: nanosToUsd(remaining),
+        },
+        claudeCostUsd: 0,
+        sheets,
+      };
+    }
     let next = 0;
     const worker = async (): Promise<void> => {
       while (next < todo.length) {
@@ -817,6 +916,360 @@ export class MainImageGateway implements ImageGateway {
       costUsd: cost,
       cancelled: ac.signal.aborted,
     };
+  }
+
+  // ── icon sheets (IMAGES.md §2a) ───────────────────────────────────────
+
+  /** Plans the sheets of an icon batch: layout, lines, and the estimate per sheet. No call. */
+  private planSheets(
+    entityIds: readonly string[],
+    call: { model: ImageModel; quality: ImageQuality },
+    lines?: ReadonlyMap<string, string>,
+  ): SheetPlan[] {
+    const world = this.o.session.world;
+    const s = this.settings;
+    const [w, h] = SHEET_SIZE.split('x').map(Number) as [number, number];
+    return splitSheets(entityIds).map((ids, index) => {
+      const layout = sheetLayout(ids.length, { w, h });
+      const items = ids.map((entityId) => ({
+        entityId,
+        name: world.entities[entityId]?.name ?? entityId,
+        line: lines?.get(entityId) ?? sheetItemLine(world, entityId),
+      }));
+      const prompt = sheetPrompt(
+        world,
+        items.map((i) => i.line),
+        layout,
+      );
+      return {
+        index,
+        cols: layout.cols,
+        rows: layout.rows,
+        size: SHEET_SIZE,
+        items,
+        estimateUsd: nanosToUsd(
+          estimateNanos(s, {
+            ...call,
+            size: SHEET_SIZE,
+            promptChars: prompt.length,
+            reference: true,
+          }),
+        ),
+      };
+    });
+  }
+
+  async sheetRun(
+    req: SheetRunRequest,
+    onProgress?: (p: BatchProgress) => void,
+  ): Promise<SheetRunResult> {
+    const r = SheetRunRequestSchema.parse(req);
+    const s = this.settings;
+    const call = resolveCall(s, 'icon', { ...r, size: SHEET_SIZE });
+    const ac = new AbortController();
+    this.controllers.get(r.batchId)?.abort();
+    this.controllers.set(r.batchId, ac);
+    const lines = new Map(r.items.map((i) => [i.entityId, i.line]));
+    const ids = [...new Set(r.items.map((i) => i.entityId))];
+    const plans = this.planSheets(ids, call, lines);
+    const sheets: SheetOutcome[] = [];
+    let cost = 0;
+    const progress = (running: string[]): void =>
+      onProgress?.({
+        batchId: r.batchId,
+        total: plans.length,
+        done: sheets.length,
+        running,
+        costUsd: cost,
+      });
+    try {
+      // Sheets run one at a time: each is up to 100 icons already.
+      for (const plan of plans) {
+        const entityIds = plan.items.map((i) => i.entityId);
+        const paused = this.o.provider ? this.pauseReason(this.settings) : undefined;
+        let out: SheetOutcome;
+        if (ac.signal.aborted)
+          out = {
+            ok: false,
+            error: { code: 'cancelled', message: 'the batch was cancelled', unknownOutcome: false },
+            entityIds,
+          };
+        else if (paused)
+          out = {
+            ok: false,
+            error: { code: 'budget', message: paused, unknownOutcome: false },
+            entityIds,
+          };
+        else {
+          progress(entityIds);
+          out = await this.oneSheet(plan, call, ac.signal, r.batchId);
+        }
+        cost += out.receipt?.costUsd ?? 0;
+        sheets.push(out);
+        progress([]);
+      }
+    } finally {
+      if (this.controllers.get(r.batchId) === ac) this.controllers.delete(r.batchId);
+    }
+    return { batchId: r.batchId, sheets, costUsd: cost, cancelled: ac.signal.aborted };
+  }
+
+  private async oneSheet(
+    plan: SheetPlan,
+    call: { model: ImageModel; quality: ImageQuality; size: ImageSize },
+    signal: AbortSignal,
+    batchId: string,
+  ): Promise<SheetOutcome> {
+    const world = this.o.session.world;
+    const entityIds = plan.items.map((i) => i.entityId);
+    const missing = entityIds.find((id) => !has(world.entities, id));
+    const failed = (error: ImageError, receipt?: ImageReceipt): SheetOutcome => ({
+      ok: false,
+      error,
+      ...(receipt ? { receipt } : {}),
+      entityIds,
+    });
+    if (!this.o.provider)
+      return failed({
+        code: 'disabled',
+        message: this.o.offReason ?? 'Images are off',
+        unknownOutcome: false,
+      });
+    if (missing)
+      return failed({
+        code: 'not_found',
+        message: `no entity "${missing}"`,
+        unknownOutcome: false,
+      });
+    const [w, h] = plan.size.split('x').map(Number) as [number, number];
+    const layout = sheetLayout(plan.items.length, { w, h }, { cols: plan.cols, rows: plan.rows });
+    const prompt = sheetPrompt(
+      world,
+      plan.items.map((i) => i.line),
+      layout,
+    );
+    const owner = entityIds[0] as string;
+    const receipt: ImageReceipt = {
+      entity: owner,
+      kind: 'sheet',
+      prompt,
+      attempts: [],
+      costUsd: 0,
+    };
+    if (SECRET.test(prompt))
+      return failed(
+        {
+          code: 'bad_request',
+          message: 'a line contains something shaped like an API key',
+          unknownOutcome: false,
+        },
+        receipt,
+      );
+    // The guide (faint cell boxes) goes with the prompt as the reference image.
+    const guide = encodePng(drawGuide(layout));
+    const { response, error } = await this.paidCall(
+      receipt,
+      call,
+      prompt,
+      'transparent',
+      guide,
+      signal,
+    );
+    const finish = (out: SheetOutcome): SheetOutcome => {
+      this.logCall(
+        receipt,
+        out.ok ? { ok: true, image: out.review.sheet.id } : { ok: false, error: out.error },
+        call,
+        true,
+        batchId,
+      );
+      this.emit();
+      return out;
+    };
+    if (!response)
+      return finish(
+        failed(error ?? { code: 'unknown', message: 'no response', unknownOutcome: true }, receipt),
+      );
+    let decoded: Rgba;
+    try {
+      if (!isPng(response.png)) throw new Error('not a PNG');
+      decoded = decodePng(response.png);
+    } catch (e) {
+      return finish(
+        failed(
+          {
+            code: 'invalid_output',
+            message: `the sheet couldn't be read (${e instanceof Error ? e.message : 'bad bytes'})`,
+            unknownOutcome: false,
+          },
+          receipt,
+        ),
+      );
+    }
+    const id = ulid(this.now().getTime());
+    const usage = response.usage;
+    const meta: ImageMeta = {
+      id,
+      entity: owner,
+      kind: 'sheet',
+      origin:
+        this.o.provider.name === 'fake'
+          ? { by: 'fake', prompt, size: call.size }
+          : {
+              by: 'openai',
+              model: call.model,
+              quality: call.quality,
+              size: call.size,
+              prompt,
+              ...(response.requestId ? { requestId: response.requestId } : {}),
+            },
+      usage: {
+        ...(usage?.inputTokens !== undefined ? { inputTokens: usage.inputTokens } : {}),
+        ...(usage?.outputTokens !== undefined ? { outputTokens: usage.outputTokens } : {}),
+        images: 1,
+      },
+      costUsd: receipt.costUsd,
+      created: this.now().toISOString(),
+      width: decoded.width,
+      height: decoded.height,
+      hashes: { output: sha256(response.png) },
+      sheet: {
+        cols: layout.cols,
+        rows: layout.rows,
+        gutter: layout.gutter,
+        canvas: layout.canvas,
+        cells: entityIds.map((entity, index) => ({ index, entity })),
+      },
+    };
+    receipt.image = id;
+    const added = await this.addToWorld(meta, response.png, undefined, false);
+    if (!added.ok) return finish(failed(added.error, receipt));
+    return finish({ ok: true, review: this.review(meta, decoded), receipt });
+  }
+
+  /** Crops and filters every cell of a sheet, for the review. Pure work; no call. */
+  private review(meta: ImageMeta, sheet: Rgba): SheetReview {
+    const grid = meta.sheet;
+    if (!grid) throw new Error('not a sheet');
+    const layout = sheetLayout(grid.cells.length, grid.canvas, {
+      cols: grid.cols,
+      rows: grid.rows,
+      gutter: grid.gutter,
+    });
+    const cells = cropSheet(sheet, layout);
+    const small = (img: Rgba, max: number): { dataUrl: string; width: number; height: number } => {
+      const d = downscale(img, max);
+      return { dataUrl: dataUrl(encodePng(d)), width: d.width, height: d.height };
+    };
+    return {
+      sheet: meta,
+      preview: small(sheet, 1024),
+      cells: cells.map((c) => {
+        const cell = layout.cells[c.index] as SheetCell;
+        const icon = c.crop
+          ? filterImage(c.crop, { target: { w: ICON_PX, h: ICON_PX }, preset: 'item' }).image
+          : null;
+        return {
+          index: c.index,
+          entityId: grid.cells[c.index]?.entity ?? '',
+          row: cell.row,
+          col: cell.col,
+          flags: c.flags,
+          crop: c.crop ? small(c.crop, 128) : null,
+          icon: icon
+            ? { dataUrl: dataUrl(encodePng(icon)), width: ICON_PX, height: ICON_PX }
+            : null,
+        };
+      }),
+    };
+  }
+
+  private sheetMeta(entityId: string, imageId: string): ImageMeta | undefined {
+    const m = this.o.session.world.images?.[entityId]?.all.find((x) => x.id === imageId);
+    return m?.kind === 'sheet' ? m : undefined;
+  }
+
+  async sheetCrop(req: SheetCropRequest): Promise<SheetReview | null> {
+    const r = SheetCropRequestSchema.parse(req);
+    const meta = this.sheetMeta(r.entityId, r.imageId);
+    if (!meta) return null;
+    const bytes = await this.readPng(r.entityId, r.imageId, 'png');
+    if (!bytes) return null;
+    try {
+      return this.review(meta, decodePng(bytes));
+    } catch {
+      return null;
+    }
+  }
+
+  async sheetAccept(req: SheetAcceptRequest): Promise<SheetAcceptResult> {
+    const r = SheetAcceptRequestSchema.parse(req);
+    const no = (code: ImageErrorCode, message: string): SheetAcceptResult => ({
+      ok: false,
+      error: { code, message, unknownOutcome: false },
+    });
+    const meta = this.sheetMeta(r.entityId, r.imageId);
+    const grid = meta?.sheet;
+    if (!meta || !grid) return no('not_found', `no sheet "${r.imageId}" for "${r.entityId}"`);
+    const bytes = await this.readPng(r.entityId, r.imageId, 'png');
+    if (!bytes) return no('not_found', "the sheet's file is missing");
+    let sheet: Rgba;
+    try {
+      sheet = decodePng(bytes);
+    } catch {
+      return no('invalid_output', "the sheet couldn't be read");
+    }
+    const layout = sheetLayout(grid.cells.length, grid.canvas, {
+      cols: grid.cols,
+      rows: grid.rows,
+      gutter: grid.gutter,
+    });
+    const cropped = cropSheet(sheet, layout);
+    const world = this.o.session.world;
+    const images: ImageMeta[] = [];
+    const files: { meta: ImageMeta; png: Uint8Array; src: Uint8Array }[] = [];
+    for (const index of [...new Set(r.cells)].sort((a, b) => a - b)) {
+      const c = cropped[index];
+      const entity = grid.cells[index]?.entity;
+      if (!c || !entity) return no('bad_request', `the sheet has no cell ${index}`);
+      if (!c.crop) return no('bad_request', `cell ${index} is empty`);
+      if (!has(world.entities, entity))
+        return no('not_found', `no entity "${entity}" (cell ${index})`);
+      const src = encodePng(c.crop);
+      const png = encodePng(
+        filterImage(c.crop, { target: { w: ICON_PX, h: ICON_PX }, preset: 'item' }).image,
+      );
+      const m: ImageMeta = {
+        id: ulid(this.now().getTime()),
+        entity,
+        kind: 'icon',
+        origin: { by: 'sheet', sheet: meta.id, cell: index, preset: 'item' },
+        created: this.now().toISOString(),
+        width: ICON_PX,
+        height: ICON_PX,
+        hashes: { output: sha256(png), source: sha256(src) },
+      };
+      images.push(m);
+      files.push({ meta: m, png, src });
+    }
+    // Files first (atomic each), then one transaction: one undo step for the whole review.
+    try {
+      await ensureGitAttributes(this.o.session.dir);
+      for (const f of files) {
+        const p = imagePaths(f.meta.entity, f.meta.id);
+        await mkdir(path.join(this.o.session.dir, 'images', f.meta.entity), { recursive: true });
+        await writeFileAtomic(path.join(this.o.session.dir, p.src), f.src);
+        await writeFileAtomic(path.join(this.o.session.dir, p.png), f.png);
+      }
+    } catch (e) {
+      return no('io', `the icons couldn't be saved: ${e instanceof Error ? e.message : String(e)}`);
+    }
+    const d = this.o.session.dispatch(
+      images.map((image) => cmd('image.add', { image, select: r.select })),
+      `Accept ${images.length} icon${images.length === 1 ? '' : 's'}`,
+    );
+    if (!d.ok) return no('io', d.error.message);
+    return { ok: true, images };
   }
 
   // ── files ──────────────────────────────────────────────────────────────

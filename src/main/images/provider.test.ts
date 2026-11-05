@@ -166,7 +166,7 @@ describe('the OpenAI provider (recorded responses)', () => {
       let clear = 0;
       for (let i = 3; i < src.data.length; i += 4) if ((src.data[i] as number) < 16) clear++;
       expect(clear / (src.width * src.height)).toBeGreaterThan(0.2);
-      const icon = filterImage(src, { target: 16, preset: 'item' });
+      const icon = filterImage(src, { target: { w: 16, h: 16 }, preset: 'item' }).image;
       expect([icon.width, icon.height]).toEqual([16, 16]);
       let opaque = 0;
       for (let i = 3; i < icon.data.length; i += 4) {

@@ -50,12 +50,13 @@ export const DEFAULT_IMAGE_PRICING: Record<ImageModel, TokenPrice> = {
  * 824 tokens at 1024×1024 and 664 at 1536×1024; 1024×1536 is assumed equal to
  * 1536×1024. Medium and high are extrapolated from OpenAI's published ratios
  * for the earlier GPT Image models (medium ≈ 3.9× low, high ≈ 15.4× low),
- * and are unmeasured.
+ * and are unmeasured. The sheet size (2880×2880) starts as 1024×1024 scaled
+ * by area (7.91×) until measured.
  */
 export const OUTPUT_TOKENS: Record<ImageQuality, Record<ImageSize, number>> = {
-  low: { '1024x1024': 824, '1024x1536': 664, '1536x1024': 664 },
-  medium: { '1024x1024': 3199, '1024x1536': 2603, '1536x1024': 2603 },
-  high: { '1024x1024': 12602, '1024x1536': 10305, '1536x1024': 10305 },
+  low: { '1024x1024': 824, '1024x1536': 664, '1536x1024': 664, '2880x2880': 6518 },
+  medium: { '1024x1024': 3199, '1024x1536': 2603, '1536x1024': 2603, '2880x2880': 25305 },
+  high: { '1024x1024': 12602, '1024x1536': 10305, '1536x1024': 10305, '2880x2880': 99686 },
 };
 /** Input image tokens a 1024×1024 reference adds to an edit (measured: 1,024). */
 export const REFERENCE_IMAGE_TOKENS = 1_024;
@@ -157,6 +158,7 @@ export function resolveCall(
   return {
     model: o.model ?? settings.model,
     quality: o.quality ?? settings.quality,
-    size: kind === 'icon' ? '1024x1024' : (o.size ?? DEFAULT_SIZE[kind]),
+    // An explicit size wins (icon sheets ask for SHEET_SIZE); otherwise the kind's default.
+    size: o.size ?? DEFAULT_SIZE[kind],
   };
 }
