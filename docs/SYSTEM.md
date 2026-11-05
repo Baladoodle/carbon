@@ -249,6 +249,20 @@ after each run):
 
 Prompt changes go in only if these metrics don't drop.
 
+## 8a. Critique and generation agree
+
+The writers (suggest, fill, spread) and the critic share one quality bar,
+`src/core/prompts/quality.ts`. The critic judges by it, and every generating
+prompt is told to meet it.
+
+A "finished edit" critique runs only when a field **you** edited changed since
+the baseline. Fields the AI wrote and you haven't touched don't count. The
+critic is told which fields the AI wrote, and a note on such a field offers
+**Rewrite**, which runs `suggest_one` with the note as guidance.
+
+The eval's self-consistency metric (fill, then critique) holds this in place.
+Details: `IMAGES.md` §7.
+
 ## 9. Testing
 
 | Layer | How |

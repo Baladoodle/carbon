@@ -36,6 +36,7 @@ npm run guide:keys     # regenerate the key table in docs/GUIDE.md
 | [docs/PRODUCT.md](docs/PRODUCT.md) | What carbon is, why it's a native app, and how it's separate from Claude Code |
 | [docs/EXPERIENCE.md](docs/EXPERIENCE.md) | Views, moves, triage, card lifecycle, keyboard |
 | [docs/SYSTEM.md](docs/SYSTEM.md) | Architecture, domain model, store, commands and undo, numbers engine, AI gateway, evals, testing |
+| [docs/IMAGES.md](docs/IMAGES.md) | Concept art and item icons: OpenAI images, Genforge's pixel filters ported, batch generation |
 | [docs/VISUAL.md](docs/VISUAL.md) | The visual design: the text rule, colour, type, components, signature details |
 | [docs/BUILD.md](docs/BUILD.md) | The overnight build: phases, work packages, rules, coordinator protocol |
 | [design/mockups.html](design/mockups.html) | v1 layout reference only (visuals superseded by VISUAL.md) |
