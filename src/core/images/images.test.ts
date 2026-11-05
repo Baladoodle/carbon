@@ -335,3 +335,26 @@ describe('export', () => {
     expect(imagesSection(w, [])).toBe('');
   });
 });
+
+describe('the image_prompt builder', () => {
+  it('builds with the shared layout and parses: whitespace collapsed, too short refused', async () => {
+    const { imagePromptBuilder } = await import('./prompt');
+    const w = sampleWorld();
+    const built = imagePromptBuilder.build(w, { entityId: 'cloud-reef', kind: 'concept' });
+    expect(built.ok).toBe(true);
+    if (built.ok) {
+      expect(built.value.entity).toBe('cloud-reef');
+      expect(built.value.user.at(-1)?.text).toContain('Image kind: concept art');
+    }
+    expect(imagePromptBuilder.build(w, { entityId: 'nope', kind: 'icon' }).ok).toBe(false);
+    const req = { entityId: 'cloud-reef', kind: 'concept' as const };
+    const p = imagePromptBuilder.parse(
+      { prompt: '  Coral   on clouds,\n soft light at dawn, wide view  ' },
+      w,
+      req,
+    );
+    expect(p.ok && p.value.result.prompt).toBe('Coral on clouds, soft light at dawn, wide view');
+    expect(imagePromptBuilder.parse({ prompt: 'short' }, w, req).ok).toBe(false);
+    expect(imagePromptBuilder.parse(null, w, req).ok).toBe(false);
+  });
+});
