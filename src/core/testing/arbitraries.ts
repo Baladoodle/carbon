@@ -151,6 +151,8 @@ export function everyCommandArb(
           fc.record({ from: id, type: relType, to: id }),
         )
       : fc.record({ from: id, type: relType, to: id });
+  // Images go to two entities, so selects and removes find what adds made.
+  const imageEntity = fc.constantFrom(...ids.slice(0, 2));
   const patternId = fc.constantFrom(...(existing.patterns ?? []), 'p-1');
   const text = awkwardText;
   const num = awkwardNumber;
@@ -438,6 +440,78 @@ export function everyCommandArb(
         status: fc.constantFrom('proposed', 'promoted', 'dismissed'),
       }),
     ),
+    // images-core: image and art commands.
+    c('image.add', fc.record({ image: imageMetaArb(ids), select: fc.boolean() })),
+    c('image.select', fc.record({ entity: imageEntity, image: imageIdArb })),
+    c(
+      'image.unselect',
+      fc.record({ entity: imageEntity, kind: fc.constantFrom('concept', 'icon') }),
+    ),
+    c('image.remove', fc.record({ entity: imageEntity, image: imageIdArb })),
+    c(
+      'art.set',
+      fc.record(
+        {
+          direction: text.map((s) => s.slice(0, 300)),
+          kinds: fc.dictionary(
+            kind,
+            fc.option(
+              text.map((s) => s.slice(0, 100)),
+              { nil: null },
+            ),
+            {
+              maxKeys: 2,
+            },
+          ),
+        },
+        { requiredKeys: [] },
+      ),
+    ),
+  );
+}
+
+/** A small pool of image ids (ULIDs), so selects and removes find their target. */
+export const IMAGE_ID_POOL = ['01JC0000000000000000000001', '01JC0000000000000000000002'] as const;
+export const imageIdArb = fc.constantFrom(...IMAGE_ID_POOL);
+
+/** Image metadata as main would add it (any origin, optional usage and cost). */
+export function imageMetaArb(ids: readonly string[]): fc.Arbitrary<unknown> {
+  const hash = fc.constantFrom('a'.repeat(64), '0123456789abcdef'.repeat(4));
+  return fc.record(
+    {
+      id: imageIdArb,
+      entity: fc.constantFrom(...ids),
+      kind: fc.constantFrom('concept', 'icon'),
+      origin: fc.oneof(
+        fc.record(
+          {
+            by: fc.constant('openai'),
+            model: fc.constantFrom('gpt-image-2.6-flare', 'gpt-image-2.6-sunburst'),
+            quality: fc.constantFrom('low', 'medium'),
+            size: fc.constantFrom('1024x1024', '1536x1024'),
+            prompt: awkwardText,
+            requestId: fc.constantFrom('req_1', 'req_2'),
+          },
+          { requiredKeys: ['by', 'model', 'quality', 'size', 'prompt'] },
+        ),
+        fc.record({ by: fc.constant('filter'), from: imageIdArb, preset: fc.constant('item') }),
+        fc.record({ by: fc.constant('fake'), prompt: awkwardText, size: fc.constant('1024x1024') }),
+      ),
+      usage: fc.record(
+        {
+          inputTokens: fc.nat({ max: 5000 }),
+          outputTokens: fc.nat({ max: 9000 }),
+          images: fc.constant(1),
+        },
+        { requiredKeys: ['images'] },
+      ),
+      costUsd: fc.constantFrom(0, 0.008, 0.0123),
+      created: fc.constantFrom('2026-11-05T01:00:00.000Z', '2026-11-06T02:03:04.005Z'),
+      width: fc.constantFrom(16, 1024),
+      height: fc.constantFrom(16, 1024),
+      hashes: fc.record({ output: hash, source: hash }, { requiredKeys: ['output'] }),
+    },
+    { requiredKeys: ['id', 'entity', 'kind', 'origin', 'created', 'hashes'] },
   );
 }
 
@@ -478,4 +552,9 @@ export const EVERY_COMMAND_TYPE = [
   'taste.countReason',
   'taste.learnPatterns',
   'taste.setPatternStatus',
+  'image.add',
+  'image.select',
+  'image.unselect',
+  'image.remove',
+  'art.set',
 ] as const;

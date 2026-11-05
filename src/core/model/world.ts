@@ -6,6 +6,7 @@ import type { EntityId } from './ids';
 import type { EntityKind } from './kinds';
 import { resolveSchema, SchemaFileSchema, type WorldSchema } from './schema';
 import { ArtDirectionSchema, WorldImagesSchema } from '../images/model';
+import { ImageSettingsSchema } from '../images/pricing';
 
 /** The on-disk format version (`carbon.json` → `format`). W6 adds migrations. */
 export const WORLD_FORMAT = 1;
@@ -30,8 +31,8 @@ export const SettingsSchema = z.looseObject({
     .default({ idleMinutes: 10 }),
   /** Added by images-core: the art direction (IMAGES.md §5). Absent until first set. */
   art: ArtDirectionSchema.optional(),
-  // `images` (model, quality, budget, pricing) is read with `imageSettings()` (core/images/pricing.ts),
-  // which falls back to defaults, so a bad value never blocks opening the world.
+  /** Added by images-core: model, quality, budget, pricing. Read it with `imageSettings()`. */
+  images: ImageSettingsSchema.optional(),
 });
 export type Settings = z.infer<typeof SettingsSchema>;
 

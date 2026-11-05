@@ -296,6 +296,21 @@ describe('command labels', () => {
         },
       },
       'spread.judge': { spread: 's', key: 'c1', verdict: 'keep' },
+      // images-core: image and art commands.
+      'image.add': {
+        image: {
+          id: '01JAAAAAAAAAAAAAAAAAAAAAAA',
+          entity: 'glide',
+          kind: 'concept',
+          origin: { by: 'fake', prompt: 'p', size: '1024x1024' },
+          created: SAMPLE_TIME,
+          hashes: { output: 'a'.repeat(64) },
+        },
+      },
+      'image.select': { entity: 'glide', image: '01JAAAAAAAAAAAAAAAAAAAAAAA' },
+      'image.unselect': { entity: 'glide', kind: 'icon' },
+      'image.remove': { entity: 'glide', image: '01JAAAAAAAAAAAAAAAAAAAAAAA' },
+      'art.set': { direction: 'painterly' },
       'taste.addRule': { text: 'No filler.' },
       'taste.updateRule': { id: 'no-pure-numbers', enabled: false },
       'taste.removeRule': { id: 'no-pure-numbers' },
