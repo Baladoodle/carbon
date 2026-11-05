@@ -129,6 +129,25 @@ const aborted = (s: AbortSignal): boolean => s.aborted;
 
 const has = (o: object, k: string): boolean => Object.prototype.hasOwnProperty.call(o, k);
 
+/** The line `.gitattributes` needs so git never diffs or merges image bytes as text. */
+export const PNG_ATTRIBUTE = '*.png binary';
+
+/**
+ * Images are committed with the world (git snapshots), so the world's
+ * `.gitattributes` marks PNGs binary. Added once; an existing file keeps its
+ * lines and gains this one if it lacks it.
+ */
+export async function ensureGitAttributes(dir: string): Promise<void> {
+  const file = path.join(dir, '.gitattributes');
+  const text = await readFile(file, 'utf8').catch(() => null);
+  if (text !== null && text.split(/\r?\n/).some((l) => l.trim() === PNG_ATTRIBUTE)) return;
+  const next =
+    text === null || text === ''
+      ? `${PNG_ATTRIBUTE}\n`
+      : `${text.replace(/\n?$/, '\n')}${PNG_ATTRIBUTE}\n`;
+  await writeFileAtomic(file, next);
+}
+
 export class MainImageGateway implements ImageGateway {
   readonly log$ = new ImageLogStore();
   private readonly listeners = new Set<(s: ImageStatus) => void>();
@@ -560,6 +579,7 @@ export class MainImageGateway implements ImageGateway {
     const dir = this.o.session.dir;
     const p = imagePaths(meta.entity, meta.id);
     try {
+      await ensureGitAttributes(dir);
       await mkdir(path.join(dir, 'images', meta.entity), { recursive: true });
       if (src) await writeFileAtomic(path.join(dir, p.src), src);
       await writeFileAtomic(path.join(dir, p.png), png);
