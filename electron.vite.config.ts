@@ -14,7 +14,13 @@ export default defineConfig({
     resolve: { alias },
     build: {
       outDir: 'out/main',
-      rollupOptions: { input: { index: resolve(import.meta.dirname, 'src/main/index.ts') } },
+      rollupOptions: {
+        input: {
+          index: resolve(import.meta.dirname, 'src/main/index.ts'),
+          // `carbon mcp`: the stdio MCP relay, run in node mode (docs/MCP.md).
+          mcp: resolve(import.meta.dirname, 'src/main/agent/mcp.ts'),
+        },
+      },
     },
   },
   preload: {

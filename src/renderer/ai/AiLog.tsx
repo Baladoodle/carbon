@@ -260,6 +260,11 @@ export function AiLog(): ReactNode {
                           {e.trigger && e.trigger !== 'on_demand' && (
                             <span className="t-3">{` · ${e.trigger === 'finish_edit' ? 'edit' : 'state'}`}</span>
                           )}
+                          {e.via === 'agent' && (
+                            <span className="t-agent" data-testid="ai-log-via-agent">
+                              {' · agent'}
+                            </span>
+                          )}
                         </TD>
                         <TD mono className="ai-log-entity">
                           {e.entity ?? ''}

@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import type { SaveStatus } from '@shared/ipc';
+import { AgentStatus } from '../agent/AgentStatus';
 import { AiStatus } from '../ai/AiStatus';
 import { ImageStatusPiece } from '../images/StatusPiece';
 import { invoke, on } from '../bridge';
@@ -65,6 +66,7 @@ export function StatusLine(): ReactNode {
         </Tooltip>
       )}
       <span className="spacer" />
+      <AgentStatus />
       <AiStatus />
       <ImageStatusPiece />
       <span

@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { Button } from '../ui';
 import { chosen, initialDraft, landed, observe, rebased, typed } from './draft-state';
-import { outsideStamp } from './outside';
+import { outsideBy, outsideStamp } from './outside';
 
 export interface TypedDraft {
   draft: string;
@@ -48,17 +48,27 @@ export function useTypedDraft(stored: string, entityId: string): TypedDraft {
 /** The inline question under a field whose draft an outside edit overtook. */
 export function ConflictPrompt({
   theirs,
+  entityId,
   onKeepMine,
   onUseTheirs,
 }: {
   theirs: string;
+  /** The entity, to say who changed it: an agent, or something outside carbon. */
+  entityId?: string;
   onKeepMine: () => void;
   onUseTheirs: () => void;
 }): ReactNode {
+  const agent = entityId !== undefined && outsideBy(entityId) === 'agent';
   return (
-    <div className="bench-conflict" role="alert" data-testid="field-conflict">
+    <div
+      className="bench-conflict"
+      role="alert"
+      data-testid="field-conflict"
+      data-by={agent ? 'agent' : 'outside'}
+    >
       <span className="bench-conflict-text">
-        Changed outside carbon: <q>{theirs === '' ? '(empty)' : theirs}</q>
+        {agent ? 'Changed by the agent: ' : 'Changed outside carbon: '}
+        <q>{theirs === '' ? '(empty)' : theirs}</q>
       </span>
       <span className="bench-conflict-actions">
         <Button size="sm" variant="ghost" onClick={onKeepMine}>

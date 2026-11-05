@@ -76,6 +76,9 @@ textarea {
 .t-ai {
   color: var(--ai);
 }
+.t-agent {
+  color: var(--agent);
+}
 .t-danger {
   color: var(--danger);
 }

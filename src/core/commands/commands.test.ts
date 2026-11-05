@@ -167,6 +167,43 @@ describe('entity commands', () => {
     ).toBe('world.invalid');
   });
 
+  it('marks agent-written fields and attributes apart from the AI, absent when none', () => {
+    let w = ok(
+      base(),
+      cmd('entity.update', { id: 'glide', set: { identity: 'drift' }, source: 'ai' }),
+    );
+    w = ok(w, cmd('entity.update', { id: 'glide', set: { identity: 'fall' }, source: 'agent' }));
+    let e = getEntity(w, 'glide');
+    expect(e?.ai_fields).toEqual([]);
+    expect(e?.agent_fields).toEqual(['identity']);
+    w = ok(
+      w,
+      cmd('entity.setAttribute', {
+        id: 'vent-glass-visor',
+        key: 'defense',
+        value: 5,
+        source: 'agent',
+      }),
+    );
+    expect(getEntity(w, 'vent-glass-visor')?.agent_fields).toEqual(['attributes.defense']);
+    w = ok(w, cmd('entity.setAttribute', { id: 'vent-glass-visor', key: 'defense', value: 6 }));
+    expect(getEntity(w, 'vent-glass-visor')).not.toHaveProperty('agent_fields');
+    w = ok(w, cmd('entity.update', { id: 'glide', set: { identity: 'mine' } }));
+    e = getEntity(w, 'glide');
+    expect(e).not.toHaveProperty('agent_fields');
+    w = ok(
+      w,
+      cmd('entity.create', {
+        kind: 'item',
+        name: 'Glass Lung',
+        origin: { by: 'agent' },
+        agent_fields: ['name', 'name'],
+      }),
+    );
+    expect(getEntity(w, 'glass-lung')?.agent_fields).toEqual(['name']);
+    expect(getEntity(w, 'glass-lung')?.origin.by).toBe('agent');
+  });
+
   it('deletes with a cascade over relations and ref fields', () => {
     const w = ok(base(), cmd('entity.delete', { id: 'hollows' }));
     expect(getEntity(w, 'hollows')).toBeUndefined();

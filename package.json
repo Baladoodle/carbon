@@ -29,7 +29,8 @@
     "fixtures:sample": "UPDATE_FIXTURES=1 vitest run src/main/store/world-dir.test.ts",
     "dev:sample": "node scripts/dev-sample.mjs",
     "guide:keys": "npm run build && UPDATE_GUIDE=1 node scripts/run-e2e.mjs e2e/keys.spec.ts",
-    "smoke:images": "node scripts/smoke-images.mjs"
+    "smoke:images": "node scripts/smoke-images.mjs",
+    "mcp": "node scripts/carbon-mcp.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

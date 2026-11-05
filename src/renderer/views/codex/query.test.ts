@@ -131,6 +131,8 @@ describe('compileQuery', () => {
     expect(ids('has:defense')).toEqual(['vent-glass-visor']);
     expect(ids('has:drops')).toEqual(['cinder-wasp', 'moss-grazer']);
     expect(ids('ai:yes')).toEqual([]);
+    expect(ids('agent:yes')).toEqual([]);
+    expect(ids('agent:no').length).toBe(Object.keys(world.entities).length);
     expect(ids('origin:user').length).toBe(Object.keys(world.entities).length);
     expect(ids('why:sky')).toEqual(['glide']);
     expect(ids('id:anklet name:cloud')).toEqual(['cloud-anklet']);
@@ -159,6 +161,7 @@ describe('compileQuery', () => {
       ['sometimes', 'placed: use pinned, inferred or none'],
     ]);
     expect(errs('ai:maybe')).toEqual([['maybe', 'ai: use yes or no']]);
+    expect(errs('agent:maybe')).toEqual([['maybe', 'agent: use yes or no']]);
     expect(errs('origin:me')).toEqual([['me', 'origin: use user, ai or agent']]);
     expect(errs('has:wings')).toEqual([['wings', 'no field "wings"']]);
     expect(errs('climate:hot')).toEqual([['hot', "climate: climate can't be filtered"]]);

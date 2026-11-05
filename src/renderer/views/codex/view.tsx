@@ -979,6 +979,9 @@ function CodexView(): ReactNode {
                               e.ai_fields.includes(
                                 c.id.replace(/^[fa]:/, (m) => (m === 'a:' ? 'attributes.' : '')),
                               ) && 'codex-ai',
+                              e.agent_fields?.includes(
+                                c.id.replace(/^[fa]:/, (m) => (m === 'a:' ? 'attributes.' : '')),
+                              ) && 'codex-agent',
                             )}
                             data-col={c.id}
                             onClick={(ev) => clickRow(e, ev, i)}

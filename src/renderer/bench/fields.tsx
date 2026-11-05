@@ -72,12 +72,15 @@ export function FieldRow({ world, entity, def, needed, variant, bare }: FieldPro
   );
   const [error, setError] = useState<string | null>(null);
   const ai = entity.ai_fields.includes(def.key);
+  // Written by an outside agent (docs/MCP.md) and not edited since.
+  const agent = entity.agent_fields?.includes(def.key) === true;
   const textual = isTextual(def);
   return (
     <div
       className={cx('bench-field', variant && `bench-field-${variant}`)}
       data-bench-field={def.key}
       data-ai={ai ? '' : undefined}
+      data-agent={agent ? '' : undefined}
       // Expanding the field (ctrl+shift+e) takes all of this into the large editor.
       data-expand-host=""
     >
@@ -91,12 +94,22 @@ export function FieldRow({ world, entity, def, needed, variant, bare }: FieldPro
               ai
             </span>
           )}
+          {agent && (
+            <span className="bench-agent" data-testid={`agent-marker-${def.key}`}>
+              agent
+            </span>
+          )}
           {loading && <span className="bench-ai bench-loading">…</span>}
         </div>
       )}
       {bare && ai && (
         <span className="bench-ai bench-ai-floating" data-testid={`ai-marker-${def.key}`}>
           ai
+        </span>
+      )}
+      {bare && agent && (
+        <span className="bench-agent bench-ai-floating" data-testid={`agent-marker-${def.key}`}>
+          agent
         </span>
       )}
       <Control
@@ -226,6 +239,7 @@ function TextControl({ entity, def, suggestion, onError, variant }: ControlProps
   const conflict =
     theirs === null ? null : (
       <ConflictPrompt
+        entityId={entity.id}
         theirs={theirs}
         onKeepMine={() => {
           choose('mine');
@@ -458,6 +472,7 @@ function NumberPair({
       </div>
       {waiting && (
         <ConflictPrompt
+          entityId={entityId}
           theirs={`${fmt(values[0])} … ${fmt(values[1])}`}
           onKeepMine={() => {
             a.choose('mine');
@@ -657,6 +672,7 @@ function StepRow({
         </div>
         {theirs !== null && (
           <ConflictPrompt
+            entityId={entityId}
             theirs={theirs}
             onKeepMine={() => {
               choose('mine');

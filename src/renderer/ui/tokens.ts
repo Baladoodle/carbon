@@ -21,6 +21,7 @@ export const TOKENS = {
   danger: '#e5675e',
   warn: '#d9b45a',
   ai: '#b39ddb',
+  agent: '#cf8fae',
   tintDeep: '#1a1614',
   tintHigh: '#14171a',
   climateCold: '#6f9bd1',

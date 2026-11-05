@@ -1,0 +1,137 @@
+/* The agent's surfaces (docs/MCP.md §6): its name on the status line, the Agent
+   overlay, and the marker on what it wrote. Drawn in --agent, and only --agent
+   is used for them, as --ai is for the AI (VISUAL.md §2). */
+
+.agent-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--agent);
+  cursor: pointer;
+}
+.agent-status-off {
+  color: var(--text-3);
+}
+.agent-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 6px color-mix(in srgb, currentColor 60%, transparent);
+}
+
+.agent-panel {
+  width: min(1080px, 94vw);
+  max-height: 76vh;
+  display: flex;
+  flex-direction: column;
+  padding: 0 8px 8px;
+  overflow: hidden;
+}
+.agent-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  padding: 8px 4px;
+  min-height: 44px;
+  border-bottom: 1px solid var(--line);
+}
+.agent-budget {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-dense);
+}
+.agent-budget .ui-input {
+  width: 64px;
+}
+.agent-who {
+  margin-left: auto;
+  font-size: var(--text-dense);
+  color: var(--agent);
+}
+.agent-empty {
+  min-height: 72px;
+}
+.agent-body {
+  overflow: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.agent-panel .ui-table {
+  font-size: var(--text-dense);
+}
+.agent-what {
+  max-width: 420px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: var(--text-dense);
+  color: var(--text-2);
+  cursor: pointer;
+}
+.agent-switch:focus-visible {
+  outline: none;
+  box-shadow: var(--ring);
+  border-radius: var(--radius-control);
+}
+.agent-switch-track {
+  position: relative;
+  width: 26px;
+  height: 14px;
+  border-radius: 7px;
+  background: var(--surface-3);
+  border: 1px solid var(--line-strong);
+  transition: background var(--dur-hover) var(--ease);
+}
+.agent-switch-thumb {
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--text-3);
+  transition: transform var(--dur-hover) var(--ease);
+}
+.agent-switch[aria-checked='true'] {
+  color: var(--text);
+}
+.agent-switch[aria-checked='true'] .agent-switch-track {
+  background: color-mix(in srgb, var(--agent) 30%, var(--surface-2));
+  border-color: color-mix(in srgb, var(--agent) 60%, var(--line-strong));
+}
+.agent-switch[aria-checked='true'] .agent-switch-thumb {
+  transform: translateX(12px);
+  background: var(--agent);
+}
+
+/* What an agent wrote: a rule beside the field (the AI's is --ai). */
+.bench-agent {
+  font: 500 10px var(--font-mono);
+  color: var(--agent);
+  letter-spacing: 0.02em;
+}
+.bench-field[data-agent] > .ui-input,
+.bench-field[data-agent] > .ui-suggest .ui-input,
+.bench-field[data-agent] .ui-textarea {
+  border-left: 2px solid color-mix(in srgb, var(--agent) 60%, transparent);
+}
+.codex-row td.codex-agent {
+  color: var(--agent);
+}

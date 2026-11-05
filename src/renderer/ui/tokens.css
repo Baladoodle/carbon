@@ -21,6 +21,8 @@
   --danger: #e5675e;
   --warn: #d9b45a;
   --ai: #b39ddb;
+  /* An outside agent's marker (docs/MCP.md): what it wrote, its log, its name. Nothing else. */
+  --agent: #cf8fae;
 
   /* Depth tint endpoints (Column bands; see depthTint in tokens.ts). */
   --tint-deep: #1a1614;

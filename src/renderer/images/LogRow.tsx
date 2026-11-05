@@ -47,6 +47,7 @@ export function ImageLogRow({
       <TD className="t-ai">
         {e.kind}
         <span className="t-3">{` · ${e.quality}`}</span>
+        {e.via === 'agent' && <span className="t-agent">{' · agent'}</span>}
       </TD>
       <TD mono className="ai-log-entity">
         {e.entity}

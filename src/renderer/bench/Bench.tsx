@@ -651,6 +651,7 @@ function AttributeRow({
   const { draft, setDraft, theirs, choose, rebase, landed } = useTypedDraft(text, entity.id);
   const [error, setError] = useState<string | null>(null);
   const ai = entity.ai_fields.includes(`attributes.${attrKey}`);
+  const agent = entity.agent_fields?.includes(`attributes.${attrKey}`) === true;
   const commit = async (force = false): Promise<void> => {
     // With an outside change waiting, leaving the field decides nothing.
     if (theirs !== null && !force) return;
@@ -672,6 +673,7 @@ function AttributeRow({
           {label}
         </label>
         {ai && <span className="bench-ai">ai</span>}
+        {agent && <span className="bench-agent">agent</span>}
       </div>
       <div className="bench-row">
         <Input
@@ -698,6 +700,7 @@ function AttributeRow({
       </div>
       {theirs !== null && (
         <ConflictPrompt
+          entityId={entity.id}
           theirs={theirs}
           onKeepMine={() => {
             choose('mine');
