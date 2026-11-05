@@ -67,6 +67,48 @@ rule for `mcp__claude-code-remote__add_repo`), then:
 The API won't change when the port lands. Only pixels and preset values will,
 so images that are stored keep `report.settings` and can be re-filtered for free.
 
+## Icon sheets (IMAGES.md §2a, `sheet.ts`)
+
+This was added after the contract gained §2a, which arrived in the merge. It
+doesn't depend on Genforge.
+
+```ts
+import { sheetLayout, sheetGuide, sheetPrompt, cropSheet } from '@core/pixel';
+
+const layout = sheetLayout(items.length, { w: 1024, h: 1024 });   // ≤100; near-square, max 10×10; gutter 2% of the short side
+const guide = sheetGuide(layout);                                // white, 1-px #DCDCDC boxes just outside each cell → send as reference
+const prompt = sheetPrompt(items, layout, world, art, { background: 'fully transparent' });
+const cells = cropSheet(decodePng(bytes), layout);               // scales the grid if the model returned another size
+// cells[i]: { index, region, box, crop: RgbaImage | null, flags, segmentation: 'alpha' | 'colour' }
+// then: filterImage(cell.crop, { target: { w: 16, h: 16 }, preset: 'item' })
+```
+
+How the cropper works:
+
+- **The cut:** each cell plus a margin into the gutter (half the gutter by
+  default).
+- **Segmentation:** by alpha (`a ≥ 128`) when the sheet has any
+  transparency. Otherwise by colour: anything more than `tolerance` (32) in any
+  channel from the median of the region's border.
+- **The crop:** the foreground's bounding box, padded to a centred square,
+  with the background made transparent.
+- **Flags:**
+  - `empty`: foreground under 0.5% of the region
+  - `uniform`: empty, and the luminance range is ≤ 4, so it's just the flat
+    background
+  - `touches-edge`: the foreground reaches the region's border, so it may
+    bleed into a neighbour. The test shows that a sprite crossing into the next
+    cell flags that next cell too, which is what you want
+  - `fragmented`: more than one large 8-connected component, meaning at least
+    15% of the largest and 1% of the foreground
+- **Speed:** cropping all 100 cells of a 1024² sheet takes about 96 ms, and
+  filtering them all to 16² another 37 ms. At 2048², cropping takes about
+  344 ms.
+
+The prompt states the house style once (with Palette and per-kind Art notes),
+then one line per cell: `row 1, col 1: Pickaxe, a chunky tool of Iron,
+diagonal from lower left to upper right, handle at the bottom left.`
+
 ## Layout
 
 ```
@@ -77,10 +119,11 @@ src/core/pixel/
   presets.ts      PRESET_SETTINGS, resolveSettings (provisional values)
   quantize.ts     deterministic median cut
   png.ts          decodePng / encodePng over fast-png
-  prompts.ts      iconPrompt, paletteWords
+  prompts.ts      iconPrompt, sheetPrompt, paletteWords
+  sheet.ts        sheetLayout, sheetGuide, cropSheet (IMAGES.md §2a)
   errors.ts       PixelError
   UPSTREAM.json   provenance (not-ported)
-  *.test.ts       filter, png, prompts, parity, perf
+  *.test.ts       filter, png, prompts, sheet, parity, perf
 fixtures/pixel/sources/        8 deterministic sources
 scripts/pixel-sources.mjs      regenerates the sources
 scripts/pixel-references.mjs   regenerates the references from a Genforge checkout

@@ -173,3 +173,68 @@ export function iconPrompt(entity: IconSubject, world: IconWorld, art: IconArt =
   );
   return lines.join('\n');
 }
+
+export interface SheetPromptOptions {
+  /** A flat background colour (e.g. "flat pure white #FFFFFF"), or transparent when the model supports it. */
+  background?: string;
+}
+
+/** One line per cell: "row 1, col 2: Glass Lung, an accessory of Lung Glass (breathe where …), upright". */
+function cellLine(entity: IconSubject, world: IconWorld, row: number, col: number): string {
+  const subkind =
+    typeof entity.fields['subkind'] === 'string' ? entity.fields['subkind'] : undefined;
+  const noun = subkind ?? entity.kind;
+  const entities: Readonly<Record<string, Pick<Entity, 'kind' | 'name'> | undefined>> =
+    world.entities;
+  const materials = [
+    ...new Set(
+      entity.relations
+        .filter((r) => r.type === 'made_from')
+        .map((r) => entities[r.target]?.name)
+        .filter((n): n is string => typeof n === 'string' && n.length > 0),
+    ),
+  ];
+  const of = materials.length ? ` of ${materials.join(' and ')}` : '';
+  const identity = entity.identity ? ` (${clean(entity.identity)})` : '';
+  const pose = (PRESENTATION[subkind ?? ''] ?? DEFAULT_PRESENTATION).replace(/^shown alone, /, '');
+  return `row ${row + 1}, col ${col + 1}: ${clean(entity.name)}, a chunky ${noun}${of}${identity}, ${pose}.`;
+}
+
+/**
+ * The prompt for one icon sheet (IMAGES.md §2a): the item house style once, then
+ * each cell by position. `cells[i]` is the grid position of `entities[i]`.
+ */
+export function sheetPrompt(
+  entities: readonly IconSubject[],
+  grid: { cols: number; rows: number; cells: readonly { row: number; col: number }[] },
+  world: IconWorld,
+  art: IconArt = {},
+  opts: SheetPromptOptions = {},
+): string {
+  if (entities.length !== grid.cells.length) {
+    throw new Error(`sheetPrompt: ${entities.length} items for ${grid.cells.length} cells`);
+  }
+  const background = opts.background ?? 'fully transparent';
+  const lines: string[] = [
+    `A sprite sheet of ${entities.length} separate game inventory icons on a ${grid.cols}×${grid.rows} grid, following the reference image's cell boxes exactly; one item per cell, in reading order.`,
+    'Each item: chunky and simplified, a bold readable silhouette that still reads at 16×16 pixels; a few large, clearly separated areas of flat colour per material; exaggerate the one defining feature.',
+  ];
+  const palette = paletteWords(art.direction);
+  if (palette.length) lines.push(`Palette: ${palette.join(', ')}.`);
+  const kinds = [...new Set(entities.map((e) => e.kind))];
+  for (const k of kinds) {
+    const note = art.notes?.[k];
+    if (note) lines.push(`Art note (${k}): ${clean(note)}.`);
+  }
+  lines.push(
+    'Light: flat, even front light; no cast shadow, no glow, no reflections.',
+    `Background: ${background}, the same everywhere, including between cells. Every item is centred in its own cell with clear empty space around its whole silhouette; no item touches or crosses a cell edge.`,
+    'Never: text, letters, numbers, labels, captions, borders, frames, visible grid lines, drop shadows, or a second object in a cell. Leave no cell empty.',
+    'Cells:',
+  );
+  entities.forEach((e, i) => {
+    const c = grid.cells[i] ?? { row: 0, col: 0 };
+    lines.push(cellLine(e, world, c.row, c.col));
+  });
+  return lines.join('\n');
+}
