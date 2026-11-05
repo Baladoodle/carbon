@@ -11,7 +11,7 @@ import {
   type DigestLevel,
   type TasteOptions,
 } from './render';
-import { clipToTokens, estimateTokens } from './tokens';
+import { BLOCK_OVERHEAD, clipToTokens, estimateTokens } from './tokens';
 
 /**
  * The context packer (docs/SYSTEM.md §8 step 3). It renders the world digest,
@@ -114,8 +114,9 @@ export function packContext(world: World, focus: Focus, opts: PackOptions = {}):
       continue;
     }
     const full = fullTiers.has(tier) ? renderFull(world, entity, place) : null;
-    // Each part costs its characters plus a separating newline.
-    const cost = (s: string): number => Math.ceil((s.length + 1) / 2.8);
+    // Each part costs its own estimate plus a separating newline (estimates
+    // are sub-additive, so the joined text never costs more than the parts).
+    const cost = (s: string): number => estimateTokens(`${s}\n`) - BLOCK_OVERHEAD;
     if (full !== null && cost(full) <= room) {
       parts.push(full);
       room -= cost(full);

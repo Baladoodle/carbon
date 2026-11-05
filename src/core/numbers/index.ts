@@ -5,6 +5,7 @@
 import type { World } from '../model/world';
 import type { NumbersAnalysis } from './engine';
 import { formatValue, toPlain, type PlainValue } from './values';
+import { lineStarts } from './span';
 
 export {
   analyzeNumbers,
@@ -79,10 +80,24 @@ export interface FormulaSummary {
   line: number;
 }
 
-function lineOf(source: string, offset: number): number {
-  let n = 1;
-  for (let i = 0; i < offset && i < source.length; i++) if (source.charCodeAt(i) === 10) n++;
-  return n;
+/** Line starts per analysis, so summarising many formulas doesn't rescan the source each time. */
+const starts = new WeakMap<NumbersAnalysis, number[]>();
+
+function lineOf(analysis: NumbersAnalysis, offset: number): number {
+  let ls = starts.get(analysis);
+  if (!ls) {
+    ls = lineStarts(analysis.source);
+    starts.set(analysis, ls);
+  }
+  // The last line start at or before the offset.
+  let lo = 0;
+  let hi = ls.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1;
+    if ((ls[mid] as number) <= offset) lo = mid;
+    else hi = mid - 1;
+  }
+  return lo + 1;
 }
 
 export function summarize(
@@ -96,7 +111,7 @@ export function summarize(
     name,
     text: d.text,
     type: d.type,
-    line: lineOf(analysis.source, d.span.start),
+    line: lineOf(analysis, d.span.start),
   };
   if (d.result?.ok) {
     s.value = formatValue(d.result.value, { name: (id) => world.entities[id]?.name });
@@ -113,19 +128,22 @@ export function summarize(
 export function relevantFormulas(
   analysis: NumbersAnalysis,
   world: World,
-  entityId: string,
+  entityIds: string | readonly string[],
 ): FormulaSummary[] {
-  const e = world.entities[entityId];
-  if (!e) return [];
-  const own = new Set<string>([...Object.keys(e.attributes), ...Object.keys(e.fields)]);
   const direct = new Set<string>();
-  for (const d of analysis.defs)
-    if (
-      d.kinds.includes(e.kind) ||
-      d.kinds.includes('*') ||
-      d.props.some((p) => own.has(p) || own.has(p.replace(/_(min|max)$/, '')))
-    )
-      direct.add(d.name);
+  for (const entityId of typeof entityIds === 'string' ? [entityIds] : entityIds) {
+    const e = world.entities[entityId];
+    if (!e) continue;
+    const own = new Set<string>([...Object.keys(e.attributes), ...Object.keys(e.fields)]);
+    for (const d of analysis.defs)
+      if (
+        !direct.has(d.name) &&
+        (d.kinds.includes(e.kind) ||
+          d.kinds.includes('*') ||
+          d.props.some((p) => own.has(p) || own.has(p.replace(/_(min|max)$/, ''))))
+      )
+        direct.add(d.name);
+  }
   // Close over dependents (what uses them) and dependencies (what they use).
   const keep = new Set(direct);
   const up = [...direct];

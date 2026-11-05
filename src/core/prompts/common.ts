@@ -1,7 +1,7 @@
 import type { Moment } from '../ai/moments';
 import { packContext, type PackOptions, type PackedContext } from '../context/packer';
 import type { Focus } from '../context/relevance';
-import { estimateBlocks, estimateTokens } from '../context/tokens';
+import { clipToTokens, estimateBlocks, estimateTokens } from '../context/tokens';
 import type { EntityId } from '../model/ids';
 import type { World } from '../model/world';
 import type { BuildOptions, BuiltPrompt, Effort, JsonSchema, PromptBlock } from './types';
@@ -54,10 +54,36 @@ export interface AssembleInput {
   pack?: PackOptions;
 }
 
+/**
+ * The most the ask (the per-request text a builder writes: current values,
+ * values already shown, a spread's spot, judgements) may take. Builders keep
+ * it small; this is the cap that keeps a request under 100k tokens whatever
+ * the world holds.
+ */
+export const ASK_LIMIT = 15_000;
+
+/**
+ * Clips an ask to `max` tokens, keeping its last paragraph (the instruction
+ * that ends every ask) and cutting the middle.
+ */
+export function clipAsk(ask: string, max = ASK_LIMIT): string {
+  if (estimateTokens(ask) <= max) return ask;
+  const split = ask.lastIndexOf('\n\n');
+  const tail = split >= 0 ? clipToTokens(ask.slice(split + 2), Math.floor(max / 4)) : '';
+  const head = split >= 0 ? ask.slice(0, split) : ask;
+  const body = clipToTokens(head, max - estimateTokens(tail) - 2);
+  return tail === '' ? body : `${body}\n\n${tail}`;
+}
+
+/** The estimate of the output schema, which counts as input tokens. */
+export const schemaTokens = (schema: JsonSchema): number => estimateTokens(JSON.stringify(schema));
+
 /** Packs the context and assembles the prompt. */
 export function assemble(input: AssembleInput): BuiltPrompt {
-  const { world, focus, instructions, ask } = input;
-  const reserved = estimateBlocks([ROLE, instructions, ask]) + 64;
+  const { world, focus, instructions } = input;
+  const ask = clipAsk(input.ask);
+  const schemaCost = schemaTokens(input.schema);
+  const reserved = estimateBlocks([ROLE, instructions, ask]) + schemaCost + 64;
   const packOptions: PackOptions = { ...input.pack, ...input.options?.pack, reserved };
   const packed: PackedContext = packContext(world, focus, packOptions);
   const focusText = [
@@ -85,7 +111,7 @@ export function assemble(input: AssembleInput): BuiltPrompt {
     maxTokens: input.options?.maxTokens ?? input.defaults.maxTokens,
     stream: input.defaults.stream,
     ...(input.entity ? { entity: input.entity } : {}),
-    estimate: [...system, ...user].reduce((n, b) => n + estimateTokens(b.text), 0),
+    estimate: [...system, ...user].reduce((n, b) => n + estimateTokens(b.text), 0) + schemaCost,
     pack: {
       included: packed.included,
       omitted: packed.omitted,
