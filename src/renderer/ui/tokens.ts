@@ -23,6 +23,9 @@ export const TOKENS = {
   ai: '#b39ddb',
   tintDeep: '#1a1614',
   tintHigh: '#14171a',
+  climateCold: '#6f9bd1',
+  climateWarm: '#e09a52',
+  climateWet: '#63b0aa',
 } as const;
 
 const rgb = (hex: string): [number, number, number] => [

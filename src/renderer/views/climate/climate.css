@@ -33,7 +33,11 @@
   max-height: 100%;
 }
 
-/* The plane: a very low-contrast gradient, cold → warm across, dry → wet up. */
+/*
+ * The plane (VISUAL.md §6.4): two low-contrast gradients, cold → warm across
+ * and dry → wet up. The wet one is a colour, the dry one a dimming, so the
+ * four corners read differently without a single label.
+ */
 .climate-plane {
   position: absolute;
   inset: 0;
@@ -41,9 +45,93 @@
   border-radius: var(--radius-card);
   overflow: hidden;
   background:
-    linear-gradient(to top, transparent, color-mix(in srgb, var(--state-shaped) 5%, transparent)),
-    linear-gradient(to right, var(--tint-high), var(--bg) 50%, var(--tint-deep));
+    linear-gradient(
+      to top,
+      rgb(0 0 0 / 0.22),
+      transparent 45%,
+      color-mix(in srgb, var(--climate-wet) 9%, transparent)
+    ),
+    linear-gradient(
+      to right,
+      color-mix(in srgb, var(--climate-cold) 13%, var(--bg)),
+      var(--bg) 50%,
+      color-mix(in srgb, var(--climate-warm) 12%, var(--bg))
+    );
+  box-shadow: var(--highlight);
   touch-action: none;
+}
+/* Quarter lines, like an instrument's graticule, and a dot at every tenth. */
+.climate-grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(
+        circle,
+        color-mix(in srgb, var(--text-3) 30%, transparent) 0.75px,
+        transparent 1.25px
+      )
+      0 0 / 10% 10%,
+    linear-gradient(
+      to right,
+      transparent calc(25% - 0.5px),
+      var(--line) calc(25% - 0.5px) calc(25% + 0.5px),
+      transparent calc(25% + 0.5px) calc(50% - 0.5px),
+      var(--line) calc(50% - 0.5px) calc(50% + 0.5px),
+      transparent calc(50% + 0.5px) calc(75% - 0.5px),
+      var(--line) calc(75% - 0.5px) calc(75% + 0.5px),
+      transparent calc(75% + 0.5px)
+    ),
+    linear-gradient(
+      to top,
+      transparent calc(25% - 0.5px),
+      var(--line) calc(25% - 0.5px) calc(25% + 0.5px),
+      transparent calc(25% + 0.5px) calc(50% - 0.5px),
+      var(--line) calc(50% - 0.5px) calc(50% + 0.5px),
+      transparent calc(50% + 0.5px) calc(75% - 0.5px),
+      var(--line) calc(75% - 0.5px) calc(75% + 0.5px),
+      transparent calc(75% + 0.5px)
+    );
+  background-position:
+    5% 5%,
+    0 0,
+    0 0;
+  opacity: 0.7;
+}
+
+/* The pointer's climate: hairlines and a reading, under the regions. */
+.climate-cross {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.climate-cross-v,
+.climate-cross-h {
+  position: absolute;
+  background: color-mix(in srgb, var(--text-2) 22%, transparent);
+}
+.climate-cross-v {
+  top: 0;
+  bottom: 0;
+  width: 1px;
+}
+.climate-cross-h {
+  left: 0;
+  right: 0;
+  height: 1px;
+}
+.climate-cross-read {
+  position: absolute;
+  translate: 8px -6px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--surface-3) 85%, transparent);
+  color: var(--text-2);
+  font-size: var(--text-meta);
+  white-space: nowrap;
+}
+.climate-cross-read-left {
+  translate: calc(-100% - 8px) -6px;
 }
 .climate-axis {
   position: absolute;
@@ -73,21 +161,29 @@
   pointer-events: none;
   background: repeating-linear-gradient(
     135deg,
-    color-mix(in srgb, var(--text-3) 14%, transparent) 0 1px,
-    transparent 1px 7px
+    color-mix(in srgb, var(--text-3) 7%, transparent) 0 1px,
+    transparent 1px 9px
   );
 }
 
 /* Biome regions are glass panels (VISUAL.md §6.4). */
 .climate-region {
   position: absolute;
+  z-index: 1;
   box-sizing: border-box;
-  padding: 6px 8px;
-  background: color-mix(in srgb, var(--surface-2) 70%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  background:
+    linear-gradient(to bottom, rgb(255 255 255 / 0.025), transparent 40%),
+    color-mix(in srgb, var(--surface-2) 70%, transparent);
   backdrop-filter: blur(8px);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-control);
-  box-shadow: var(--highlight);
+  border: 1px solid color-mix(in srgb, var(--line-strong) 80%, transparent);
+  border-radius: var(--radius-card);
+  box-shadow:
+    var(--highlight),
+    0 4px 16px rgb(0 0 0 / 0.25);
   overflow: hidden;
   cursor: grab;
   transition:
@@ -122,11 +218,60 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.climate-region-identity {
+  margin-top: -3px;
+  color: var(--text-2);
+  font-size: var(--text-dense);
+  line-height: 16px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+/* What lives there, by kind: the biome's signature. */
 .climate-sig {
-  margin-top: 2px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 4px 10px;
+  margin: 2px 0 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.climate-sig-row {
+  display: contents;
+}
+.climate-sig dt {
+  color: var(--text-3);
+  font-size: var(--text-meta);
+  line-height: 18px;
+}
+.climate-sig dd {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  margin: 0;
+  min-width: 0;
+}
+.climate-sig-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  color: var(--text);
+  font-size: var(--text-dense);
+  line-height: 18px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+/* The selected region's climate, in the corner, while you move or resize it. */
+.climate-region-range {
+  position: absolute;
+  right: 8px;
+  bottom: 6px;
+  color: var(--text-2);
+  font-size: var(--text-meta);
+  pointer-events: none;
 }
 
 /* Overlaps: shared climate, drawn over both regions in the warn colour. */

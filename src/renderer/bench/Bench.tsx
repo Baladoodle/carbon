@@ -306,7 +306,7 @@ function EntityBench({ world, entity }: { world: World; entity: Entity }): React
   const place = where.places[0];
   const placeNames = place
     ? [place.band, place.biome]
-        .filter((x): x is string => !!x)
+        .filter((x): x is string => !!x && x !== entity.id)
         .map((id) => world.entities[id]?.name ?? id)
     : [];
   const menu: MenuEntry[] = [

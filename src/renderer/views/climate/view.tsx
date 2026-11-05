@@ -45,7 +45,8 @@ interface Region {
   state: EntityState;
   rect: Rect;
   ai: boolean;
-  signature: { kind: string; names: string[] }[];
+  identity: string;
+  signature: { kind: string; items: { id: string; name: string; state: EntityState }[] }[];
 }
 
 interface Drag {
@@ -83,15 +84,69 @@ function regionsOf(
       state: e.state,
       rect: rectOf(c.data),
       ai: e.ai_fields.includes('climate'),
+      identity: e.identity,
       signature: SIGNATURE_KINDS.map((k) => ({
         kind: plural[k].plural.toLowerCase(),
-        names: inside.filter((x) => x?.kind === k).map((x) => x?.name ?? ''),
-      })).filter((s) => s.names.length > 0),
+        items: inside
+          .filter((x) => x?.kind === k)
+          .map((x) => ({ id: x?.id ?? '', name: x?.name ?? '', state: x?.state ?? 'idea' })),
+      })).filter((s) => s.items.length > 0),
     });
   }
   placed.sort((a, b) => a.rect.y0 - b.rect.y0 || a.rect.x0 - b.rect.x0 || a.id.localeCompare(b.id));
   loose.sort((a, b) => a.name.localeCompare(b.name));
   return { placed, loose };
+}
+
+/** A region's climate, as you'd type it: temperature then moisture, low to high. */
+const two = (v: number): string => v.toFixed(2);
+const range = (r: Rect): string => `${two(r.x0)}–${two(r.x1)} × ${two(r.y0)}–${two(r.y1)}`;
+
+/**
+ * Where the pointer is on the plane, as temperature × moisture: two hairlines
+ * and a reading, so placing or resizing a biome is a matter of numbers, not
+ * guesswork. Its own state, so pointer moves never re-render the view.
+ */
+function Crosshair({ plane }: { plane: React.RefObject<HTMLDivElement | null> }): ReactNode {
+  const [at, setAt] = useState<{ x: number; y: number } | null>(null);
+  useEffect(() => {
+    const el = plane.current;
+    if (!el) return;
+    let frame = 0;
+    const move = (e: PointerEvent): void => {
+      const b = el.getBoundingClientRect();
+      const x = (e.clientX - b.left) / b.width;
+      const y = 1 - (e.clientY - b.top) / b.height;
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() =>
+        setAt(x < 0 || x > 1 || y < 0 || y > 1 ? null : { x, y }),
+      );
+    };
+    const leave = (): void => {
+      cancelAnimationFrame(frame);
+      setAt(null);
+    };
+    el.addEventListener('pointermove', move);
+    el.addEventListener('pointerleave', leave);
+    return () => {
+      cancelAnimationFrame(frame);
+      el.removeEventListener('pointermove', move);
+      el.removeEventListener('pointerleave', leave);
+    };
+  }, [plane]);
+  if (!at) return null;
+  return (
+    <div className="climate-cross" aria-hidden="true">
+      <span className="climate-cross-v" style={{ left: pct(at.x) }} />
+      <span className="climate-cross-h" style={{ bottom: pct(at.y) }} />
+      <span
+        className={cx('climate-cross-read num', at.x > 0.8 && 'climate-cross-read-left')}
+        style={{ left: pct(at.x), bottom: pct(at.y) }}
+      >
+        {two(at.x)} × {two(at.y)}
+      </span>
+    </div>
+  );
 }
 
 const pct = (v: number): string => `${(v * 100).toFixed(3)}%`;
@@ -483,6 +538,8 @@ function ClimateView(): ReactNode {
               if (!(e.target as Element).closest('[data-testid="climate-region"]')) deselect();
             }}
           >
+            <div className="climate-grid" aria-hidden="true" />
+            <Crosshair plane={planeRef} />
             {empty.map((r, i) => (
               <div
                 key={`e${i}`}
@@ -510,12 +567,29 @@ function ClimateView(): ReactNode {
                   <StateGlyph state={r.state} />
                   <span className={cx('climate-region-name', r.ai && 't-ai')}>{r.name}</span>
                 </div>
-                {r.signature.map((s) => (
-                  <div key={s.kind} className="climate-sig t-meta">
-                    <span className="t-3">{s.kind}</span>{' '}
-                    <span className="t-2">{s.names.join(', ')}</span>
-                  </div>
-                ))}
+                {r.identity && <div className="climate-region-identity">{r.identity}</div>}
+                {r.signature.length > 0 && (
+                  <dl className="climate-sig">
+                    {r.signature.map((s) => (
+                      <div key={s.kind} className="climate-sig-row">
+                        <dt>{s.kind}</dt>
+                        <dd>
+                          {s.items.map((x) => (
+                            <span key={x.id} className="climate-sig-item">
+                              <StateGlyph state={x.state} size={8} tooltip={false} />
+                              {x.name}
+                            </span>
+                          ))}
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
+                )}
+                {(r.id === selected || drag?.id === r.id) && (
+                  <span className="climate-region-range num" data-testid="climate-range">
+                    {range(r.rect)}
+                  </span>
+                )}
                 {HANDLES.map((h) => (
                   <span
                     key={h}
