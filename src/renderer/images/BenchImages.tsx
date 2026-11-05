@@ -37,7 +37,7 @@ export function BenchImages({ world, entity }: { world: World; entity: Entity })
     {
       label: m.kind === 'concept' ? 'New concept' : 'New icon',
       keys: m.kind === 'concept' ? KEYS.concept : KEYS.icon,
-      onSelect: () => requestImage(id, m.kind),
+      onSelect: () => requestImage(id, m.kind === 'icon' ? 'icon' : 'concept'),
     },
     'separator',
     { label: 'Remove', destructive: true, onSelect: () => void removeImage(id, m) },

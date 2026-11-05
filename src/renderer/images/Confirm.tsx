@@ -5,6 +5,7 @@ import {
   IMAGE_MODELS,
   IMAGE_QUALITIES,
   IMAGE_SIZES,
+  SHEET_SIZE,
   type ImageModel,
   type ImageQuality,
   type ImageSize,
@@ -21,6 +22,7 @@ export const SIZE_LABEL: Record<ImageSize, string> = {
   '1536x1024': '1536 × 1024',
   '1024x1024': '1024 × 1024',
   '1024x1536': '1024 × 1536',
+  '2880x2880': '2880 × 2880',
 };
 const MODEL_LABEL: Record<ImageModel, string> = {
   'gpt-image-2.6-flare': 'Images 2.6 flare',
@@ -30,7 +32,7 @@ export const modelOptions = IMAGE_MODELS.map((m) => ({ value: m, label: MODEL_LA
 export const qualityOptions = IMAGE_QUALITIES.map((q) => ({ value: q, label: q }));
 /** Icons are generated square and filtered to 16×16; concepts can be any of the sizes. */
 export const sizesFor = (kind: ImageKind): ImageSize[] =>
-  kind === 'icon' ? ['1024x1024'] : [...IMAGE_SIZES];
+  kind === 'icon' ? ['1024x1024'] : IMAGE_SIZES.filter((s) => s !== SHEET_SIZE);
 
 /** The model and quality a new call starts with: the settings' (low, flare by default). */
 function defaults(): { model: ImageModel; quality: ImageQuality } {

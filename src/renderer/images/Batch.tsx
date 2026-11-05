@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import type { BatchResult, ImageEstimate, ImageResult } from '@core/images/gateway';
+import type { BatchResult, ImageEstimate, ImageResult, SheetOutcome } from '@core/images/gateway';
+import { SheetReviews } from './SheetReview';
 import {
   DEFAULT_SIZE,
   type ImageModel,
@@ -25,7 +26,7 @@ interface Row {
   failed?: string;
 }
 
-type Phase = 'planning' | 'ready' | 'running' | 'done';
+type Phase = 'planning' | 'ready' | 'running' | 'review' | 'done';
 
 /**
  * The batch dialog (docs/IMAGES.md §6): every prompt, each editable; the
@@ -63,27 +64,48 @@ function BatchBody({ entities, kind }: { entities: string[]; kind: ImageKind }):
     phaseRef.current = phase;
   }, [phase]);
 
-  // Claude writes every prompt first (no OpenAI call). Entities that already
-  // have one get a prompt too, so ticking "replace" needs no second pass.
+  // The plan, before anything is spent. Concepts: Claude writes every prompt
+  // (entities that already have one get one too, so "replace" needs no second
+  // pass). Icons: a line per item, laid out as sheets (IMAGES.md §2a), written
+  // locally, so the plan follows replace, model and quality.
+  const sheets = kind === 'icon';
+  const [sheetCalls, setSheetCalls] = useState<{ calls: number; estimate: ImageEstimate } | null>(
+    null,
+  );
+  const rowsRef = useRef<Row[]>([]);
+  useEffect(() => {
+    rowsRef.current = rows;
+  }, [rows]);
+  const planKey = sheets ? `${replace}|${opts.model}|${opts.quality}` : '';
   useEffect(() => {
     const requestId = newRequestId('plan');
     let live = true;
+    if (phaseRef.current !== 'planning' && phaseRef.current !== 'ready') return;
     void images
-      .batchPlan({ kind, entityIds: entities, replace: true, requestId, ...opts })
+      .batchPlan({
+        kind,
+        entityIds: entities,
+        replace: sheets ? replace : true,
+        requestId,
+        ...opts,
+      })
       .then((plan) => {
         if (!live) return;
         const w = currentWorld();
+        // Lines you edited survive a re-plan.
+        const edited = new Map(rowsRef.current.map((r) => [r.entityId, r.prompt]));
         setRows(
           plan.items.map((it) => ({
             entityId: it.entityId,
             name: it.name,
-            prompt: it.prompt ?? '',
-            has: !!w && !!selected(w, it.entityId, kind),
+            prompt: edited.get(it.entityId) || (it.line ?? it.prompt ?? ''),
+            has: it.skip === 'has_image' || (!!w && !!selected(w, it.entityId, kind)),
             ...(it.skip && it.skip !== 'has_image'
               ? { failed: it.error?.message ?? it.skip.replace('_', ' ') }
               : {}),
           })),
         );
+        if (sheets) setSheetCalls({ calls: plan.calls, estimate: plan.estimate });
         setPhase('ready');
       })
       .catch((e: unknown) => {
@@ -95,16 +117,18 @@ function BatchBody({ entities, kind }: { entities: string[]; kind: ImageKind }):
       live = false;
       if (phaseRef.current === 'planning') void images.cancel(requestId);
     };
-    // The plan is written once; model and quality don't change the prompts.
+    // Concepts are planned once; icons again when replace, model or quality change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [kind, entities]);
+  }, [kind, entities, planKey]);
 
   const runnable = useMemo(
     () => rows.filter((r) => !r.failed && (replace || !r.has) && r.prompt.trim() !== ''),
     [rows, replace],
   );
-  const calls = runnable.length;
+  const items = runnable.length;
+  const calls = sheets ? (items > 0 ? (sheetCalls?.calls ?? 0) : 0) : items;
   useEffect(() => {
+    if (sheets) return;
     let live = true;
     void images
       .estimate({ kind, ...opts, calls })
@@ -113,14 +137,19 @@ function BatchBody({ entities, kind }: { entities: string[]; kind: ImageKind }):
     return () => {
       live = false;
     };
-  }, [kind, opts, calls]);
+  }, [kind, opts, calls, sheets]);
+  const shownEstimate = sheets ? (sheetCalls?.estimate ?? null) : estimate;
+
+  // Icon sheets: each generated sheet waits for review; accepted cells become icons.
+  const [outcomes, setOutcomes] = useState<SheetOutcome[]>([]);
+  const [accepted, setAccepted] = useState<Record<string, number[]>>({});
 
   const close = (): void => {
     if (phaseRef.current === 'running') void images.cancel(batchId.current);
     imageUi.set((s) => ({ ...s, batch: null }));
     closeImageOverlay('batch');
   };
-  const over = !!estimate && estimate.totalUsd > estimate.remainingUsd;
+  const over = !!shownEstimate && shownEstimate.totalUsd > shownEstimate.remainingUsd;
   const canRun = phase === 'ready' && calls > 0 && status.enabled && !status.paused && !over;
 
   const run = async (): Promise<void> => {
@@ -129,6 +158,8 @@ function BatchBody({ entities, kind }: { entities: string[]; kind: ImageKind }):
     phaseRef.current = 'running';
     setProgress({ done: 0, total: calls, cost: 0 });
     for (const r of runnable) setPending(r.entityId, kind, true);
+    if (sheets)
+      return runSheets(runnable.map((r) => ({ entityId: r.entityId, line: r.prompt.trim() })));
     let out: BatchResult | null = null;
     try {
       out = await images.batchRun(
@@ -164,6 +195,102 @@ function BatchBody({ entities, kind }: { entities: string[]; kind: ImageKind }):
     setPhase('done');
   };
 
+  // What every sheet run so far cost (a regenerate adds to it).
+  const spent = useRef(0);
+  const runSheets = async (todo: { entityId: string; line: string }[]): Promise<void> => {
+    setPhase('running');
+    phaseRef.current = 'running';
+    const id = newRequestId('sheets');
+    batchId.current = id;
+    try {
+      const out = await images.sheetRun(
+        { batchId: id, items: todo, model: opts.model, quality: opts.quality },
+        (p) => setProgress({ done: p.done, total: p.total, cost: spent.current + p.costUsd }),
+      );
+      setOutcomes((o) => [...o, ...out.sheets]);
+      setAccepted((a) => {
+        const next = { ...a };
+        // Unflagged cells start accepted; a flagged one waits for you.
+        for (const sh of out.sheets)
+          if (sh.ok)
+            next[sh.review.sheet.id] = sh.review.cells
+              .filter((c) => c.flags.length === 0 && c.icon)
+              .map((c) => c.index);
+        return next;
+      });
+      spent.current += out.costUsd;
+      setProgress((p) => ({ ...p, done: p.total, cost: spent.current }));
+    } catch (e) {
+      flash(e instanceof Error ? e.message : String(e), 'error');
+    } finally {
+      for (const r of todo) setPending(r.entityId, 'icon', false);
+    }
+    setPhase('review');
+    phaseRef.current = 'review';
+  };
+
+  const acceptAll = async (): Promise<void> => {
+    const rs: Record<string, ImageResult> = {};
+    for (const sh of outcomes) {
+      if (!sh.ok) {
+        for (const e of sh.entityIds) rs[e] = { ok: false, error: sh.error };
+        continue;
+      }
+      const cells = accepted[sh.review.sheet.id] ?? [];
+      if (cells.length === 0) continue;
+      const r = await images.sheetAccept({
+        entityId: sh.review.sheet.entity,
+        imageId: sh.review.sheet.id,
+        cells,
+      });
+      if (!r.ok) {
+        flash(r.error.message, 'error');
+        continue;
+      }
+      for (const m of r.images) rs[m.entity] = { ok: true, image: m, receipt: sh.receipt };
+    }
+    setResults(rs);
+    setPhase('done');
+  };
+
+  /** The items of flagged (unaccepted) cells and failed sheets: a new, smaller sheet. */
+  const flaggedItems = (): { entityId: string; line: string }[] => {
+    const ids = new Set<string>();
+    for (const sh of outcomes) {
+      if (!sh.ok) {
+        if (sh.error.code !== 'cancelled') for (const e of sh.entityIds) ids.add(e);
+        continue;
+      }
+      const acc = new Set(accepted[sh.review.sheet.id] ?? []);
+      for (const c of sh.review.cells) if (!acc.has(c.index)) ids.add(c.entityId);
+    }
+    return rows
+      .filter((r) => ids.has(r.entityId) && r.prompt.trim() !== '')
+      .map((r) => ({ entityId: r.entityId, line: r.prompt.trim() }));
+  };
+  const regenerate = (): void => {
+    const todo = flaggedItems();
+    if (todo.length === 0) return;
+    // Those cells are being redone: drop them from the earlier reviews.
+    const redo = new Set(todo.map((t) => t.entityId));
+    setOutcomes((os) =>
+      os
+        .map((sh) =>
+          sh.ok
+            ? {
+                ...sh,
+                review: {
+                  ...sh.review,
+                  cells: sh.review.cells.filter((c) => !redo.has(c.entityId)),
+                },
+              }
+            : { ...sh, entityIds: sh.entityIds.filter((e) => !redo.has(e)) },
+        )
+        .filter((sh) => (sh.ok ? sh.review.cells.length > 0 : sh.entityIds.length > 0)),
+    );
+    void runSheets(todo);
+  };
+
   const made = Object.values(results).filter((r) => r.ok).length;
   const failed = Object.values(results).filter((r) => !r.ok && r.error.code !== 'cancelled').length;
   const title = `Generate ${kind === 'icon' ? 'icons' : 'concepts'} (${entities.length})`;
@@ -185,6 +312,28 @@ function BatchBody({ entities, kind }: { entities: string[]; kind: ImageKind }):
           >
             Cancel the rest
           </Button>
+        ) : phase === 'review' ? (
+          <>
+            {flaggedItems().length > 0 && (
+              <Tooltip content="A new, smaller sheet of the cells you didn't accept: one more call">
+                <Button
+                  variant="secondary"
+                  disabled={!status.enabled || status.paused}
+                  onClick={regenerate}
+                  data-testid="image-batch-regenerate"
+                >
+                  Regenerate {flaggedItems().length}
+                </Button>
+              </Tooltip>
+            )}
+            <Button
+              variant="primary"
+              onClick={() => void acceptAll()}
+              data-testid="image-batch-accept"
+            >
+              Accept {Object.values(accepted).reduce((n, c) => n + c.length, 0)}
+            </Button>
+          </>
         ) : phase === 'done' ? (
           <Button variant="primary" onClick={close} data-testid="image-batch-close">
             Done
@@ -218,63 +367,79 @@ function BatchBody({ entities, kind }: { entities: string[]; kind: ImageKind }):
           }
         }}
       >
-        <div className="img-batch-list" data-testid="image-batch-list">
-          {phase === 'planning'
-            ? names?.map((n, i) => (
-                <div key={entities[i]} className="img-batch-row" data-testid="image-batch-row">
-                  <span />
-                  <span className="img-batch-name">{n}</span>
-                  <Shimmer style={{ height: 34 }} />
-                  <span />
-                </div>
-              ))
-            : rows.map((r) => {
-                const skip = r.failed ?? (!replace && r.has ? 'has one' : null);
-                const res = results[r.entityId];
-                return (
-                  <div
-                    key={r.entityId}
-                    className="img-batch-row"
-                    data-testid="image-batch-row"
-                    data-entity={r.entityId}
-                    data-skip={skip ? '' : undefined}
-                    data-result={res ? (res.ok ? 'ok' : res.error.code) : undefined}
-                  >
-                    <ResultMark res={res} running={phase === 'running' && !skip && !res} />
-                    <span className="img-batch-name">{r.name}</span>
-                    {skip ? (
-                      <span className="img-batch-skip t-3">{skip}</span>
-                    ) : (
-                      <Textarea
-                        aria-label={`Prompt for ${r.name}`}
-                        value={r.prompt}
-                        readOnly={phase !== 'ready'}
-                        onChange={(e) => {
-                          const v = e.target.value;
-                          setRows((rs) =>
-                            rs.map((x) => (x.entityId === r.entityId ? { ...x, prompt: v } : x)),
-                          );
-                        }}
-                        data-testid="image-batch-prompt"
-                      />
-                    )}
-                    <span className="img-batch-result">
-                      {res?.ok ? (
-                        <Thumb meta={res.image} size={kind === 'icon' ? 32 : 56} />
-                      ) : res && res.error.code !== 'cancelled' ? (
-                        <Tooltip content={res.error.message}>
-                          <span className="t-danger t-meta" tabIndex={0}>
-                            {res.error.unknownOutcome ? 'unknown' : 'failed'}
-                          </span>
-                        </Tooltip>
-                      ) : null}
-                    </span>
+        {phase === 'review' ? (
+          <SheetReviews
+            outcomes={outcomes}
+            accepted={accepted}
+            names={Object.fromEntries(rows.map((r) => [r.entityId, r.name]))}
+            onToggle={(sheet, cell) =>
+              setAccepted((a) => {
+                const cur = new Set(a[sheet] ?? []);
+                if (cur.has(cell)) cur.delete(cell);
+                else cur.add(cell);
+                return { ...a, [sheet]: [...cur].sort((x, y) => x - y) };
+              })
+            }
+          />
+        ) : (
+          <div className="img-batch-list" data-testid="image-batch-list">
+            {phase === 'planning'
+              ? names?.map((n, i) => (
+                  <div key={entities[i]} className="img-batch-row" data-testid="image-batch-row">
+                    <span />
+                    <span className="img-batch-name">{n}</span>
+                    <Shimmer style={{ height: 34 }} />
+                    <span />
                   </div>
-                );
-              })}
-        </div>
+                ))
+              : rows.map((r) => {
+                  const skip = r.failed ?? (!replace && r.has ? 'has one' : null);
+                  const res = results[r.entityId];
+                  return (
+                    <div
+                      key={r.entityId}
+                      className="img-batch-row"
+                      data-testid="image-batch-row"
+                      data-entity={r.entityId}
+                      data-skip={skip ? '' : undefined}
+                      data-result={res ? (res.ok ? 'ok' : res.error.code) : undefined}
+                    >
+                      <ResultMark res={res} running={phase === 'running' && !skip && !res} />
+                      <span className="img-batch-name">{r.name}</span>
+                      {skip ? (
+                        <span className="img-batch-skip t-3">{skip}</span>
+                      ) : (
+                        <Textarea
+                          aria-label={`Prompt for ${r.name}`}
+                          value={r.prompt}
+                          readOnly={phase !== 'ready'}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            setRows((rs) =>
+                              rs.map((x) => (x.entityId === r.entityId ? { ...x, prompt: v } : x)),
+                            );
+                          }}
+                          data-testid="image-batch-prompt"
+                        />
+                      )}
+                      <span className="img-batch-result">
+                        {res?.ok ? (
+                          <Thumb meta={res.image} size={kind === 'icon' ? 32 : 56} />
+                        ) : res && res.error.code !== 'cancelled' ? (
+                          <Tooltip content={res.error.message}>
+                            <span className="t-danger t-meta" tabIndex={0}>
+                              {res.error.unknownOutcome ? 'unknown' : 'failed'}
+                            </span>
+                          </Tooltip>
+                        ) : null}
+                      </span>
+                    </div>
+                  );
+                })}
+          </div>
+        )}
 
-        {phase === 'running' || phase === 'done' ? (
+        {phase === 'running' || phase === 'done' || phase === 'review' ? (
           <div className="img-batch-bar" data-testid="image-batch-progress">
             <div className="img-progress">
               <span
@@ -285,8 +450,10 @@ function BatchBody({ entities, kind }: { entities: string[]; kind: ImageKind }):
             </div>
             <span className="num t-2">
               {phase === 'done'
-                ? `${made} of ${calls} ${plural}${failed ? `, ${failed} failed` : ''}`
-                : `${progress.done} / ${progress.total}`}
+                ? `${made} of ${items} ${plural}${failed ? `, ${failed} failed` : ''}`
+                : phase === 'review'
+                  ? `${outcomes.filter((o) => o.ok).length} of ${outcomes.length} ${outcomes.length === 1 ? 'sheet' : 'sheets'}`
+                  : `${progress.done} / ${progress.total}`}
             </span>
             <span className="num t-ai">{estimateText(progress.cost)}</span>
           </div>
@@ -331,13 +498,14 @@ function BatchBody({ entities, kind }: { entities: string[]; kind: ImageKind }):
             </Field>
             <div className="img-cost">
               <span className="img-cost-total" data-testid="image-batch-estimate">
-                {estimate ? estimateText(estimate.totalUsd) : '…'}
+                {shownEstimate ? estimateText(shownEstimate.totalUsd) : '…'}
               </span>
               <span
                 className={cx('img-cost-left num', over ? 't-danger' : 't-3')}
                 data-testid="image-batch-calls"
               >
                 {calls} {calls === 1 ? 'call' : 'calls'}
+                {sheets && ` · ${items} icons`}
               </span>
             </div>
           </div>

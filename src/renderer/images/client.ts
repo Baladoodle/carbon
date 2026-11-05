@@ -14,6 +14,12 @@ import type {
   ImagePromptResult,
   ImageResult,
   ImageStatus,
+  SheetAcceptRequest,
+  SheetAcceptResult,
+  SheetCropRequest,
+  SheetReview,
+  SheetRunRequest,
+  SheetRunResult,
 } from '@core/images/gateway';
 import { DEFAULT_IMAGE_MODEL, DEFAULT_IMAGE_QUALITY } from '@core/images/model';
 import { invoke, on } from '../bridge';
@@ -88,6 +94,23 @@ export const images = {
     } finally {
       progressListeners.delete(req.batchId);
     }
+  },
+  async sheetRun(
+    req: SheetRunRequest,
+    onProgress?: (p: BatchProgress) => void,
+  ): Promise<SheetRunResult> {
+    if (onProgress) progressListeners.set(req.batchId, onProgress);
+    try {
+      return await invoke('images:sheetRun', req);
+    } finally {
+      progressListeners.delete(req.batchId);
+    }
+  },
+  sheetAccept(req: SheetAcceptRequest): Promise<SheetAcceptResult> {
+    return invoke('images:sheetAccept', req);
+  },
+  sheetCrop(req: SheetCropRequest): Promise<SheetReview | null> {
+    return invoke('images:sheetCrop', req);
   },
   cancel(id: string): Promise<{ ok: true }> {
     return invoke('images:cancel', { id });

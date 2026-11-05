@@ -309,3 +309,74 @@
 .bench-images-none .bench-img-actions {
   opacity: 0.7;
 }
+
+/* ── Icon sheet review (docs/IMAGES.md §2a) ────────────────────────────── */
+
+.img-sheets {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 52vh;
+  overflow: auto;
+}
+.img-sheet {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+.img-sheet-preview {
+  width: 220px;
+  height: 220px;
+  object-fit: contain;
+}
+.img-sheet-cells {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.img-cell {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--surface-2);
+  opacity: 0.45;
+  cursor: pointer;
+  transition:
+    opacity var(--dur-hover) var(--ease),
+    border-color var(--dur-hover) var(--ease);
+}
+.img-cell img {
+  width: 32px;
+  height: 32px;
+}
+.img-cell-on {
+  opacity: 1;
+  border-color: var(--accent);
+}
+.img-cell-flagged {
+  border-color: color-mix(in srgb, var(--warn) 60%, var(--line));
+}
+.img-cell-on.img-cell-flagged {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--warn) 60%, transparent);
+}
+.img-cell:disabled {
+  cursor: default;
+}
+.img-cell-empty {
+  width: 16px;
+  height: 16px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 3px;
+}
+.img-sheet-failed {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  grid-template-columns: none;
+}

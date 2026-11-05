@@ -276,7 +276,7 @@ test('images: Climate panels filled by concept art, the Bench strip, the confirm
     await expect(p.getByTestId('image-batch')).toHaveAttribute('data-phase', 'ready');
     await p.getByRole('combobox', { name: 'Existing' }).click();
     await p.getByRole('option', { name: 'Replace' }).click();
-    await expect(p.getByTestId('image-batch-calls')).toHaveText('4 calls');
+    await expect(p.getByTestId('image-batch-calls')).toHaveText('1 call · 4 icons');
     await p.mouse.move(2, 2);
     await c.screenshot('images-batch', { docs: true });
     await p.keyboard.press('Escape');

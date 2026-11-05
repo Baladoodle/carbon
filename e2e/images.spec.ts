@@ -201,26 +201,52 @@ test('codex: the image column, the row menu, and a batch from the bulk bar (skip
   await expect(
     page().locator('[data-testid="image-batch-row"][data-entity="spore-lantern"]'),
   ).toHaveAttribute('data-skip', '');
-  await expect(page().getByTestId('image-batch-calls')).toHaveText('3 calls');
+  await expect(page().getByTestId('image-batch-calls')).toHaveText('1 call · 3 icons');
   await page()
     .locator('[data-testid="image-batch-row"][data-entity="cloud-anklet"] textarea')
     .fill('An anklet of braided cloud, light as breath.');
   await page().getByRole('combobox', { name: 'Existing' }).click();
   await page().getByRole('option', { name: 'Replace' }).click();
-  await expect(page().getByTestId('image-batch-calls')).toHaveText('4 calls');
+  await expect(page().getByTestId('image-batch-calls')).toHaveText('1 call · 4 icons');
   await page().getByRole('combobox', { name: 'Existing' }).click();
   await page().getByRole('option', { name: 'Skip' }).click();
-  await expect(page().getByTestId('image-batch-calls')).toHaveText('3 calls');
+  await expect(page().getByTestId('image-batch-calls')).toHaveText('1 call · 3 icons');
   await carbon.screenshot('images-batch-ready');
   const before = (await imageLog()).length;
+  // Icons batch as one sheet (IMAGES.md §2a): one paid call, then a review.
   await page().getByTestId('image-batch-run').click();
+  await expect(batch).toHaveAttribute('data-phase', 'review');
+  expect((await imageLog()).length).toBe(before + 1);
+  const cells = page().getByTestId('image-cell');
+  await expect(cells).toHaveCount(3);
+  await expect(page().getByTestId('image-batch-progress')).toContainText('1 of 1 sheet');
+  await expect(page().getByTestId('image-batch-progress')).not.toContainText('$0 ');
+  await carbon.screenshot('images-sheet-review');
+  // Reject the Cloud Anklet's cell, and regenerate it as a smaller sheet.
+  const anklet = page().locator('[data-testid="image-cell"][data-entity="cloud-anklet"]');
+  if ((await anklet.getAttribute('aria-pressed')) === 'true') await anklet.click();
+  await expect(anklet).toHaveAttribute('aria-pressed', 'false');
+  await expect(page().getByTestId('image-batch-accept')).toHaveText('Accept 2');
+  await page().getByTestId('image-batch-regenerate').click();
+  await expect(batch).toHaveAttribute('data-phase', 'review');
+  expect((await imageLog()).length).toBe(before + 2);
+  await expect(page().getByTestId('image-sheet')).toHaveCount(2);
+  await expect(cells).toHaveCount(3);
+  await expect(anklet).toHaveAttribute('aria-pressed', 'true');
+  await page().getByTestId('image-batch-accept').click();
   await expect(batch).toHaveAttribute('data-phase', 'done');
   await expect(page().locator('[data-testid="image-batch-row"][data-result="ok"]')).toHaveCount(3);
-  expect((await imageLog()).length).toBe(before + 3);
   const w = await world();
-  const anklet = w.images?.['cloud-anklet'];
-  const made = anklet?.all.find((m) => m.id === anklet.icon);
-  expect(made?.origin).toMatchObject({ prompt: expect.stringContaining('braided cloud') });
+  const im = w.images?.['cloud-anklet'];
+  const made = im?.all.find((m) => m.id === im.icon);
+  expect(made?.origin.by).toBe('sheet');
+  // The sheet it came from is kept (re-cropping is free), and it carries the edited line.
+  const sheetId = made?.origin.by === 'sheet' ? made.origin.sheet : '';
+  const sheet = Object.values(w.images ?? {})
+    .flatMap((x) => x.all)
+    .find((m) => m.id === sheetId);
+  expect(sheet?.kind).toBe('sheet');
+  expect(JSON.stringify(sheet?.origin)).toContain('braided cloud');
   await page().getByTestId('image-batch-close').click();
   await expect(batch).toHaveCount(0);
   await expect(row('cloud-anklet').getByTestId('codex-image')).toBeVisible();

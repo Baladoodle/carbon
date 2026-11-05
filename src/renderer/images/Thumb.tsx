@@ -12,7 +12,9 @@ export function describe(m: ImageMeta): string {
       ? `${o.model} · ${o.quality} · ${o.size}`
       : o.by === 'fake'
         ? `fake · ${o.size}`
-        : `${o.preset} filter`;
+        : o.by === 'sheet'
+          ? `cell ${o.cell + 1} of an icon sheet`
+          : `${o.preset} filter`;
   const cost = m.costUsd !== undefined && m.costUsd > 0 ? ` · $${m.costUsd.toFixed(3)}` : '';
   return `${m.kind === 'icon' ? 'Icon' : 'Concept'} · ${made}${cost} · ${m.created.slice(0, 10)}`;
 }
