@@ -158,7 +158,7 @@ Neither changes the world.
 | `suggest` | `suggest_one` or `suggest_three` for a field; nothing is applied | Claude |
 | `fill` | `fill_entity`: proposals for empty fields; nothing is applied | Claude |
 | `critique` | `critique` on demand | Claude |
-| `spread` | `spread`: saved as a spread (you see it in the Spread view); the candidates come back for `judge_candidate` | Claude |
+| `spread` | `spread`: saved as a spread (it's in the Spread view's history); the candidates come back for `judge_candidate` | Claude |
 | `image_prompt` | `image_prompt`: the prompt carbon would use | Claude |
 | `generate_image` | a concept or a 16×16 icon, added and chosen (writes a prompt first if none is given) | OpenAI (+ Claude) |
 | `plan_image_batch` | prompts (concepts) or sheet lines (icons) and the estimate; nothing is generated | Claude for concepts; free for icons |

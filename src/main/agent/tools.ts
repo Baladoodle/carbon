@@ -1147,7 +1147,7 @@ const spread = tool({
   name: 'spread',
   title: 'Run a spread',
   description:
-    "Runs a spread (as `enter` in the Spread view): candidates for a spot, by a move. Spot: `{ type: 'cell', band, lane }`, `{ type: 'region', band, climate }`, `{ type: 'entity', entity }`, `{ type: 'selection', entities }` or `{ type: 'note', note, entities }`. Moves: fill, vary, oppose, alloy, push, ground, cost, break, name. The spread is saved (the user sees it in the Spread view) and its candidates come back; keep or kill each with judge_candidate. Paid (Claude).",
+    "Runs a spread (as `enter` in the Spread view): candidates for a spot, by a move. Spot: `{ type: 'cell', band, lane }`, `{ type: 'region', band, climate }`, `{ type: 'entity', entity }`, `{ type: 'selection', entities }` or `{ type: 'note', note, entities }`. Moves: fill, vary, oppose, alloy, push, ground, cost, break, name. The spread is saved (it's in the Spread view's history) and its candidates come back; keep or kill each with judge_candidate. Paid (Claude).",
   kind: 'paid',
   input: z.object({
     spot: SpotSchema,
