@@ -70,3 +70,37 @@ describe('a keystroke in the formula editor, on 2,000 entities', () => {
     expect(median(times)).toBeLessThan(8);
   });
 });
+
+describe('an entity change that no formula reads, on 2,000 entities', () => {
+  it('costs well under a frame: the placement map is reused, nothing is re-evaluated', () => {
+    let w = stress();
+    const engine = new NumbersEngine();
+    engine.update(w);
+    // A creature: no formula here queries creatures or entities.
+    const first = engine.update(w);
+    const times: number[] = [];
+    for (let i = 0; i < 40; i++) {
+      const r = applyCommands(
+        w,
+        [cmd('entity.update', { id: 'moss-grazer', set: { identity: `changed ${i}` } })],
+        { now: SAMPLE_TIME },
+      );
+      if (!r.ok) throw new Error(r.error.message);
+      w = r.value.world;
+      const t = performance.now();
+      const a = engine.update(w);
+      times.push(performance.now() - t);
+      // The mechanism, deterministically: nothing re-evaluated, the placement
+      // map and the analysis's definitions reused, only the world is new.
+      expect(a.evaluated).toEqual([]);
+      expect(a.internals.evalWorld.placement).toBe(first.internals.evalWorld.placement);
+      expect(a.defs).toBe(first.defs);
+      expect(a.internals.evalWorld.world).toBe(w);
+    }
+    // Measured alone: 3.4 ms median before review-b (the placement map rebuilt
+    // and compared, and the analysis rebuilt, every time); about 0.9 ms after,
+    // most of it one identity scan over the entities. Under the parallel test
+    // run, only the frame budget is asserted.
+    expect(median(times)).toBeLessThan(16);
+  });
+});

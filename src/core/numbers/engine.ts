@@ -125,6 +125,13 @@ const sameResult = (a: DefResult, b: DefResult): boolean =>
       a.error.span.start === b.error.span.start &&
       a.error.span.end === b.error.span.end;
 
+/** Whether any changed token is one a definition read (iterating the smaller set). */
+function touches(reads: ReadonlySet<string>, changed: ReadonlySet<string>): boolean {
+  const [small, large] = reads.size < changed.size ? [reads, changed] : [changed, reads];
+  for (const t of small) if (large.has(t)) return true;
+  return false;
+}
+
 const byPosition = (a: Diagnostic, b: Diagnostic): number =>
   a.span.start - b.span.start ||
   a.span.end - b.span.end ||
@@ -179,23 +186,35 @@ export class NumbersEngine {
       const nv = world.numbers.variables;
       for (const k of new Set([...Object.keys(pv), ...Object.keys(nv)]))
         if (pv[k] !== nv[k]) changed.add(`var:${k}`);
-      if (prev.world.entities !== world.entities)
-        for (const id of new Set([
-          ...Object.keys(prev.world.entities),
-          ...Object.keys(world.entities),
-        ])) {
-          const a = prev.world.entities[id];
-          const b = world.entities[id];
-          if (a === b || deepEqual(a, b)) continue;
+      if (prev.world.entities !== world.entities) {
+        const before = prev.world.entities;
+        const after = world.entities;
+        const differs = (id: string): void => {
+          const a = before[id];
+          const b = after[id];
+          if (a === b || deepEqual(a, b)) return;
           changed.add(`entity:${id}`);
           if (a) changed.add(`kind:${a.kind}`);
           if (b) changed.add(`kind:${b.kind}`);
+        };
+        // Patches share unchanged entities, so this is mostly identity checks.
+        const ids = Object.keys(after);
+        let kept = 0;
+        for (const id of ids) {
+          if (before[id] !== undefined) kept++;
+          differs(id);
         }
-      for (const id of new Set([...prev.placement.keys(), ...placement.keys()])) {
-        const a = prev.placement.get(id);
-        const b = placement.get(id);
-        if (a?.band !== b?.band || a?.tier !== b?.tier) changed.add(`placement:${id}`);
+        // Removed entities, only when some are missing.
+        if (kept !== Object.keys(before).length)
+          for (const id of Object.keys(before)) if (after[id] === undefined) differs(id);
       }
+      // The same Map means nothing moved (the resolver reuses it).
+      if (prev.placement !== placement)
+        for (const id of new Set([...prev.placement.keys(), ...placement.keys()])) {
+          const a = prev.placement.get(id);
+          const b = placement.get(id);
+          if (a?.band !== b?.band || a?.tier !== b?.tier) changed.add(`placement:${id}`);
+        }
     }
 
     const evalWorld: EvalWorld = { world, schema, placement };
@@ -247,11 +266,7 @@ export class NumbersEngine {
         continue;
       }
       const old = prev?.cache.get(name);
-      const reuse =
-        !full &&
-        old !== undefined &&
-        old.key === key &&
-        ![...old.reads].some((t) => changed.has(t));
+      const reuse = !full && old !== undefined && old.key === key && !touches(old.reads, changed);
       if (reuse) {
         results.set(name, old.result);
         cache.set(name, old);
@@ -269,23 +284,32 @@ export class NumbersEngine {
       if (!old || !sameResult(old.result, result)) changed.add(`def:${name}`);
     }
 
-    const analysis = buildAnalysis(
-      source,
-      parsed,
-      checker,
-      graph,
-      results,
-      blocked,
-      evalDiagnostics,
-      evaluated,
-      {
-        checker,
-        graph,
-        evalWorld,
-        results,
-        stepLimit: this.stepLimit,
-      },
-    );
+    const internals: Internals = { checker, graph, evalWorld, results, stepLimit: this.stepLimit };
+    // Nothing re-parsed, re-checked or re-evaluated: every definition, value
+    // and diagnostic is what it was, so only the world the analysis reads
+    // from is new (curves and probes evaluate against it).
+    const analysis: NumbersAnalysis =
+      prev && !full && prev.checker === checker && evaluated.length === 0
+        ? {
+            ...prev.analysis,
+            evaluated,
+            internals,
+            value(name) {
+              const r = results.get(name);
+              return r?.ok ? r.value : undefined;
+            },
+          }
+        : buildAnalysis(
+            source,
+            parsed,
+            checker,
+            graph,
+            results,
+            blocked,
+            evalDiagnostics,
+            evaluated,
+            internals,
+          );
     this.state = {
       world,
       source,

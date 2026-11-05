@@ -8,6 +8,7 @@ import { walk, type BinaryOp, type Def, type Expr, type Program } from './ast';
 import { analyzeNumbers, compileExpression, NumbersEngine, type NumbersAnalysis } from './engine';
 import { DEFAULT_STEP_LIMIT, Evaluator } from './evaluate';
 import { parseProgram } from './parser';
+import { freshPlacement } from './placement';
 import { printProgram } from './printer';
 import { NUMBER } from './types';
 import { toPlain } from './values';
@@ -382,4 +383,55 @@ function containsError(d: Def): boolean {
 
 it('the default step limit is the documented one', () => {
   expect(DEFAULT_STEP_LIMIT).toBe(200_000);
+});
+
+describe('placement reuse', () => {
+  const placementCommand: fc.Arbitrary<Command> = fc.oneof(
+    fc
+      .record({
+        id: fc.constantFrom('low-sky', 'hollows', 'groundline', 'high-drift'),
+        field: fc.constantFrom('y_top', 'y_bottom'),
+        value: fc.oneof(fc.integer({ min: -3000, max: 3000 }), fc.constantFrom('-inf', '+inf')),
+      })
+      .map((p) => cmd('entity.setField', p)),
+    fc
+      .record({
+        from: fc.constantFrom('vent-glass-visor', 'cinder-sting', 'spore-lantern', 'moss-grazer'),
+        type: fc.constantFrom('in_band', 'in_biome'),
+        to: fc.constantFrom('hollows', 'low-sky', 'groundline', 'glowmoss-caverns'),
+      })
+      .chain((p) => fc.constantFrom(cmd('relation.add', p), cmd('relation.remove', p))),
+    fc
+      .record({
+        id: fc.constantFrom('low-sky', 'hollows', 'glowmoss-caverns', 'moss-grazer'),
+        state: fc.constantFrom('graveyard', 'idea'),
+      })
+      .map((p) => cmd('entity.setState', { ...p, why: 'w', killed: { reason: 'seen it' } })),
+    fc
+      .constantFrom('vent-glass-visor', 'moss-grazer', 'hollows')
+      .map((id) => cmd('entity.update', { id, set: { identity: 'unread change' } })),
+  );
+  const SOURCE = [
+    'sky = count(entities where band != none and tier > 0)',
+    'deep = count(items where tier < 0)',
+    'where_visor = items where name == "Vent-Glass Visor"',
+    'tiers = sum(bands, tier)',
+  ].join('\n');
+
+  it('incremental equals from scratch while bands, relations and states move things around', () => {
+    fc.assert(
+      fc.property(fc.array(placementCommand, { minLength: 1, maxLength: 12 }), (commands) => {
+        let w = step(sampleWorld(), cmd('numbers.setFormulas', { source: SOURCE }));
+        const engine = new NumbersEngine();
+        engine.update(w);
+        for (const c of commands) {
+          w = step(w, c);
+          expect(canon(engine.update(w))).toEqual(
+            canon(analyzeNumbers(w, { placement: freshPlacement })),
+          );
+        }
+      }),
+      { numRuns: 200 },
+    );
+  });
 });
