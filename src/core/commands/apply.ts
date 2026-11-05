@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { Entity } from '../model/entity';
 import { canonicalPatch } from '../files/canonical';
 import { schemaProblems, type WorldSchema } from '../model/schema';
+import { imagesProblems } from '../images/commands';
 import { problemsOf, validateWorld, type Problem } from '../model/validate';
 import { getEntity, schemaOf, WorldSchemaZ, type World } from '../model/world';
 import { err, ok, type Result } from '../util/result';
@@ -57,6 +58,9 @@ export function checkPatched(before: World, after: World, patch: Patch): Problem
       after[s as keyof World],
     );
     if (!r.success) out.push(sectionProblem(s, r.error.issues[0]?.message ?? 'invalid'));
+    // Added by images-core: images keep their canonical form (core/images/commands.ts).
+    else if (s === 'images')
+      for (const m of imagesProblems(after.images)) out.push(sectionProblem(s, m));
   }
   if (out.length > 0) return out;
   if (sections.has('schema')) {

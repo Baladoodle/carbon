@@ -74,6 +74,11 @@ export async function readWorldFiles(dir: string, unreadable?: LoadIssue[]): Pro
   for (const n of names) if (await isDir(path.join(dir, 'entities', n))) kinds.push(n);
   for (const k of kinds) rels.push(...(await listFiles(dir, `entities/${k}`, '.md')));
   rels.push(...(await listFiles(dir, 'spreads', '.json')));
+  // Added by images-core: image metadata and selections (the PNGs are binary, read by main/images).
+  const imageDirs = await readdir(path.join(dir, 'images')).catch(() => [] as string[]);
+  for (const n of imageDirs.sort())
+    if (!n.startsWith('.') && (await isDir(path.join(dir, 'images', n))))
+      rels.push(...(await listFiles(dir, `images/${n}`, '.json')));
   const files: FileMap = new Map();
   const problems: LoadIssue[] = [];
   await Promise.all(
