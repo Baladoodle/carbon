@@ -9,6 +9,26 @@ import { MomentSchema } from '@core/ai/moments';
 import { PatchSchema } from '@core/commands/patch';
 import { CommandSchema } from '@core/commands/apply';
 import { WorldSchemaZ } from '@core/model/world';
+import {
+  BatchPlanRequestSchema,
+  BatchPlanSchema,
+  BatchProgressSchema,
+  BatchResultSchema,
+  BatchRunRequestSchema,
+  DeleteImageFilesRequestSchema,
+  DeleteImageFilesResultSchema,
+  IconFromConceptRequestSchema,
+  ImageEstimateRequestSchema,
+  ImageEstimateSchema,
+  ImageFileRequestSchema,
+  ImageFileSchema,
+  ImageGenerateRequestSchema,
+  ImageLogEntrySchema,
+  ImagePromptRequestSchema,
+  ImagePromptResultSchema,
+  ImageResultSchema,
+  ImageStatusSchema,
+} from '@core/images/gateway';
 
 /**
  * The typed contract between the main process and the renderer.
@@ -200,6 +220,27 @@ export const INVOKE = {
     request: z.object({ id: z.string() }),
     response: z.object({ text: z.string(), params: z.record(z.string(), z.unknown()) }).nullable(),
   },
+  // Added by images-core: the image gateway (docs/IMAGES.md §4; src/core/images/gateway.ts).
+  'images:prompt': {
+    request: ImagePromptRequestSchema.extend({ requestId: z.string().min(1).optional() }),
+    response: ImagePromptResultSchema,
+  },
+  'images:estimate': { request: ImageEstimateRequestSchema, response: ImageEstimateSchema },
+  'images:generate': { request: ImageGenerateRequestSchema, response: ImageResultSchema },
+  'images:iconFromConcept': { request: IconFromConceptRequestSchema, response: ImageResultSchema },
+  'images:batchPlan': { request: BatchPlanRequestSchema, response: BatchPlanSchema },
+  'images:batchRun': { request: BatchRunRequestSchema, response: BatchResultSchema },
+  'images:cancel': { request: z.object({ id: z.string().min(1) }), response: done },
+  'images:status': { request: none, response: ImageStatusSchema },
+  'images:file': { request: ImageFileRequestSchema, response: ImageFileSchema },
+  'images:deleteFiles': {
+    request: DeleteImageFilesRequestSchema,
+    response: DeleteImageFilesResultSchema,
+  },
+  'images:log': {
+    request: z.object({ limit: z.number().int().min(1).max(5000).optional() }),
+    response: z.array(ImageLogEntrySchema),
+  },
   'window:control': {
     request: z.enum(['minimize', 'maximize', 'close', 'devtools']),
     response: done,
@@ -215,6 +256,11 @@ export const EVENTS = {
   'ai:status': AiStatusSchema,
   'store:conflicts': z.array(StoreConflictSchema),
   'store:notice': StoreNoticeSchema,
+  // Added by images-core.
+  'images:status': ImageStatusSchema,
+  'images:progress': BatchProgressSchema,
+  /** A new line in the image log (an image call finished). */
+  'images:logged': ImageLogEntrySchema,
 } as const satisfies Record<string, z.ZodType>;
 
 export type InvokeChannel = keyof typeof INVOKE;
