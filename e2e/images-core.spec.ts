@@ -21,7 +21,7 @@ test('images: prompt, estimate, generate, icon from concept, files and undo over
   expect(status).toMatchObject({
     mode: 'fake',
     enabled: true,
-    model: 'gpt-image-2.6-flare',
+    model: 'gpt-image-2.5-flare',
     quality: 'low',
   });
 

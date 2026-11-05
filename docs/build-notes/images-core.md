@@ -42,7 +42,9 @@ $0.2815 in total** (§5).
   first; ids are ULIDs).
 - `world.settings.art?: { direction: string; kinds: Partial<Record<EntityKind, string>> }`.
 - `imageSettings(world.settings)` gives `{ model, quality, budget: { sessionUsd, monthUsd }, pricing, pricingVerified }`
-  with defaults (`gpt-image-2.6-flare`, `low`, $1 per session, $10 per month).
+  with defaults (`gpt-image-2.5-flare`, `low`, $1 per session, $10 per month).
+  Models: `gpt-image-2.5-flare` (the default, IMAGES.md §1), `gpt-image-2.6-flare`
+  and `gpt-image-2.6-sunburst`.
 
 ### 1.3 Commands (undoable, from the renderer with `dispatch(cmd(...))`)
 
@@ -190,30 +192,61 @@ review. `calls.json` holds each call's prompt, usage, cost and latency.
 `openai.com/api/pricing` answered 403. Recorded in the code as
 `PRICING_VERIFIED` / `PRICING_SOURCE` and in `settings.images.pricingVerified`.
 
-| Per 1M tokens | flare | sunburst |
-|---|---|---|
-| Text input | $5.00 | $5.00 |
-| Image input | $8.00 | $8.00 |
-| Image output | $30.00 | $30.00 |
+| Per 1M tokens | 2.6-flare | 2.6-sunburst | 2.5-flare |
+|---|---|---|---|
+| Text input | $5.00 | $5.00 | $5.00 |
+| Image input | $8.00 | $8.00 | $8.00 |
+| Image output | $30.00 | $30.00 | $30.00 |
 
 Cached input ($1.25 text, $2 image) applies only to the Responses API, not
 the Images API, so it isn't used. OpenAI publishes **no per-image prices** for
-the 2.6 models, so the estimate uses output tokens per image, measured where
-I could:
+these models, so the estimate uses output tokens per image
+(`OUTPUT_TOKENS_BY_MODEL`). **M** marks a measured value and **D** a derived one.
+
+**gpt-image-2.6-flare and 2.6-sunburst** (the same table):
 
 | Output tokens | 1024² | 1536×1024 / 1024×1536 | 2880² (sheet) |
 |---|---|---|---|
-| low | **824** (measured, both models) | **664** (measured, both models) | **2,768** (measured, flare) |
-| medium | 3,199 | 2,603 | 10,746 |
-| high | 12,602 | 10,305 | 42,333 |
+| low | **824 M** (both models) | **664 M** (both models; 1024×1536 taken as equal) | **2,768 M** (flare, an edit with the guide) |
+| medium | **1,449 M** (the coordinator's controlled run) | 1,168 D | 4,868 D |
+| high | 12,602 D | 10,305 D | 42,333 D |
 
-Medium and high are extrapolated with OpenAI's published ratios for the earlier
-GPT Image models (≈ 3.9× and 15.4× low) and are unmeasured. A reference adds
-1,024 image input tokens at 1024², and the 2880² guide added 1,521.
+Medium at the other sizes is low × 1.7585, the measured medium/low ratio.
+**High is unmeasured:** it is low × 15.3, OpenAI's ratio for the earlier GPT
+Image models, which errs high.
 
-**So, per image, low:** a 1024² icon ≈ $0.025, a 1536×1024 concept ≈ $0.020,
-an edit ≈ $0.034, and a 100-icon sheet ≈ $0.106 (about a tenth of a cent per
-icon). Every value can be overridden per model in `settings.images.pricing`.
+**gpt-image-2.5-flare** (the default, and the cheaper option):
+
+| Output tokens | 1024² | 1536×1024 / 1024×1536 | 2880² |
+|---|---|---|---|
+| low | **196 M** | 158 D | 658 D |
+| medium | **439 M** | 354 D | 1,475 D |
+| high | 1,729 D | 1,393 D | 5,810 D |
+
+The other sizes scale like 2.6's measured low (× 0.806 and × 3.359). High is
+medium × 3.94 (the earlier models' ratio) and is **unmeasured**.
+
+A reference adds 1,024 image input tokens at 1024², and the 2880² guide added
+1,521.
+
+**So, per image at 1024²:** 2.6 low ≈ $0.025, 2.6 medium ≈ $0.044, 2.5-flare
+low ≈ $0.006, 2.5-flare medium ≈ $0.013. A 1536×1024 concept on 2.6 low is
+≈ $0.020, an edit ≈ $0.034, and a 100-icon sheet ≈ $0.106 (about a tenth of a
+cent per icon). The defaults are **gpt-image-2.5-flare, low** (IMAGES.md §1 after the measured comparison: the user's choice); both 2.6 models stay selectable in settings and per call. Every price
+can be overridden per model in `settings.images.pricing`, and a finished
+call's cost always comes from its reported usage.
+
+**Icons always send `background: 'transparent'`** explicitly, for generated
+icons, edits from a concept and sheets, on every model. Without it, 2.5-flare
+paints a fake checkerboard into the pixels, while 2.6 returns real alpha. Tests
+check this at the gateway (for each model) and on the wire through the SDK.
+
+**The default changed after the build** (base `f1d9c4c`, IMAGES.md §1): the
+coordinator's controlled comparison measured 2.5-flare at 196 (low) and 439
+(medium) output tokens at 1024², against 824 and 1,449 for 2.6-flare at the
+same per-token price, and the user chose 2.5-flare as the default. My real
+calls (§5) were all made on 2.6 models before that; no new real calls were
+made for the change.
 
 ## 5. Real calls and spend
 
@@ -311,6 +344,12 @@ above the threshold: `src/core/images` is 98.8% of lines.
 | `.gitattributes` | `*.png binary` (the repo's fixtures) |
 
 ## 8. Gaps
+
+- **A flaky test outside this package:** `e2e/screens.spec.ts` › "screens of
+  every view, the Bench and the palette" failed once in four runs (alone and
+  in the full suite) at `bench-add-field`. The test counts the button and then
+  clicks it, and it can disappear in between. It's the Bench's test, so I left
+  it alone. The full suite then passed 124 of 124.
 
 - **The pixel filters are an adapter** (`src/main/images/pixel.ts`) until the
   pixel branch merges. The 16×16 icons from it are recognisable but mushy:

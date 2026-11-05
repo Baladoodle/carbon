@@ -23,11 +23,15 @@ export const IMAGE_META_KINDS = ['concept', 'icon', 'sheet'] as const;
 export const ImageMetaKindSchema = z.enum(IMAGE_META_KINDS);
 export type ImageMetaKind = z.infer<typeof ImageMetaKindSchema>;
 
-/** The OpenAI image models carbon offers. The first is the default. */
-export const IMAGE_MODELS = ['gpt-image-2.6-flare', 'gpt-image-2.6-sunburst'] as const;
+/** The OpenAI image models carbon offers. The default is 2.5 flare (IMAGES.md: the user's choice, about a quarter of 2.6's tokens). */
+export const IMAGE_MODELS = [
+  'gpt-image-2.6-flare',
+  'gpt-image-2.6-sunburst',
+  'gpt-image-2.5-flare',
+] as const;
 export const ImageModelSchema = z.enum(IMAGE_MODELS);
 export type ImageModel = z.infer<typeof ImageModelSchema>;
-export const DEFAULT_IMAGE_MODEL: ImageModel = 'gpt-image-2.6-flare';
+export const DEFAULT_IMAGE_MODEL: ImageModel = 'gpt-image-2.5-flare';
 
 /** Rendering quality. Low is the default for concept art and icons alike; medium and high are per call. */
 export const IMAGE_QUALITIES = ['low', 'medium', 'high'] as const;

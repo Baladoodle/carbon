@@ -251,7 +251,7 @@ describe('pricing', () => {
   it('estimates by quality and size, and settings override the defaults', () => {
     const s = imageSettings({});
     expect(s).toMatchObject({
-      model: 'gpt-image-2.6-flare',
+      model: 'gpt-image-2.5-flare',
       quality: 'low',
       budget: { sessionUsd: 1, monthUsd: 10 },
     });
@@ -356,5 +356,38 @@ describe('the image_prompt builder', () => {
     expect(p.ok && p.value.result.prompt).toBe('Coral on clouds, soft light at dawn, wide view');
     expect(imagePromptBuilder.parse({ prompt: 'short' }, w, req).ok).toBe(false);
     expect(imagePromptBuilder.parse(null, w, req).ok).toBe(false);
+  });
+});
+
+describe('models and output tokens (coordinator follow-up)', () => {
+  it('2.6 medium is the measured 1,449 at 1024²; other sizes follow the measured ratio', async () => {
+    const { OUTPUT_TOKENS_BY_MODEL, outputTokens } = await import('./pricing');
+    const t = OUTPUT_TOKENS_BY_MODEL['gpt-image-2.6-flare'];
+    expect(t.medium['1024x1024']).toBe(1449);
+    const ratio = 1449 / 824;
+    expect(t.medium['1536x1024']).toBe(Math.round(664 * ratio));
+    expect(t.medium['2880x2880']).toBe(Math.round(2768 * ratio));
+    expect(OUTPUT_TOKENS_BY_MODEL['gpt-image-2.6-sunburst']).toEqual(t);
+    // 2.5-flare: measured low and medium at 1024², and much cheaper.
+    expect(outputTokens('gpt-image-2.5-flare', 'low', '1024x1024')).toBe(196);
+    expect(outputTokens('gpt-image-2.5-flare', 'medium', '1024x1024')).toBe(439);
+    // An unknown model estimates like the default (2.5-flare).
+    expect(outputTokens('gpt-image-9', 'low', '1024x1024')).toBe(196);
+  });
+
+  it("the default is 2.5-flare at low (IMAGES.md, the user's choice); 2.6 stays selectable", async () => {
+    const { IMAGE_MODELS, ImageModelSchema } = await import('./model');
+    expect(IMAGE_MODELS).toContain('gpt-image-2.5-flare');
+    expect(ImageModelSchema.safeParse('gpt-image-2.5-flare').success).toBe(true);
+    const s = imageSettings({});
+    expect([s.model, s.quality]).toEqual(['gpt-image-2.5-flare', 'low']);
+    expect(imageSettings({ images: { model: 'gpt-image-2.6-flare' } }).model).toBe(
+      'gpt-image-2.6-flare',
+    );
+    const est = (model: 'gpt-image-2.5-flare' | 'gpt-image-2.6-flare', quality: 'low' | 'medium') =>
+      estimateNanos(s, { model, quality, size: '1024x1024', promptChars: 200 });
+    expect(est('gpt-image-2.5-flare', 'low')).toBe(50 * 5000 + 196 * 30000);
+    expect(est('gpt-image-2.6-flare', 'medium')).toBe(50 * 5000 + 1449 * 30000);
+    expect(est('gpt-image-2.5-flare', 'medium')).toBeLessThan(est('gpt-image-2.6-flare', 'low'));
   });
 });

@@ -182,6 +182,22 @@ describe('the OpenAI provider (recorded responses)', () => {
   });
 });
 
+describe('the transparent background on the wire', () => {
+  it.each(['gpt-image-2.6-flare', 'gpt-image-2.6-sunburst', 'gpt-image-2.5-flare'])(
+    '%s: an icon request carries background "transparent", for generate and for edit',
+    async (model) => {
+      const r = recorded('cloud-anklet-icon-flare');
+      const c = client(() => okFrom(r));
+      const p = new OpenAiImageProvider(c.sdk);
+      await p.generate({ ...req, model });
+      await p.generate({ ...req, model, reference: new Uint8Array(providerPng(r)) });
+      expect((c.seen[0]?.body as Record<string, unknown>).background).toBe('transparent');
+      expect((c.seen[1]?.body as Record<string, unknown[]>).background).toEqual(['transparent']);
+      expect((c.seen[1]?.body as Record<string, unknown[]>).model).toEqual([model]);
+    },
+  );
+});
+
 describe('the OpenAI provider (errors)', () => {
   const fail = async (
     answer: () => Response | Promise<Response>,

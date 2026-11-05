@@ -19,7 +19,7 @@ import {
  * were verified on 2026-11-05 against OpenAI's pricing page
  * (https://developers.openai.com/api/docs/pricing) and the model pages for
  * gpt-image-2.6-flare and gpt-image-2.6-sunburst: text input $5, image input
- * $8, image output $30, for both models (cached input does not apply to the
+ * $8, image output $30, for both models and for gpt-image-2.5-flare (cached input does not apply to the
  * Images API). OpenAI publishes no per-image prices for these models, so the
  * estimate uses output tokens per image by quality and size
  * (`OUTPUT_TOKENS`), calibrated from the real calls recorded in
@@ -41,24 +41,56 @@ export const PRICING_SOURCE = 'https://developers.openai.com/api/docs/pricing';
 export const DEFAULT_IMAGE_PRICING: Record<ImageModel, TokenPrice> = {
   'gpt-image-2.6-flare': { textInput: 5, imageInput: 8, imageOutput: 30 },
   'gpt-image-2.6-sunburst': { textInput: 5, imageInput: 8, imageOutput: 30 },
+  // Same per-token prices on the pricing page; it spends far fewer output tokens per image.
+  'gpt-image-2.5-flare': { textInput: 5, imageInput: 8, imageOutput: 30 },
 };
+
+type TokenTable = Record<ImageQuality, Record<ImageSize, number>>;
 
 /**
  * Image output tokens per image, for the estimate only (a finished call is
- * costed from its reported usage). Low is MEASURED on the 2.6 models
- * (2026-11-05, both flare and sunburst, see docs/build-notes/images-core.md):
- * 824 tokens at 1024×1024 and 664 at 1536×1024; 1024×1536 is assumed equal to
- * 1536×1024. Medium and high are extrapolated from OpenAI's published ratios
- * for the earlier GPT Image models (medium ≈ 3.9× low, high ≈ 15.4× low),
- * and are unmeasured. The sheet size (2880×2880, flare, low, an edit with
- * the guide) measured 2,768 output tokens; its medium and high use the same
- * ratios.
+ * costed from its reported usage). M = measured, D = derived.
+ *
+ * gpt-image-2.6 (flare and sunburst, 2026-11-05):
+ *  - low: 1024² 824 (M, both models), 1536×1024 664 (M, both), 2880² 2,768
+ *    (M, flare, an edit with the sheet guide); 1024×1536 is taken as 664 (D)
+ *  - medium: 1024² 1,449 (M, the coordinator's controlled run); the other
+ *    sizes are low × 1.7585, the measured medium/low ratio (D)
+ *  - high: UNMEASURED. Low × 15.3, OpenAI's ratio for the earlier GPT Image
+ *    models, which errs high (D)
+ *
+ * gpt-image-2.5-flare:
+ *  - low 1024² 196 (M), medium 1024² 439 (M)
+ *  - other sizes scale like 2.6's measured low (1536×1024 × 0.806, 2880² ×
+ *    3.359) (D); high is medium × 3.94, the earlier models' ratio, UNMEASURED (D)
  */
-export const OUTPUT_TOKENS: Record<ImageQuality, Record<ImageSize, number>> = {
-  low: { '1024x1024': 824, '1024x1536': 664, '1536x1024': 664, '2880x2880': 2768 },
-  medium: { '1024x1024': 3199, '1024x1536': 2603, '1536x1024': 2603, '2880x2880': 10746 },
-  high: { '1024x1024': 12602, '1024x1536': 10305, '1536x1024': 10305, '2880x2880': 42333 },
+export const OUTPUT_TOKENS_BY_MODEL: Record<ImageModel, TokenTable> = {
+  'gpt-image-2.6-flare': {
+    low: { '1024x1024': 824, '1024x1536': 664, '1536x1024': 664, '2880x2880': 2768 },
+    medium: { '1024x1024': 1449, '1024x1536': 1168, '1536x1024': 1168, '2880x2880': 4868 },
+    high: { '1024x1024': 12602, '1024x1536': 10305, '1536x1024': 10305, '2880x2880': 42333 },
+  },
+  'gpt-image-2.6-sunburst': {
+    low: { '1024x1024': 824, '1024x1536': 664, '1536x1024': 664, '2880x2880': 2768 },
+    medium: { '1024x1024': 1449, '1024x1536': 1168, '1536x1024': 1168, '2880x2880': 4868 },
+    high: { '1024x1024': 12602, '1024x1536': 10305, '1536x1024': 10305, '2880x2880': 42333 },
+  },
+  'gpt-image-2.5-flare': {
+    low: { '1024x1024': 196, '1024x1536': 158, '1536x1024': 158, '2880x2880': 658 },
+    medium: { '1024x1024': 439, '1024x1536': 354, '1536x1024': 354, '2880x2880': 1475 },
+    high: { '1024x1024': 1729, '1024x1536': 1393, '1536x1024': 1393, '2880x2880': 5810 },
+  },
 };
+/** gpt-image-2.6-flare's table (kept under its old name). */
+export const OUTPUT_TOKENS: TokenTable = OUTPUT_TOKENS_BY_MODEL['gpt-image-2.6-flare'];
+
+/** Estimated output tokens for one image; an unknown model uses the default's table. */
+export function outputTokens(model: string, quality: ImageQuality, size: ImageSize): number {
+  const table = (IMAGE_MODELS as readonly string[]).includes(model)
+    ? OUTPUT_TOKENS_BY_MODEL[model as ImageModel]
+    : OUTPUT_TOKENS_BY_MODEL[DEFAULT_IMAGE_MODEL];
+  return table[quality][size];
+}
 /** Input image tokens a reference adds to an edit (measured: 1,024 for 1024², 1,521 for the 2880² guide). */
 export const REFERENCE_IMAGE_TOKENS = 1_024;
 
@@ -142,7 +174,7 @@ export function estimateNanos(settings: ImageSettings, e: EstimateInput): number
   return costNanos(priceOf(settings, e.model), {
     inputTextTokens: promptTokens(e.promptChars ?? 600),
     inputImageTokens: e.reference ? REFERENCE_IMAGE_TOKENS : 0,
-    outputTokens: OUTPUT_TOKENS[e.quality][e.size],
+    outputTokens: outputTokens(e.model, e.quality, e.size),
   });
 }
 

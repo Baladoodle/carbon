@@ -105,8 +105,8 @@ describe('the image gateway over the fake provider', () => {
     const png = await readFile(path.join(dir, p.png));
     expect(decodePng(png).width).toBeGreaterThan(0);
     await expect(stat(path.join(dir, p.src))).rejects.toThrow();
-    // Cost from the reported usage: 664 output (low, 1536×1024) × $30/M + ceil(20/4)=5 text × $5/M.
-    expect(r.receipt.costUsd).toBe(0.019945);
+    // Cost from the reported usage: 158 output (2.5-flare, low, 1536×1024) × $30/M + ceil(20/4)=5 text × $5/M.
+    expect(r.receipt.costUsd).toBe(0.004765);
     expect(g.status().spend.sessionUsd).toBeCloseTo(r.receipt.costUsd, 12);
     const log = await g.log();
     expect(log).toHaveLength(1);
@@ -143,7 +143,7 @@ describe('the image gateway over the fake provider', () => {
       background: 'transparent',
       size: '1024x1024',
       quality: 'low',
-      model: 'gpt-image-2.6-flare',
+      model: 'gpt-image-2.5-flare',
     });
     const p = imagePaths('cinder-sting', r.image.id);
     const icon = decodePng(await readFile(path.join(dir, p.png)));
@@ -350,12 +350,12 @@ describe('errors, receipts and the no-retry rule', () => {
 describe('the budget', () => {
   it('pauses exactly at the session budget and resumes when it is raised', async () => {
     const g = gateway();
-    // One fake low concept with a 20-char prompt costs exactly 0.019945.
+    // One fake low concept with a 20-char prompt costs exactly 0.004765.
     expect(
       session.dispatch([
         cmd('settings.set', {
           key: 'images',
-          value: { budget: { sessionUsd: 0.03989, monthUsd: 10 } },
+          value: { budget: { sessionUsd: 0.00953, monthUsd: 10 } },
         }),
       ]).ok,
     ).toBe(true);
@@ -487,7 +487,10 @@ describe('batches', () => {
   it('the budget stops a batch part way', async () => {
     const g = gateway();
     session.dispatch([
-      cmd('settings.set', { key: 'images', value: { budget: { sessionUsd: 0.01, monthUsd: 10 } } }),
+      cmd('settings.set', {
+        key: 'images',
+        value: { budget: { sessionUsd: 0.004, monthUsd: 10 } },
+      }),
     ]);
     const ids = ['glide', 'cinder-sting', 'spore-lantern', 'high-drift'];
     const r = await g.batchRun({
@@ -562,4 +565,51 @@ describe('.gitattributes', () => {
       '*.md text eol=lf\n*.png binary\n',
     );
   });
+});
+
+describe('icons always ask for a transparent background', () => {
+  // gpt-image-2.5-flare paints a fake checkerboard into the pixels unless asked explicitly.
+  it.each(['gpt-image-2.6-flare', 'gpt-image-2.6-sunburst', 'gpt-image-2.5-flare'] as const)(
+    '%s: generated icons, icons edited from a concept, and sheets',
+    async (model) => {
+      const provider = new Scripted((_n, req) => fakePng(req));
+      const g = gateway(provider);
+      const c = await g.generate({
+        requestId: 'c',
+        entityId: 'glide',
+        kind: 'concept',
+        prompt: 'A glider over clouds',
+        model,
+      });
+      if (!c.ok) throw new Error('concept failed');
+      await g.generate({
+        requestId: 'i',
+        entityId: 'glide',
+        kind: 'icon',
+        prompt: 'A glider icon here',
+        model,
+      });
+      await g.generate({
+        requestId: 'e',
+        entityId: 'glide',
+        kind: 'icon',
+        prompt: 'A glider icon here',
+        model,
+        reference: c.image.id,
+      });
+      await g.sheetRun({
+        batchId: 's',
+        model,
+        items: [{ entityId: 'glide', line: 'Glide, a capability' }],
+      });
+      expect(
+        provider.seen.map((r) => [r.model, r.background, r.reference ? 'edit' : 'generate']),
+      ).toEqual([
+        [model, 'auto', 'generate'],
+        [model, 'transparent', 'generate'],
+        [model, 'transparent', 'edit'],
+        [model, 'transparent', 'edit'],
+      ]);
+    },
+  );
 });
