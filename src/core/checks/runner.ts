@@ -3,6 +3,7 @@ import type { Note } from '../model/notes';
 import type { WorldSchema } from '../model/schema';
 import { getEntity, schemaOf, type World } from '../model/world';
 import {
+  bandOverlapNotes,
   curveNotes,
   cycleNotes,
   formulaNotes,
@@ -165,6 +166,7 @@ export function createCheckRunner(adapters: CheckAdapters = {}): CheckRunner {
                 droppedBy.set(r.target, [...(droppedBy.get(r.target) ?? []), e.id]);
         const counts = laneCounts(world, places);
         placeNotes = [
+          ...bandOverlapNotes(spans),
           ...laneEmptyNotes(counts, spans),
           ...laneImbalanceNotes(world, places, spans),
           ...nowhereNotes(world, places, droppedBy),
