@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -127,6 +127,29 @@ describe('Snapshotter', () => {
     expect(r.status).toBe('failed');
     await rm(path.join(dir, '.git/index.lock'));
     expect((await s.snapshot('idle')).status).toBe('committed');
+  });
+
+  it('never commits a temporary file of a save in flight', async () => {
+    await writeWorldDir(dir, sampleWorld());
+    const s = new Snapshotter(dir, () => sampleWorld(), git);
+    expect((await s.snapshot('idle')).status).toBe('committed');
+    // An atomic write that is mid-way when the snapshot runs.
+    await writeFile(path.join(dir, 'entities/item/.glass-lung.md.4242.7.tmp'), 'half');
+    await writeFile(path.join(dir, 'numbers/formulas.carbon'), 'k = 1\n');
+    const r = await s.snapshot('idle');
+    expect(r.status).toBe('committed');
+    expect(sh(['ls-files'])).not.toMatch(/\.tmp/);
+  });
+
+  it('reports a broken repository instead of initialising over it', async () => {
+    await writeWorldDir(dir, sampleWorld());
+    const s = new Snapshotter(dir, () => sampleWorld(), git);
+    expect((await s.snapshot('idle')).status).toBe('committed');
+    await rm(path.join(dir, '.git/HEAD'));
+    const r = await new Snapshotter(dir, () => sampleWorld(), git).snapshot('idle');
+    expect(r).toEqual({ status: 'unavailable', reason: expect.stringMatching(/broken/) as string });
+    // Nothing was re-created: the repository is as the user left it.
+    await expect(readFile(path.join(dir, '.git/HEAD'), 'utf8')).rejects.toThrow();
   });
 
   it('serialises concurrent snapshots', async () => {
