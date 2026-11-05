@@ -176,6 +176,52 @@ describe('metrics', () => {
   });
 });
 
+describe('a run that could not reach the model never passes (review-b)', () => {
+  const failed = (code: 'no_key' | 'network' | 'server' | 'truncated' | 'refused'): CaseRun =>
+    run({ moment: 'critique', expect: { clean: true } }, undefined, {
+      ok: false,
+      error: { code, message: `${code} happened`, retryable: false },
+      usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+      costUsd: 0,
+    });
+
+  it('every case failing with 401 is a FAIL, not a PASS of n/a metrics', () => {
+    const r = buildReport('live', '2026-11-04T10:00:00.000Z', 'claude-haiku-5-5', world, [
+      failed('no_key'),
+    ]);
+    expect(r.pass).toBe(false);
+    const md = reportMarkdown(r);
+    expect(md).toContain('# Prompt evals: FAIL');
+    expect(md).toContain('1 case could not run');
+    expect(md).toContain('no_key');
+  });
+
+  it('one case lost to the network fails the run, even when the measured ones pass', () => {
+    const r = buildReport('live', '2026-11-04T10:00:00.000Z', 'claude-haiku-5-5', world, [
+      run({ moment: 'critique', expect: { clean: true } }, { notes: [] }),
+      failed('network'),
+      failed('truncated'),
+    ]);
+    expect(r.pass).toBe(false);
+    expect(reportMarkdown(r)).toContain('2 cases could not run');
+  });
+
+  it('no cases at all is not a pass', () => {
+    expect(buildReport('live', '2026-11-04T10:00:00.000Z', 'm', world, []).pass).toBe(false);
+  });
+
+  it('invalid output is the model’s answer, measured by the schema metric, not a run failure', () => {
+    const r = buildReport('replay', '2026-11-04T10:00:00.000Z', 'm', world, [
+      run({ moment: 'critique', expect: { clean: true } }, { notes: [] }),
+      run({ moment: 'critique', expect: { clean: true } }, 'not json', {
+        ok: false,
+        error: { code: 'invalid_output', message: 'bad', retryable: false },
+      }),
+    ]);
+    expect(reportMarkdown(r)).not.toContain('could not run');
+  });
+});
+
 describe('runner', () => {
   it('runs every case through the real gateway offline and captures each exchange', async () => {
     const out = await runEvals({ world, cases: CASES, fetch: replayFetch(), maxUsd: 1 });
