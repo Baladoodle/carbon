@@ -499,8 +499,6 @@ under Xvfb only.
 Items kept from a Fill spread have no subkind until you give them one.
 
 **Checks and export.**
-- A band whose bottom is above its top is treated as having no edges: it
-  waits in the Inbox, and no note says why.
 - Near-duplicate names are flagged across kinds too (a biome "Salt Flats" and
   a material "Salt Glass").
 - A missing-field note names the state, not the entity ("Idea needs
@@ -514,5 +512,3 @@ Items kept from a Fill spread have no subkind until you give them one.
   unbroken session has none until you ask (palette).
 - There are no format migrations yet; the machinery is tested with synthetic
   ones.
-- A note dismissed for an entity that's later deleted stays dismissed if the
-  same note comes back with the same inputs.

@@ -266,7 +266,7 @@ test('codex stays virtualised with 2,000 entities', async () => {
   await body().press('Control+z');
   await filter('');
   await expect(page().locator('tr[data-entity="ore-0000"]')).toHaveCount(0);
-  // The store writes 2,000 files and then removes them, one durable write at a time. Finish
+  // The store writes 2,000 files and then removes them (a batch per transaction). Finish
   // only once that has reached the disk, or later tests that read files wait behind this
   // test's writes (on a busy machine, past their own timeouts).
   await expect.poll(() => readdirSync(materials).length, { timeout: 120_000 }).toBe(filesBefore);
