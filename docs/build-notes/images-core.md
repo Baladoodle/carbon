@@ -4,8 +4,8 @@ Branch `claude/blissful-einstein-8u27ty-images-core`. The non-UI half of
 `docs/IMAGES.md`: the model, the store, the OpenAI provider, the gateway, the
 budget and pricing, the `image_prompt` moment, art direction and export.
 
-`npm run check` and the full `npm run test:e2e` (122 tests) pass on the
-merged base. **Real OpenAI calls: 8 of the 12 allowed, all low quality,
+`npm run check` and the full `npm run test:e2e` (124 tests) pass on the
+merged base (with critique). **Real OpenAI calls: 8 of the 12 allowed, all low quality,
 $0.2815 in total** (§5).
 
 - **The contract for images-ui:** §1
@@ -286,7 +286,7 @@ past 12).
   estimate, generate, the metadata on disk, icon from concept, thumbnails, the
   log, spend, undo; concept batch; icon sheet run, review and accept.
 
-Unit tests overall: 790 (789 passed, 1 skipped as before). Core coverage stays
+Unit tests overall: 813 after merging the base (812 passed, 1 skipped as before). Core coverage stays
 above the threshold: `src/core/images` is 98.8% of lines.
 
 ## 7. Shared files touched (all additive)
