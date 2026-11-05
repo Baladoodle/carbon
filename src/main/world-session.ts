@@ -12,6 +12,7 @@ import type {
   SaveStatus,
   WorldSnapshot,
 } from '@shared/ipc';
+import { diskState } from './store/disk-state';
 import { loadWorldDir, writeChanges } from './store/world-dir';
 
 type Listener<T> = (value: T) => void;
@@ -169,6 +170,17 @@ export class WorldSession {
   private setSave(s: SaveStatus): void {
     this.save = s;
     for (const l of this.saveListeners) l(s);
+  }
+
+  /** Whether some file failed to save and is waiting for a retry (store/disk-state.ts). */
+  hasUnsaved(): boolean {
+    return diskState(this.dir).unsaved.size > 0;
+  }
+
+  /** Retries the files whose last write failed, without a new command. */
+  retrySave(): void {
+    if (!this.hasUnsaved()) return;
+    this.persist(() => writeChanges(this.dir, { write: new Map(), remove: [] }));
   }
 
   /** Resolves when every pending write has finished. */

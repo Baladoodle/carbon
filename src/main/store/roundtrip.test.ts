@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import fc from 'fast-check';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { Command } from '@core/commands/registry';
+import { cmd, type Command } from '@core/commands/registry';
 import { commandArb } from '@core/testing/arbitraries';
 import { sampleWorld } from '@core/testing/sample';
 import { resetDiskState } from './disk-state';
@@ -26,22 +26,21 @@ afterEach(async () => {
 
 const clock = (): string => '2026-11-05T01:00:00.000Z';
 
-const curve = (id: string, tolerance?: number): Command =>
-  ({
-    type: 'numbers.putCurve',
-    payload: {
-      curve: {
-        id,
-        y: 'x * 2',
-        over: { axis: 'tier' },
-        intent: [
-          { x: 0, y: 1 },
-          { x: 3, y: 9 },
-        ],
-        ...(tolerance ? { tolerance } : {}),
-      },
+const curve = (id: string, tolerance?: number): Command => ({
+  type: 'numbers.putCurve',
+  payload: {
+    curve: {
+      id,
+      y: 'x * 2',
+      over: { axis: 'tier' },
+      intent: [
+        { x: 0, y: 1 },
+        { x: 3, y: 9 },
+      ],
+      ...(tolerance ? { tolerance } : {}),
     },
-  }) as Command;
+  },
+});
 
 function storeCommandArb(ids: readonly string[]): fc.Arbitrary<Command> {
   return fc.oneof(
@@ -50,10 +49,10 @@ function storeCommandArb(ids: readonly string[]): fc.Arbitrary<Command> {
     {
       weight: 1,
       arbitrary: fc.constantFrom<Command>(
-        { type: 'numbers.removeCurve', payload: { id: 'ttk' } } as Command,
-        { type: 'numbers.setFormulas', payload: { text: 'k = 100\nx2(v) = v * 2\n' } } as Command,
-        { type: 'taste.addRule', payload: { text: 'No pure numbers' } } as Command,
-        { type: 'taste.countReason', payload: { key: '3', by: 1 } } as Command,
+        cmd('numbers.removeCurve', { id: 'ttk' }),
+        cmd('numbers.setFormulas', { source: 'k = 100\nx2(v) = v * 2\n' }),
+        cmd('taste.addRule', { id: 'r-numbers', text: 'No pure numbers' }),
+        cmd('taste.countReason', { key: '3', by: 1 }),
       ),
     },
   );

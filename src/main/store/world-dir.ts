@@ -220,17 +220,55 @@ export async function loadWorldDir(dir: string, opts: LoadOptions = {}): Promise
   };
 }
 
-/** Applies file changes: atomic writes, then durable removals. Refused for read-only worlds. */
+/**
+ * Applies file changes: atomic writes, then durable removals. Refused for
+ * read-only worlds.
+ *
+ * A file whose write fails (a full disk, a filesystem gone read-only) is kept
+ * in `unsaved` with carbon's content and retried by every later call; the
+ * other files are still written. The call throws while anything is unsaved,
+ * so the save status never says "saved" while the disk lags the world.
+ */
 export async function writeChanges(dir: string, changes: FileChanges): Promise<void> {
   const disk = diskState(dir);
   if (disk.readOnly) throw new Error(disk.readOnly);
+  const write = new Map<string, string>();
+  const remove = new Set<string>();
+  for (const [rel, content] of disk.unsaved) {
+    if (content === null) remove.add(rel);
+    else write.set(rel, content);
+  }
   for (const [rel, content] of changes.write) {
-    noteWrite(disk, rel, content);
-    await writeFileAtomic(path.join(dir, rel), content);
+    remove.delete(rel);
+    write.set(rel, content);
   }
   for (const rel of changes.remove) {
-    noteWrite(disk, rel, null);
-    await removeFileDurable(path.join(dir, rel));
+    write.delete(rel);
+    remove.add(rel);
+  }
+  const failed: unknown[] = [];
+  const attempt = async (rel: string, content: string | null, run: () => Promise<void>) => {
+    const prior = disk.known.get(rel);
+    noteWrite(disk, rel, content);
+    try {
+      await run();
+      disk.unsaved.delete(rel);
+    } catch (e) {
+      // The write is atomic: the disk still has the old file, and so does `known`.
+      if (prior === undefined) disk.known.delete(rel);
+      else disk.known.set(rel, prior);
+      disk.writes++;
+      disk.unsaved.set(rel, content);
+      failed.push(e);
+    }
+  };
+  for (const [rel, content] of write)
+    await attempt(rel, content, () => writeFileAtomic(path.join(dir, rel), content));
+  for (const rel of remove) await attempt(rel, null, () => removeFileDurable(path.join(dir, rel)));
+  if (failed.length > 0) {
+    const first = failed[0] instanceof Error ? failed[0].message : String(failed[0]);
+    const n = disk.unsaved.size;
+    throw new Error(`${n} file${n === 1 ? '' : 's'} not saved: ${first}`);
   }
 }
 

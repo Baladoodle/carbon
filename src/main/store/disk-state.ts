@@ -28,6 +28,13 @@ export interface DiskState {
    * own older content for an external edit.
    */
   writes: number;
+  /**
+   * carbon's content for files whose last write failed (a full disk, a
+   * filesystem gone read-only): path → content, or `null` for a removal. The
+   * disk still has the old file, so `known` does too. Every later write
+   * retries these first, and a save only counts as saved once this is empty.
+   */
+  unsaved: Map<string, string | null>;
   settleMs: number;
   readOnly: string | null;
   now: () => number;
@@ -45,6 +52,7 @@ export function diskState(dir: string): DiskState {
       base: new Map(),
       lastWrite: new Map(),
       writes: 0,
+      unsaved: new Map(),
       settleMs: DEFAULT_SETTLE_MS,
       readOnly: null,
       now: () => Date.now(),
@@ -63,6 +71,7 @@ export function noteRead(s: DiskState, files: ReadonlyMap<string, string>, repla
     s.known.clear();
     s.base.clear();
     s.lastWrite.clear();
+    s.unsaved.clear();
   }
   for (const [p, c] of files) s.known.set(p, c);
 }
@@ -83,6 +92,7 @@ export function noteAccepted(s: DiskState, rel: string, content: string | null):
   else s.known.set(rel, content);
   s.base.delete(rel);
   s.lastWrite.delete(rel);
+  s.unsaved.delete(rel);
 }
 
 /** Whether carbon wrote this path within the settle window. */
