@@ -60,7 +60,7 @@ type TokenTable = Record<ImageQuality, Record<ImageSize, number>>;
  *    models, which errs high (D)
  *
  * gpt-image-2.5-flare:
- *  - low 1024² 196 (M), medium 1024² 439 (M)
+ *  - low 1024² 196 (M), medium 1024² 439 (M), low 2880² 659 (M, the sheet)
  *  - other sizes scale like 2.6's measured low (1536×1024 × 0.806, 2880² ×
  *    3.359) (D); high is medium × 3.94, the earlier models' ratio, UNMEASURED (D)
  */
@@ -76,7 +76,7 @@ export const OUTPUT_TOKENS_BY_MODEL: Record<ImageModel, TokenTable> = {
     high: { '1024x1024': 12602, '1024x1536': 10305, '1536x1024': 10305, '2880x2880': 42333 },
   },
   'gpt-image-2.5-flare': {
-    low: { '1024x1024': 196, '1024x1536': 158, '1536x1024': 158, '2880x2880': 658 },
+    low: { '1024x1024': 196, '1024x1536': 158, '1536x1024': 158, '2880x2880': 659 },
     medium: { '1024x1024': 439, '1024x1536': 354, '1536x1024': 354, '2880x2880': 1475 },
     high: { '1024x1024': 1729, '1024x1536': 1393, '1536x1024': 1393, '2880x2880': 5810 },
   },

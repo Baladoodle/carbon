@@ -625,7 +625,9 @@
     {
       "index": 37,
       "entity": "glass-bow",
-      "flags": []
+      "flags": [
+        "touches_edge"
+      ]
     },
     {
       "index": 38,
@@ -775,9 +777,7 @@
     {
       "index": 67,
       "entity": "cloud-bow",
-      "flags": [
-        "touches_edge"
-      ]
+      "flags": []
     },
     {
       "index": 68,
