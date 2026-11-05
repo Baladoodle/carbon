@@ -235,15 +235,21 @@ export function cropSheet(
       transparent = true;
       break;
     }
+  const px = (x: number, y: number): number => (y * sheet.width + x) * 4;
   return layout.cells.map((cell) => {
-    const margin = Math.round((opts.margin ?? layout.gutter / 2) * Math.min(sx, sy));
-    const x0 = Math.max(0, Math.round(cell.x * sx) - margin);
-    const y0 = Math.max(0, Math.round(cell.y * sy) - margin);
-    const x1 = Math.min(sheet.width, Math.round((cell.x + cell.w) * sx) + margin);
-    const y1 = Math.min(sheet.height, Math.round((cell.y + cell.h) * sy) + margin);
+    // The model keeps its own even grid, which can drift from ours by part of
+    // a gutter, so search a full gutter around the cell and keep only the
+    // parts whose centre lies in this cell (a neighbour's overhang is theirs).
+    const margin = Math.round((opts.margin ?? layout.gutter) * Math.min(sx, sy));
+    const cx0 = Math.round(cell.x * sx);
+    const cy0 = Math.round(cell.y * sy);
+    const cx1 = Math.round((cell.x + cell.w) * sx);
+    const cy1 = Math.round((cell.y + cell.h) * sy);
+    const x0 = Math.max(0, cx0 - margin);
+    const y0 = Math.max(0, cy0 - margin);
+    const x1 = Math.min(sheet.width, cx1 + margin);
+    const y1 = Math.min(sheet.height, cy1 + margin);
     const region = { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
-    const px = (x: number, y: number): number => (y * sheet.width + x) * 4;
-    // The background: alpha, or the median colour of the region's border.
     let bgc: [number, number, number] = [0, 0, 0];
     if (!transparent) {
       const border: number[][] = [];
@@ -268,70 +274,88 @@ export function cropSheet(
         ) > tol
       );
     };
-    const mask = new Uint8Array(region.w * region.h);
-    let count = 0;
-    let bx0 = Infinity;
-    let by0 = Infinity;
-    let bx1 = -1;
-    let by1 = -1;
-    for (let y = y0; y < y1; y++)
-      for (let x = x0; x < x1; x++)
-        if (fg(x, y)) {
-          mask[(y - y0) * region.w + (x - x0)] = 1;
-          count++;
-          bx0 = Math.min(bx0, x);
-          by0 = Math.min(by0, y);
-          bx1 = Math.max(bx1, x);
-          by1 = Math.max(by1, y);
-        }
-    const area = region.w * region.h;
-    const flags: CellFlag[] = [];
     const segmentation = transparent ? ('alpha' as const) : ('colour' as const);
-    if (count < area * minFill)
-      return { index: cell.index, region, bbox: null, crop: null, flags: ['empty'], segmentation };
-    if (count > area * 0.97) flags.push('background_only');
-    if (bx0 <= x0 || by0 <= y0 || bx1 >= x1 - 1 || by1 >= y1 - 1) flags.push('touches_edge');
-    // Large disconnected parts: count components holding ≥ 15% of the foreground.
-    const seen = new Uint8Array(mask.length);
-    let big = 0;
-    for (let i = 0; i < mask.length; i++) {
-      if (!mask[i] || seen[i]) continue;
-      let size = 0;
-      const stack = [i];
-      seen[i] = 1;
-      while (stack.length > 0) {
-        const j = stack.pop() as number;
-        size++;
-        const x = j % region.w;
-        const y = (j - x) / region.w;
-        for (const [dx, dy] of [
-          [1, 0],
-          [-1, 0],
-          [0, 1],
-          [0, -1],
-        ] as const) {
-          const nx = x + dx;
-          const ny = y + dy;
-          if (nx < 0 || ny < 0 || nx >= region.w || ny >= region.h) continue;
-          const k = ny * region.w + nx;
-          if (mask[k] && !seen[k]) {
-            seen[k] = 1;
+    // Connected parts (4-neighbour) of the foreground in the search region.
+    const label = new Int32Array(region.w * region.h).fill(-1);
+    const parts: { size: number; sumX: number; sumY: number; touches: boolean }[] = [];
+    for (let y = y0; y < y1; y++)
+      for (let x = x0; x < x1; x++) {
+        const start = (y - y0) * region.w + (x - x0);
+        if (label[start] !== -1 || !fg(x, y)) continue;
+        const id = parts.length;
+        const part = { size: 0, sumX: 0, sumY: 0, touches: false };
+        parts.push(part);
+        label[start] = id;
+        const stack = [start];
+        while (stack.length > 0) {
+          const j = stack.pop() as number;
+          const lx = j % region.w;
+          const ly = (j - lx) / region.w;
+          part.size++;
+          part.sumX += lx + x0;
+          part.sumY += ly + y0;
+          if (lx === 0 || ly === 0 || lx === region.w - 1 || ly === region.h - 1)
+            part.touches = true;
+          for (const [dx, dy] of [
+            [1, 0],
+            [-1, 0],
+            [0, 1],
+            [0, -1],
+          ] as const) {
+            const nx = lx + dx;
+            const ny = ly + dy;
+            if (nx < 0 || ny < 0 || nx >= region.w || ny >= region.h) continue;
+            const k = ny * region.w + nx;
+            if (label[k] !== -1 || !fg(nx + x0, ny + y0)) continue;
+            label[k] = id;
             stack.push(k);
           }
         }
       }
-      if (size >= count * 0.15) big++;
+    const inCell = (p: { size: number; sumX: number; sumY: number }): boolean => {
+      const mx = p.sumX / p.size;
+      const my = p.sumY / p.size;
+      return mx >= cx0 && mx < cx1 && my >= cy0 && my < cy1;
+    };
+    const keep = new Set(parts.map((p, i) => (inCell(p) ? i : -1)).filter((i) => i >= 0));
+    const count = [...keep].reduce((n, i) => n + (parts[i]?.size ?? 0), 0);
+    const cellArea = (cx1 - cx0) * (cy1 - cy0);
+    if (count < cellArea * minFill)
+      return {
+        index: cell.index,
+        region,
+        bbox: null,
+        crop: null,
+        flags: ['empty'] as CellFlag[],
+        segmentation,
+      };
+    const flags: CellFlag[] = [];
+    if (count > cellArea * 0.97) flags.push('background_only');
+    if ([...keep].some((i) => parts[i]?.touches)) flags.push('touches_edge');
+    if ([...keep].filter((i) => (parts[i]?.size ?? 0) >= count * 0.15).length > 1)
+      flags.push('fragmented');
+    let bx0 = Infinity;
+    let by0 = Infinity;
+    let bx1 = -1;
+    let by1 = -1;
+    for (let j = 0; j < label.length; j++) {
+      if (!keep.has(label[j] as number)) continue;
+      const x = (j % region.w) + x0;
+      const y = Math.floor(j / region.w) + y0;
+      bx0 = Math.min(bx0, x);
+      by0 = Math.min(by0, y);
+      bx1 = Math.max(bx1, x);
+      by1 = Math.max(by1, y);
     }
-    if (big > 1) flags.push('fragmented');
     const bbox = { x: bx0, y: by0, w: bx1 - bx0 + 1, h: by1 - by0 + 1 };
-    // The sprite, background made transparent, padded to a square.
+    // The sprite (only its own parts; the rest transparent), padded to a square.
     const cut = new Uint8ClampedArray(bbox.w * bbox.h * 4);
     for (let y = 0; y < bbox.h; y++)
       for (let x = 0; x < bbox.w; x++) {
-        const sxp = bbox.x + x;
-        const syp = bbox.y + y;
-        if (!mask[(syp - y0) * region.w + (sxp - x0)]) continue;
-        cut.set(sheet.data.subarray(px(sxp, syp), px(sxp, syp) + 4), (y * bbox.w + x) * 4);
+        const gx = bbox.x + x;
+        const gy = bbox.y + y;
+        if (!keep.has(label[(gy - y0) * region.w + (gx - x0)] as number)) continue;
+        cut.set(sheet.data.subarray(px(gx, gy), px(gx, gy) + 4), (y * bbox.w + x) * 4);
       }
     const crop = squareAround(
       { width: bbox.w, height: bbox.h, data: cut },

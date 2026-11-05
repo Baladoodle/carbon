@@ -235,3 +235,31 @@ describe('icon sheets through the gateway', () => {
     expect(provider.seen).toHaveLength(0);
   });
 });
+
+describe('the recorded real sheet (fixtures/images, 100 items, 2880² stored at 1440²)', () => {
+  const fixture = path.resolve(
+    import.meta.dirname,
+    '../../../fixtures/images/items-sheet-100-flare.png',
+  );
+
+  // The sheet is stored at half size (1440²) to keep the repository small; the grid scales to it.
+  it('crops all 100 sprites, each in its own cell, with few flags', async () => {
+    const sheet = decodePng(await readFile(fixture));
+    const layout = sheetLayout(100, { w: 2880, h: 2880 });
+    const cells = cropSheet(sheet, layout);
+    expect(cells.filter((c) => c.crop === null)).toEqual([]);
+    const flagged = cells.filter((c) => c.flags.length > 0).map((c) => [c.index, c.flags]);
+    // By eye every one of the 100 sprites sits in its own cell; flags must be rare.
+    expect(flagged.length).toBeLessThanOrEqual(5);
+    // Each sprite is centred near its cell's centre (the model keeps an even grid).
+    const k = 2880 / sheet.width;
+    for (const c of cells) {
+      const cell = layout.cells[c.index];
+      if (!c.bbox || !cell) continue;
+      const cx = (c.bbox.x + c.bbox.w / 2) * k;
+      const cy = (c.bbox.y + c.bbox.h / 2) * k;
+      expect(Math.abs(cx - (cell.x + cell.w / 2))).toBeLessThan(cell.w / 2);
+      expect(Math.abs(cy - (cell.y + cell.h / 2))).toBeLessThan(cell.h / 2);
+    }
+  });
+});
