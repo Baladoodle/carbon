@@ -367,6 +367,33 @@ test.describe('the Bench', () => {
     ).toHaveCount(0);
   });
 
+  test('the Bench reaches its notes and relations from the palette', async () => {
+    const { page } = carbon;
+    const runPalette = async (label: string): Promise<void> => {
+      await page.locator('body').press('Control+k');
+      const palette = page.getByTestId('palette');
+      await expect(palette).toBeVisible();
+      await page.keyboard.type(label);
+      await expect(palette.locator('[data-highlighted]')).toContainText(label);
+      await page.keyboard.press('Enter');
+      await expect(palette).toHaveCount(0);
+    };
+    await focusOn(carbon, 'glide');
+    await page.mouse.move(5, 5);
+    await expect(page.locator('[data-rel="pairs_with:cloud-anklet"]')).toBeVisible();
+    await runPalette('Unrelate Cloud Anklet');
+    await expect(page.locator('[data-rel="pairs_with:cloud-anklet"]')).toHaveCount(0);
+    await press(page, 'Control+z');
+    await expect(page.locator('[data-rel="pairs_with:cloud-anklet"]')).toBeVisible();
+    // A weak identity gets a critique note; the palette dismisses this entity's notes.
+    await carbon.dispatch(cmd('entity.update', { id: 'glide', set: { identity: 'Fly' } }));
+    await press(page, '?');
+    await expect(page.getByTestId('bench-notes')).toBeVisible();
+    await runPalette('Dismiss the notes on Glide');
+    await expect(page.getByTestId('bench-notes')).toHaveCount(0);
+    await press(page, 'Control+z');
+  });
+
   test('@smoke tab suggests inline, tab accepts with the ai marker, and it undoes', async () => {
     const { page } = carbon;
     await focusOn(carbon, 'glide');

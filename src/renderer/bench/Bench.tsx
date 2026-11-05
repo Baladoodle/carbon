@@ -247,6 +247,26 @@ function EntityBench({ world, entity }: { world: World; entity: Entity }): React
       run: () => focusSibling(root.current, -1),
     },
     {
+      id: 'bench.dismissNotes',
+      label: `Dismiss the notes on ${entity.name}`,
+      group: 'Bench',
+      enabled: () => notes.length > 0,
+      run: () => {
+        for (const n of notes) dismissNote(n.id);
+      },
+    },
+    ...entity.relations.map((r): Action => ({
+      id: `bench.unrelate.${r.type}.${r.target}`,
+      label: `Unrelate ${world.entities[r.target]?.name ?? r.target} (${schemaOf(world).relations[r.type]?.label ?? r.type})`,
+      group: 'Bench',
+      run: () =>
+        void transact(`Unrelate ${world.entities[r.target]?.name ?? r.target}`, [
+          cmd('relation.remove', { from: entity.id, type: r.type, to: r.target }),
+        ]).then((x) => {
+          if (!x.ok) flash(x.error.message, 'error');
+        }),
+    })),
+    {
       id: 'bench.delete',
       label: `Delete ${entity.name}`,
       group: 'Bench',

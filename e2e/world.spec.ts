@@ -369,6 +369,41 @@ test('climate: a burst of arrow keys moves by every press, as one undo step', as
   await expect.poll(() => climateOf('meadow-steps')).toMatch(/min: 0\.4\s+max: 0\.7/);
 });
 
+test('climate actions are all in the palette, placing a biome without climate too', async () => {
+  const runPalette = async (label: string): Promise<void> => {
+    await body().press('Control+k');
+    const palette = page().getByTestId('palette');
+    await expect(palette).toBeVisible();
+    await page().keyboard.type(label);
+    await expect(palette.locator('[data-highlighted]')).toContainText(label);
+    await page().keyboard.press('Enter');
+    await expect(palette).toHaveCount(0);
+  };
+  await carbon.dispatch(
+    cmd('entity.create', {
+      kind: 'biome',
+      name: 'Fog Shelf',
+      id: 'fog-shelf',
+      fields: { band: 'groundline' },
+    }),
+    // New biomes get the schema's default climate: clear it, so this one waits under the plane.
+    cmd('entity.setField', { id: 'fog-shelf', field: 'climate', value: null }),
+  );
+  await carbon.gotoView('climate', '2');
+  await page().getByRole('tab', { name: 'Groundline' }).click();
+  await expect(page().getByTestId('climate-loose')).toContainText('Fog Shelf');
+  await runPalette('Place Fog Shelf on the plane');
+  await expect(region('fog-shelf')).toBeVisible();
+  await expect(region('fog-shelf')).toHaveClass(/climate-region-selected/);
+  const placed = climateOf('fog-shelf');
+  await runPalette('Move the biome warmer');
+  await expect.poll(() => climateOf('fog-shelf')).not.toBe(placed);
+  await body().press('Control+z');
+  await body().press('Control+z');
+  await expect(page().getByTestId('climate-loose')).toContainText('Fog Shelf');
+  await body().press('Control+z');
+});
+
 test('climate screenshots', async () => {
   await carbon.gotoView('climate', '2');
   await page().getByRole('tab', { name: 'Hollows' }).click();
