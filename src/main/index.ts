@@ -1,10 +1,11 @@
-import { app, BrowserWindow, shell } from 'electron';
+import { app, BrowserWindow, dialog, shell } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createAiGateway } from './ai';
 import { resolveWorldDir } from './config';
 import { handle, registerIpc, send } from './ipc';
 import { startModules } from './modules';
+import { UNHANDLED_FILE, watchUnhandled } from './unhandled';
 import { WorldSession } from './world-session';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -13,6 +14,14 @@ const isE2E = process.env.CARBON_E2E === '1';
 let win: BrowserWindow | null = null;
 
 if (isE2E && process.env.CARBON_USER_DATA) app.setPath('userData', process.env.CARBON_USER_DATA);
+
+// Unhandled rejections are bugs: logged always, and under e2e recorded for the
+// harness, which fails the test (src/main/unhandled.ts).
+watchUnhandled(
+  isE2E && process.env.CARBON_USER_DATA
+    ? { file: path.join(process.env.CARBON_USER_DATA, UNHANDLED_FILE), exceptions: true }
+    : {},
+);
 
 // One carbon at a time: a second launch focuses the existing window.
 if (!isE2E && !app.requestSingleInstanceLock()) {
@@ -24,7 +33,17 @@ if (!isE2E && !app.requestSingleInstanceLock()) {
       win.focus();
     }
   });
-  void app.whenReady().then(start);
+  // A start that fails (the world can't be opened) says why and quits, rather
+  // than leaving carbon running with no window.
+  void app
+    .whenReady()
+    .then(start)
+    .catch((e: unknown) => {
+      const message = e instanceof Error ? (e.stack ?? e.message) : String(e);
+      console.error('carbon: could not start:', message);
+      if (!isE2E) dialog.showErrorBox('carbon could not start', message);
+      app.exit(1);
+    });
 }
 
 async function start(): Promise<void> {
@@ -75,6 +94,8 @@ async function start(): Promise<void> {
     quitting = true;
     void stopModules()
       .then(() => session.flush())
+      // A module that fails to stop must not keep carbon from quitting, or go unreported.
+      .catch((e: unknown) => console.error('carbon: stopping', e))
       .finally(() => app.quit());
   });
 }

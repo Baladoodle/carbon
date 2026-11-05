@@ -109,7 +109,8 @@ const storeModule: MainModule = {
         void session
           .flush()
           .then(() => snapshots.snapshot('idle'))
-          .then(report);
+          .then(report)
+          .catch((e: unknown) => console.warn('carbon: idle snapshot', e));
       }, minutes * 60_000);
     };
     const offPatch = session.onPatch(() => armIdle());
@@ -117,10 +118,15 @@ const storeModule: MainModule = {
     if (enabled())
       void snapshots
         .prepare()
-        .then((r) => (r.ok ? undefined : report({ status: 'unavailable', reason: r.reason })));
+        .then((r) => (r.ok ? undefined : report({ status: 'unavailable', reason: r.reason })))
+        .catch((e: unknown) => console.warn('carbon: git check', e));
 
     // ── Note dismissals ─────────────────────────────────────────────────────
     const dismissals = new Dismissals(dir);
+    // Once per open, before the renderer reads them (it waits for this).
+    void dismissals
+      .prune(session.world, new Date().toISOString())
+      .catch((e: unknown) => console.warn('carbon: pruning dismissals', e));
 
     // ── IPC ─────────────────────────────────────────────────────────────────
     handle('store:notices', () => [...notices]);

@@ -2,7 +2,8 @@ import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { applyCommand } from '../commands/apply';
 import { emptyWorld } from '../model/world';
-import { commandArb } from '../testing/arbitraries';
+import { awkwardText, commandArb } from '../testing/arbitraries';
+import type { Entity } from '../model/entity';
 import { sampleWorld, SAMPLE_TIME } from '../testing/sample';
 import { entityFromMarkdown, entityToMarkdown } from './entity-file';
 import { filesForPatch, PATHS, worldFromFiles, worldToFiles, type FileMap } from './world-files';
@@ -48,6 +49,53 @@ describe('entity files', () => {
       ok: true,
       value: { id: 'a', state: 'idea', description: 'Body', relations: [] },
     });
+  });
+});
+
+describe('entity files: "---" inside the frontmatter', () => {
+  // The frontmatter ends at a line that is exactly "---". A "---" at the end of
+  // any other line (an identity "Light---", a name "Wait ---", a multi-line
+  // why or tag) used to end it early: the file failed to load, and the next
+  // open quarantined the entity.
+  const g = sampleWorld().entities.glide as Entity;
+  const cases: [string, Partial<Entity>][] = [
+    ['an identity ending in ---', { identity: 'Light---' }],
+    ['a name ending in " ---"', { name: 'Wait ---' }],
+    ['a why with a --- line', { why: 'one\n---\ntwo' }],
+    ['a tag that looks like frontmatter', { tags: ['---\nx: 1\n---\n'] }],
+    [
+      'a relation note with ---',
+      { relations: [{ type: 'counters', target: 'moss-grazer', note: 'x ---' }] },
+    ],
+  ];
+  for (const [label, patch] of cases)
+    it(`reads back ${label}`, () => {
+      const e = { ...g, ...patch };
+      const r = entityFromMarkdown(entityToMarkdown(e));
+      if (!r.ok) throw new Error(`${r.error.code}: ${r.error.message}`);
+      expect(r.value).toEqual(e);
+    });
+
+  it('property: any string in any frontmatter field reads back', () => {
+    fc.assert(
+      fc.property(
+        awkwardText,
+        awkwardText,
+        fc.array(awkwardText, { maxLength: 3 }),
+        (name, why, tags) => {
+          const e = {
+            ...g,
+            name: name.replace(/\r\n?/g, '\n') || 'x',
+            why: why.replace(/\r\n?/g, '\n'),
+            tags: tags.map((t) => t.replace(/\r\n?/g, '\n')),
+          };
+          const r = entityFromMarkdown(entityToMarkdown(e));
+          if (!r.ok) throw new Error(`${r.error.code}: ${r.error.message}`);
+          expect(r.value).toEqual(e);
+        },
+      ),
+      { numRuns: 2000 },
+    );
   });
 });
 

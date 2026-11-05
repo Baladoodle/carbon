@@ -24,7 +24,7 @@ function isWhole(text: string, size: number): boolean {
  * SIGKILL at a random moment (usually mid-write), and returns the file.
  */
 async function killMidWrite(
-  mode: 'atomic' | 'naive',
+  mode: 'atomic' | 'naive' | 'batch',
   dir: string,
   size: number,
   delayMs: number,
@@ -56,7 +56,8 @@ async function killMidWrite(
   const exited = new Promise((r) => child.on('exit', r));
   child.kill('SIGKILL');
   await exited;
-  return readFile(target, 'utf8');
+  // A batch writes <target>.0 … instead; the caller reads them.
+  return mode === 'batch' ? '' : readFile(target, 'utf8');
 }
 
 describe('writeFileAtomic', () => {
@@ -133,4 +134,39 @@ describe('crash simulation: kill -9 mid-write', () => {
       expect(await readdir(dir)).toEqual(['entity.md']);
     }
   });
+
+  it('a batched transaction killed at random moments: each file is whole, and old or new', async () => {
+    // 40 files of 256 KB per batch, all of version n in round n. A kill can land
+    // in any phase (temporary files, fsyncs, renames, the directory fsync).
+    const size = 256 * 1024;
+    const delays = [0, 2, 5, 9, 14, 20, 27, 35, 44, 54, 65, 80];
+    let mixed = 0;
+    let midBatch = 0;
+    for (const d of delays) {
+      const dir = await tmpDir();
+      await killMidWrite('batch', dir, size, d);
+      const names = (await readdir(dir)).filter((n) => !TMP_PATTERN.test(n)).sort();
+      expect(names.length, `files after a kill at +${d}ms`).toBe(40);
+      const versions = new Set<number>();
+      for (const n of names) {
+        const text = await readFile(path.join(dir, n), 'utf8');
+        expect(isWhole(text, size), `${n} torn after a kill at +${d}ms`).toBe(true);
+        versions.add(Number(/END (\d+)/.exec(text)?.[1]));
+      }
+      // Renames run in order after every temporary file is durable: at most the
+      // last two rounds are on disk, and never anything in between.
+      const vs = [...versions].sort((a, b) => a - b);
+      expect(vs.length).toBeLessThanOrEqual(2);
+      if (vs.length === 2) {
+        mixed++;
+        expect((vs[1] ?? 0) - (vs[0] ?? 0)).toBe(1);
+      }
+      if ((await readdir(dir)).some((n) => TMP_PATTERN.test(n))) midBatch++;
+      await cleanTempFiles(dir);
+      expect((await readdir(dir)).filter((n) => TMP_PATTERN.test(n))).toEqual([]);
+    }
+    // The harness must have landed kills inside batches (temporary files left
+    // behind, or a rename phase cut short), or this test would prove nothing.
+    expect(midBatch + mixed).toBeGreaterThan(0);
+  }, 120_000);
 });

@@ -35,6 +35,43 @@ afterEach(async () => {
   await rm(tmp, { recursive: true, force: true });
 });
 
+describe('Snapshotter never rejects', () => {
+  // Its callers fire and forget (an idle snapshot, the startup check): a
+  // rejection would be unhandled in main. Every failure is a result.
+  it('commits an entity whose name holds a NUL (git refuses NUL in a message)', async () => {
+    const w = sampleWorld();
+    const glide = w.entities.glide!;
+    w.entities.glide = { ...glide, name: 'Gl\u0000ide' };
+    await writeWorldDir(dir, sampleWorld());
+    const s = new Snapshotter(dir, () => w, git);
+    expect((await s.snapshot('idle')).status).toBe('committed');
+    await writeWorldDir(dir, w);
+    const r = await s.snapshot('idle');
+    expect(r.status).toBe('committed');
+    expect(sh(['log', '-1', '--format=%B'])).toContain('Glide');
+  });
+
+  it('a git runner that throws gives a failed or unavailable result', async () => {
+    await writeWorldDir(dir, sampleWorld());
+    const throwing: GitRunner = () => Promise.reject(new Error('spawn exploded'));
+    const s = new Snapshotter(dir, () => sampleWorld(), throwing);
+    await expect(s.prepare()).resolves.toMatchObject({ ok: false });
+    await expect(s.snapshot('idle')).resolves.toMatchObject({ status: 'unavailable' });
+  });
+
+  it('a world folder that is gone gives a result, and a later call checks again', async () => {
+    await writeWorldDir(dir, sampleWorld());
+    // git says yes to everything, but the folder has gone (moved, deleted).
+    const fake: GitRunner = (args) =>
+      Promise.resolve({ code: 0, stdout: args[0] === 'rev-parse' ? dir : '', stderr: '' });
+    const s = new Snapshotter(path.join(tmp, 'moved-away'), () => sampleWorld(), fake);
+    await expect(s.prepare()).resolves.toMatchObject({ ok: false });
+    // Not cached as a verdict: the folder may come back.
+    const again = new Snapshotter(dir, () => sampleWorld(), fake);
+    await expect(again.prepare()).resolves.toEqual({ ok: true });
+  });
+});
+
 describe('Snapshotter', () => {
   it('initialises a plain directory and commits the whole world with a generated message', async () => {
     await writeWorldDir(dir, sampleWorld());

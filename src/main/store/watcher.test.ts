@@ -323,6 +323,19 @@ describe('mergeFile', () => {
 });
 
 describe('applyFileChanges', () => {
+  it('keeps an outside edit that inverts a band (no issue, so the watcher takes it)', () => {
+    const w = sampleWorld();
+    const low = w.entities['low-sky'] as Entity;
+    const r = applyFileChanges(
+      w,
+      new Map([
+        ['entities/band/low-sky.md', md({ ...low, fields: { ...low.fields, y_bottom: 900 } })],
+      ]),
+    );
+    expect(r.issues).toEqual([]);
+    expect(r.world.entities['low-sky']?.fields.y_bottom).toBe(900);
+  });
+
   it('property: equals re-reading every file with the changes applied', () => {
     const base = sampleWorld();
     // With intent curves: numbers/curves.json is a root file like the others.
@@ -349,6 +362,14 @@ describe('applyFileChanges', () => {
       fc.constant([
         'entities/item/glide.md',
         md({ ...glide, kind: 'item', fields: { subkind: 'tool' } }),
+      ] as const),
+      // An inverted band: tolerated on load, so tolerated as an outside edit too.
+      fc.constant([
+        'entities/band/low-sky.md',
+        md({
+          ...(w.entities['low-sky'] as Entity),
+          fields: { ...(w.entities['low-sky'] as Entity).fields, y_bottom: 640, y_top: 96 },
+        }),
       ] as const),
       fc.constant(['taste/rules.json', '[{"id":"r","text":"no"}]'] as const),
       fc.constant([

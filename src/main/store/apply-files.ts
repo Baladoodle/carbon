@@ -1,6 +1,6 @@
 import { PATHS, worldFromFiles, type FileMap, type LoadIssue } from '@core/files/world-files';
 import { entityFromMarkdown } from '@core/files/entity-file';
-import { entityProblems } from '@core/model/validate';
+import { entityProblems, TOLERATED_ON_LOAD } from '@core/model/validate';
 import { schemaOf, SpreadRecordSchema, type World } from '@core/model/world';
 import type { Entity } from '@core/model/entity';
 
@@ -127,7 +127,11 @@ export function applyFileChanges(
         });
         continue;
       }
-      const errors = entityProblems(schema, e).filter((p) => p.severity === 'error');
+      // Errors a file may carry and still load (an inverted band) keep the entity;
+      // the checks name them.
+      const errors = entityProblems(schema, e).filter(
+        (p) => p.severity === 'error' && !TOLERATED_ON_LOAD.has(p.code),
+      );
       if (errors.length > 0) {
         issues.push({
           path,

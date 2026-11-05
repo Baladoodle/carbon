@@ -373,6 +373,16 @@ describe('random token streams', () => {
   });
 });
 
+it('printing is a fixed point when a line that yields nothing follows a blank', () => {
+  // Found by the property above (seed -822109200): "a" has no "=", so it
+  // yields no item, and the blank before it was left at the end.
+  for (const src of ['#c\n  \n  a', 'k = 1\n\n  a', 'k = 1\n\na\n\nj = 2', '\n\nx\n\n']) {
+    const printed = printProgram(parseProgram(src).program);
+    expect(printProgram(parseProgram(printed).program), JSON.stringify(src)).toBe(printed);
+  }
+  expect(printProgram(parseProgram('k = 1\n\na\n\nj = 2').program)).toBe('k = 1\n\nj = 2\n');
+});
+
 function containsError(d: Def): boolean {
   let bad = false;
   walk(d.body, (e) => {

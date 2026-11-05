@@ -10,7 +10,7 @@ import {
   type FileMap,
   type LoadIssue,
 } from '@core/files/world-files';
-import { cleanTempFiles, removeFileDurable, writeFileAtomic } from './atomic';
+import { cleanTempFiles, removeFileDurable, writeBatchAtomic, writeFileAtomic } from './atomic';
 import { diskState, noteRead, noteWrite } from './disk-state';
 import { ensureMetaDir, exists, META, stamp } from './meta';
 import { formatOf, MIGRATIONS, type Migration } from './migrations';
@@ -299,25 +299,30 @@ export async function writeChanges(dir: string, changes: FileChanges): Promise<v
     write.delete(rel);
     remove.add(rel);
   }
+  // One batch for the whole call (a transaction's files): carbon records each
+  // write first, so the watcher knows the content is its own.
+  const ops: { rel: string; content: string | null; prior: string | undefined }[] = [
+    ...[...write].map(([rel, content]) => ({ rel, content, prior: disk.known.get(rel) })),
+    ...[...remove].map((rel) => ({ rel, content: null, prior: disk.known.get(rel) })),
+  ];
+  for (const op of ops) noteWrite(disk, op.rel, op.content);
+  const errors = await writeBatchAtomic(
+    ops.map((op) => ({ file: path.join(dir, op.rel), content: op.content })),
+  );
   const failed: unknown[] = [];
-  const attempt = async (rel: string, content: string | null, run: () => Promise<void>) => {
-    const prior = disk.known.get(rel);
-    noteWrite(disk, rel, content);
-    try {
-      await run();
-      disk.unsaved.delete(rel);
-    } catch (e) {
-      // The write is atomic: the disk still has the old file, and so does `known`.
-      if (prior === undefined) disk.known.delete(rel);
-      else disk.known.set(rel, prior);
-      disk.writes++;
-      disk.unsaved.set(rel, content);
-      failed.push(e);
+  for (const op of ops) {
+    const file = path.join(dir, op.rel);
+    if (!errors.has(file)) {
+      disk.unsaved.delete(op.rel);
+      continue;
     }
-  };
-  for (const [rel, content] of write)
-    await attempt(rel, content, () => writeFileAtomic(path.join(dir, rel), content));
-  for (const rel of remove) await attempt(rel, null, () => removeFileDurable(path.join(dir, rel)));
+    // Each write is atomic: the disk still has the old file, and so does `known`.
+    if (op.prior === undefined) disk.known.delete(op.rel);
+    else disk.known.set(op.rel, op.prior);
+    disk.writes++;
+    disk.unsaved.set(op.rel, op.content);
+    failed.push(errors.get(file));
+  }
   if (failed.length > 0) {
     const first = failed[0] instanceof Error ? failed[0].message : String(failed[0]);
     const n = disk.unsaved.size;

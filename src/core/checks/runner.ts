@@ -2,7 +2,9 @@ import type { Entity } from '../model/entity';
 import type { Note } from '../model/notes';
 import type { WorldSchema } from '../model/schema';
 import { getEntity, schemaOf, type World } from '../model/world';
+import { hashValue } from '../util/hash';
 import {
+  bandInvertedNotes,
   bandOverlapNotes,
   curveNotes,
   cycleNotes,
@@ -50,6 +52,24 @@ interface EntityCache {
   targets: (Entity | undefined)[];
   y: number | undefined;
   notes: Note[];
+}
+
+/**
+ * A note's inputs hash also covers *which* entities it is about: their
+ * `created` stamps. Ids are slugs of names, so a deleted entity's id comes
+ * back with the next entity of that name, and its note (the same id, saying
+ * the same thing) would otherwise inherit the old entity's dismissal. The
+ * same entity back (an undo of its delete) keeps its stamp, and its dismissal.
+ */
+const stamps = new WeakMap<Note, { key: string; note: Note }>();
+function stamp(world: World, n: Note): Note {
+  let key = '';
+  for (const id of n.entities) key += `${getEntity(world, id)?.created ?? ''}|`;
+  const hit = stamps.get(n);
+  if (hit?.key === key) return hit.note;
+  const note = { ...n, inputsHash: hashValue([n.inputsHash ?? '', key]) };
+  stamps.set(n, { key, note });
+  return note;
 }
 
 export function createCheckRunner(adapters: CheckAdapters = {}): CheckRunner {
@@ -208,14 +228,19 @@ export function createCheckRunner(adapters: CheckAdapters = {}): CheckRunner {
           out.push(...c.notes);
           continue;
         }
-        const notes = [...requiredNotes(schema, e, y), ...relationNotes(world, e, y)];
+        const notes = [
+          ...requiredNotes(schema, e, y),
+          ...relationNotes(world, e, y),
+          ...bandInvertedNotes(e),
+        ];
         perEntity.set(e.id, { entity: e, schema, targets, y, notes });
         out.push(...notes);
       }
       lastEntities = world.entities;
       lastNumbers = world.numbers;
+      const stamped = out.map((n) => stamp(world, n));
       // Ids are ASCII (`check:<kind>:<key>`): a plain comparison, much faster than localeCompare.
-      return out.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+      return stamped.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
     },
   };
 }

@@ -34,7 +34,12 @@ export function entityToMarkdown(entity: Entity): string {
   return `---\n${yaml}---\n${body}`;
 }
 
-const FRONTMATTER = /^---\r?\n([\s\S]*?)\r?\n?---[ \t]*(?:\r?\n|$)([\s\S]*)$/;
+/**
+ * The frontmatter is everything up to the first line that is exactly "---"
+ * (trailing spaces allowed): a "---" at the end of another line, which YAML
+ * writes for a value such as "Light---", is content, not the end.
+ */
+const FRONTMATTER = /^---\r?\n(?:([\s\S]*?)\r?\n)?---[ \t]*(?:\r?\n|$)([\s\S]*)$/;
 
 /** Parses and validates an entity file. Never throws. */
 export function entityFromMarkdown(text: string): Result<Entity> {

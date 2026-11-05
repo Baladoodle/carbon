@@ -4,8 +4,9 @@ import type { SaveStatus } from '@shared/ipc';
 import { AiStatus } from '../ai/AiStatus';
 import { invoke, on } from '../bridge';
 import { useNotes } from '../state/notes';
-import { useWorld, useWorldMeta } from '../state/world';
+import { useWorldMeta } from '../state/world';
 import { Tooltip } from '../ui';
+import { useEntityCount } from './StatusLine.count';
 
 function useSaveStatus(): SaveStatus {
   const [s, set] = useState<SaveStatus>({ state: 'saved' });
@@ -25,7 +26,7 @@ const plural = (n: number, one: string, many: string): string => `${n} ${n === 1
  */
 export function StatusLine(): ReactNode {
   const meta = useWorldMeta();
-  const count = useWorld((w) => Object.keys(w.entities).length);
+  const count = useEntityCount();
   const notes = useNotes();
   const save = useSaveStatus();
   const quarantined = meta.issues.some((i) => i.message.includes('.carbon/quarantine/'));

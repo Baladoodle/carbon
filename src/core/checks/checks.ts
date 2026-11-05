@@ -1,9 +1,11 @@
 import type { Entity } from '../model/entity';
+import { EntityIdSchema } from '../model/ids';
 import { LANE_OF_KIND, type Lane, LANES } from '../model/kinds';
 import { missingFor } from '../model/lifecycle';
 import type { Note } from '../model/notes';
 import type { WorldSchema } from '../model/schema';
-import { cycleProblems, referenceProblems } from '../model/validate';
+import type { Height } from '../model/fields';
+import { bandEdgeProblems, cycleProblems, heightLabel, referenceProblems } from '../model/validate';
 import { getEntity, schemaOf, type World } from '../model/world';
 import { hashValue } from '../util/hash';
 import type { CurveDeviation, FormulaProblem } from './numbers';
@@ -29,6 +31,7 @@ export const CHECK_KINDS = [
   'duplicate-name',
   'near-duplicate-name',
   'band-overlap',
+  'band-inverted',
   'formula-error',
   'off-curve',
 ] as const;
@@ -55,6 +58,51 @@ export function note(
     ...(y !== undefined && Number.isFinite(y) ? { y } : {}),
     inputsHash: hashValue(inputs),
   };
+}
+
+/**
+ * The entities a check note is about, read back from its id (the key formats
+ * are the ones the functions below build). Only ids the note can't exist
+ * without: a dismissal naming one that is gone can never match again. Unknown
+ * kinds and keys give none. A property test (dismissals.test.ts) holds this
+ * to every note the checks make.
+ */
+export function checkNoteSubjects(noteId: string): string[] {
+  const ids = subjectsOfKey(noteId);
+  return ids.every((id) => EntityIdSchema.safeParse(id).success) ? ids : [];
+}
+
+function subjectsOfKey(noteId: string): string[] {
+  const m = /^check:([a-z-]+):(.*)$/.exec(noteId);
+  if (!m) return [];
+  const kind = m[1] as CheckKind;
+  const key = m[2] ?? '';
+  const parts = key.split(':');
+  switch (kind) {
+    case 'material-nowhere':
+    case 'creature-nowhere':
+    case 'item-unreachable':
+    case 'required-missing':
+    case 'band-inverted':
+      return [key];
+    case 'relation':
+    case 'off-curve':
+      return [parts[0] ?? ''];
+    case 'duplicate-name':
+    case 'near-duplicate-name':
+    case 'band-overlap':
+      return parts.slice(0, 2);
+    case 'lane-empty': {
+      const run = (parts[1] ?? '').split('..');
+      return run.length === 2 ? run : [];
+    }
+    case 'cycle':
+      return (parts.at(-1) ?? '').split(',');
+    case 'lane-imbalance':
+    case 'formula-error':
+      return [];
+  }
+  return [];
 }
 
 const LANE_LABEL: Record<Lane, [string, string]> = {
@@ -367,6 +415,28 @@ export function requiredNotes(schema: WorldSchema, e: Entity, y: number | undefi
       state: e.state,
       missing,
     }),
+  ];
+}
+
+/**
+ * A band whose bottom isn't below its top: carbon refuses to make one, but a
+ * file edited by hand can hold one. It loads (it's the user's file) and has
+ * no place on the Column or in Climate; this note says why.
+ */
+export function bandInvertedNotes(e: Entity): Note[] {
+  if (bandEdgeProblems(e).length === 0) return [];
+  const bottom = heightLabel(e.fields.y_bottom as Height);
+  const top = heightLabel(e.fields.y_top as Height);
+  return [
+    note(
+      'band-inverted',
+      e.id,
+      'error',
+      `${e.name}: the bottom (${bottom}) is not below the top (${top}), so it has no place`,
+      [e.id],
+      undefined,
+      { bottom, top },
+    ),
   ];
 }
 

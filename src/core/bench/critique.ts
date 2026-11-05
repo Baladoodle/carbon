@@ -1,4 +1,5 @@
 import type { CritiqueNote } from '../ai/moments';
+import type { Entity } from '../model/entity';
 import type { Note } from '../model/notes';
 import { getEntity, type World } from '../model/world';
 import { hashValue } from '../util/hash';
@@ -26,13 +27,22 @@ export function staleCritiqueSources(sources: Iterable<string>, world: World): s
   return out;
 }
 
+/** The entity a critique note is about, read back from its id (`ai:<entity>:<kind>:<hash>`). */
+export function critiqueNoteEntity(noteId: string): string | null {
+  const m = /^ai:([a-z0-9-]+):/.exec(noteId);
+  return m?.[1] ?? null;
+}
+
+/** The inputs hash of a critique note about `entity`: the whole entity, as it was. */
+export const critiqueInputsHash = (entity: Entity | null): string => hashValue(entity);
+
 export function critiqueNotes(
   world: World,
   entityId: string,
   notes: readonly CritiqueNote[],
 ): Note[] {
   const e = getEntity(world, entityId);
-  const inputsHash = hashValue(e ?? null);
+  const inputsHash = critiqueInputsHash(e ?? null);
   const seen = new Set<string>();
   const out: Note[] = [];
   for (const n of notes) {

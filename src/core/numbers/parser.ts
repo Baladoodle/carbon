@@ -459,8 +459,15 @@ export function parseProgram(source: string): ParseResult {
       comment = undefined;
       return;
     }
-    if (pendingBlank && items.length > 0) items.push({ type: 'blank', span: pendingBlank });
-    pendingBlank = undefined;
+    // The blank before this line is emitted only with an item: a line that
+    // yields nothing (an error with no "=") must not leave a blank at the end,
+    // or two in a row, which a reparse of the printed text would collapse.
+    const blank = pendingBlank && items.length > 0 ? pendingBlank : undefined;
+    const emit = (item: Item): void => {
+      if (blank) items.push({ type: 'blank', span: blank });
+      pendingBlank = undefined;
+      items.push(item);
+    };
     const first = line[0];
     const last = line[line.length - 1];
     const lineEnd = last ? { start: last.span.end, end: last.span.end } : end;
@@ -468,7 +475,7 @@ export function parseProgram(source: string): ParseResult {
     try {
       const def = p.parseDef();
       if (comment) def.comment = comment.text;
-      items.push(def);
+      emit(def);
     } catch (e) {
       if (!(e instanceof Stop)) throw e;
       // One error per line: a lexer error on this line already explains it
@@ -496,7 +503,7 @@ export function parseProgram(source: string): ParseResult {
         if (eqAt > 0) {
           const span = cover(name.span, last ? last.span : name.span);
           const body: Expr = { type: 'error', span };
-          items.push(
+          emit(
             isFunc
               ? { type: 'func', name: name.text, nameSpan: name.span, params, body, span }
               : { type: 'const', name: name.text, nameSpan: name.span, body, span },

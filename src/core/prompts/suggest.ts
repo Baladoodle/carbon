@@ -1,4 +1,5 @@
 import { fieldValue } from '../model/lifecycle';
+import { edgesFit } from '../model/validate';
 import { getEntity, schemaOf, type World } from '../model/world';
 import { deepEqual } from '../util/json';
 import { err, ok } from '../util/result';
@@ -86,6 +87,8 @@ function validSuggestions(world: World, req: ParsedRequest<'suggest_one'>, raw: 
     const value = validFieldValue(world, f, item.value);
     const dup =
       value === undefined ||
+      // A value the command would refuse (a band's bottom above its top) is invalid too.
+      !edgesFit(e, f.key, value) ||
       seen.some(
         (x) =>
           deepEqual(x, value) ||
