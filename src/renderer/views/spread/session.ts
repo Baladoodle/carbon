@@ -5,10 +5,11 @@ import type { World } from '@core/model/world';
 import { MOVE_DEFS } from '@core/spreads/moves';
 import { makeSpread, newSpreadId, readSpread, type SpreadData } from '@core/spreads/record';
 import { checkSpot, defaultMove, spotLabel } from '@core/spreads/spot';
+import { keepCommands, killCommands, mergeCommands } from '@core/spreads/triage';
 import { activeRules } from '@core/taste/context';
 import { ai } from '../../ai/client';
 import { createStore, useStore } from '../../state/store';
-import { currentWorld, transact } from '../../state/world';
+import { currentWorld, transact, whenRev } from '../../state/world';
 
 /**
  * The Spread view's own state: the setup of the next spread (spot, move,
@@ -40,6 +41,16 @@ export interface Live {
   count: number;
 }
 
+/**
+ * A judgement made while the spread is still streaming. The record is written
+ * once the stream ends; then these are applied in order, each as its own undo
+ * step, exactly as if the keys had been pressed after the stream.
+ */
+export type Queued =
+  | { type: 'keep'; key: string }
+  | { type: 'kill'; key: string; reason: string; note?: string | undefined }
+  | { type: 'merge'; keys: string[] };
+
 export type Prompt =
   | { type: 'kill'; key: string }
   | { type: 'other'; key: string }
@@ -54,6 +65,8 @@ export interface SpreadSession {
   focus: string | null;
   marked: string[];
   prompt: Prompt | null;
+  /** Judgements made while streaming, waiting for the record (see Queued). */
+  queued: Queued[];
 }
 
 export const COUNTS = [8, 12, 16] as const;
@@ -66,6 +79,7 @@ const initial: SpreadSession = {
   focus: null,
   marked: [],
   prompt: null,
+  queued: [],
 };
 
 export const sessionStore = createStore<SpreadSession>(initial);
@@ -90,6 +104,7 @@ export function adoptSpot(world: World, spot: Spot, move?: Move): void {
     focus: null,
     marked: [],
     prompt: null,
+    queued: [],
   });
 }
 
@@ -144,7 +159,39 @@ export async function runSpread(): Promise<string | null> {
     candidates: [],
     count: setup.count,
   };
-  patchSession({ live, current: null, error: null, focus: null, marked: [], prompt: null });
+  patchSession({
+    live,
+    current: null,
+    error: null,
+    focus: null,
+    marked: [],
+    prompt: null,
+    queued: [],
+  });
+  let finish: () => void = () => undefined;
+  running = new Promise<void>((r) => (finish = r));
+  try {
+    return await stream(my, ac, id, setup, world, axes, ruleIds, direction);
+  } finally {
+    finish();
+  }
+}
+
+/** Resolves when the current run (if any) has ended and its record is saved. */
+export const settled = (): Promise<void> => running;
+let running: Promise<void> = Promise.resolve();
+
+async function stream(
+  my: number,
+  ac: AbortController,
+  id: string,
+  setup: Setup,
+  world: World,
+  axes: { x: Axis; y: Axis },
+  ruleIds: string[],
+  direction: string,
+): Promise<string | null> {
+  if (!setup.spot) return null;
   const request = {
     spot: setup.spot,
     move: setup.move,
@@ -176,6 +223,7 @@ export async function runSpread(): Promise<string | null> {
   if (candidates.length === 0) {
     patchSession({
       live: null,
+      queued: [],
       error: out.ok || out.error.code === 'cancelled' ? null : out.error,
     });
     return null;
@@ -202,14 +250,49 @@ export async function runSpread(): Promise<string | null> {
     `Spread: ${MOVE_DEFS[setup.move].label} ${spotLabel(latest, setup.spot)}`,
     [cmd('spread.save', { record })],
   );
-  const focus = sessionStore.get().focus ?? candidates[0]?.key ?? null;
+  // The record must be in the mirror before anything reads it (triage, the field).
+  if (saved.ok) await whenRev(saved.rev);
+  if (token !== my) return null;
+  const queue = sessionStore.get().queued;
+  const judged = new Set(queue.flatMap((q) => (q.type === 'merge' ? q.keys : [q.key])));
+  const prev = sessionStore.get().focus;
+  const focus =
+    prev && !judged.has(prev)
+      ? prev
+      : (candidates.find((c) => !judged.has(c.key))?.key ?? candidates[0]?.key ?? null);
   patchSession({
     live: null,
     current: saved.ok ? id : null,
     focus,
+    queued: [],
     error: out.ok || out.error.code === 'cancelled' ? null : out.error,
   });
-  return saved.ok ? null : saved.error.message;
+  if (!saved.ok) return saved.error.message;
+  return drain(id, queue);
+}
+
+/** Applies the judgements made while streaming, in order, each as one undo step. */
+async function drain(id: string, queue: readonly Queued[]): Promise<string | null> {
+  let problem: string | null = null;
+  for (const q of queue) {
+    const w = currentWorld();
+    const s = w ? readSpread(w.spreads[id]) : null;
+    if (!w || !s) break;
+    const t =
+      q.type === 'keep'
+        ? keepCommands(w, s, q.key)
+        : q.type === 'kill'
+          ? killCommands(w, s, q.key, q.reason, q.note)
+          : mergeCommands(w, s, q.keys);
+    if (!t.ok) {
+      problem ??= t.error.message;
+      continue;
+    }
+    const r = await transact(t.value.label, t.value.commands);
+    if (!r.ok) problem ??= r.error.message;
+    else await whenRev(r.rev);
+  }
+  return problem;
 }
 
 /** Stops the stream; what arrived so far is kept and saved. */
