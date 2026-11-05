@@ -51,9 +51,9 @@ test('climate: a panel menu generates a concept that fills the panel; esc cancel
   const w = await world();
   const im = w.images?.['glowmoss-caverns'];
   expect(im?.concept).toBeDefined();
-  // Low quality and Images 2.6 flare, by default.
+  // Low quality and Images 2.5 flare, by default (from images-core's settings).
   expect(await imageLog()).toMatchObject([
-    { kind: 'concept', quality: 'low', model: 'gpt-image-2.6-flare', outcome: 'ok' },
+    { kind: 'concept', quality: 'low', model: 'gpt-image-2.5-flare', outcome: 'ok' },
   ]);
   await carbon.screenshot('images-climate');
 });

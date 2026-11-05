@@ -92,7 +92,8 @@ takes `itemsAt(target, point)` and draws the same entries and look as `Menu`.
   - The prompt is written by `images:prompt` (the `image_prompt` moment)
     under a shimmer. It's shown in `--ai` until you type, and editable;
     you can also write your own if the moment fails.
-  - Model: Images 2.6 flare by default, or sunburst.
+  - Model: whatever `imageSettings` gives (Images 2.5 flare, the user's
+    default), with 2.6 flare and 2.6 sunburst selectable. Nothing is hard-coded.
   - Quality: whatever settings say, which is **low** by default.
   - Size: any of the concept sizes. Icons are fixed at 1024².
   - The estimate (`images:estimate`) and what's left in the budget.
@@ -122,6 +123,12 @@ takes `itemsAt(target, point)` and draws the same entries and look as `Menu`.
        deliberate button.
     5. Accept N calls `images:sheetAccept`, one undo step per sheet.
   - The plan shows the grid: `1 call · 4 icons · 2×2`.
+  - **Review sheet:** a kept sheet is reviewed again, re-cropped by
+    `images:sheetCrop` (free). It opens from the Bench strip's `Sheet`
+    button, the chosen icon's right-click menu, the `…` menu, every image
+    menu, and the palette ("Review sheet: <name>"). Cells already used as
+    their entity's icon start accepted; Accept makes icons of the newly
+    accepted cells only (one undo step).
 - **Taste:** an **Art direction** panel under Rules holds the direction
   paragraph and per-kind notes (`+ Kind`). It commits on blur, `enter` or
   `ctrl+enter`; `esc` reverts. Each edit is one `art.set` undo step.
@@ -152,7 +159,9 @@ takes `itemsAt(target, point)` and draws the same entries and look as `Menu`.
 
 ## 4. Tests
 
-- **`e2e/images.spec.ts`**, 9 tests, all on the fake:
+- **`e2e/images.spec.ts`**, 10 tests, all on the fake (one more: Review
+  sheet from the Bench and the palette, free, accepting a passed-over cell,
+  undo):
   1. A Climate panel's menu, then esc: nothing is sent. Then enter fills the
      panel, at low quality on flare.
   2. The Bench shows the concept of a biome in focus; the lightbox opens and
@@ -182,6 +191,9 @@ takes `itemsAt(target, point)` and draws the same entries and look as `Menu`.
     spread showed no kill prompt. It passed 3 of 3 alone and in both later
     full runs, and nothing in this work touches spread keys. It's worth
     watching as a possible load flake.
+- **`screens.spec` race** (from the coordinator): the `+ Field` loop now
+  waits, after each pick, for the menu to close and exactly one more field to
+  show, before it looks at `+ Field` again. No sleeps, no retries.
 - **Units:** 814 passed. Lint, prettier and `tsc` are clean.
 
 ## 5. Screens (`docs/screens/`, 2×)
@@ -202,14 +214,6 @@ takes `itemsAt(target, point)` and draws the same entries and look as `Menu`.
 
 ## 6. Left for later
 
-- **Re-crop of a kept sheet:** `images:sheetCrop` is wired in `client.ts`,
-  but nothing calls it. Reopening a past sheet's review (from the Bench
-  version list, say) is a small next step.
-- **The default model:** `IMAGES.md` now names `gpt-image-2.5-flare`, but
-  core's `IMAGE_MODELS` doesn't list it yet. The confirm step and the batch
-  dialog read core's list and settings, so they'll follow once core adds it
-  (its label is ready). The e2e tests that assert the 2.6-flare default will
-  need that one-word change then.
 - **Choose in the `…` menu:** it lists the three most recent other versions;
   the strip lists all of them.
 - **Closing the batch dialog** with `esc` while it runs cancels the rest. It

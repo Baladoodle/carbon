@@ -436,7 +436,8 @@ it costs and what each result means: [`AI-FIRST-RUN.md`](AI-FIRST-RUN.md).
 ### Images and icons
 
 Concept art for any entity, and 16×16 item icons in Infinite's style, from
-OpenAI's Images 2.6 models (the full design is [`IMAGES.md`](IMAGES.md)).
+OpenAI's image models: 2.5 flare by default, with 2.6 flare and 2.6 sunburst
+selectable. The full design is in [`IMAGES.md`](IMAGES.md).
 
 - **Deliberate, always.** Nothing generates on its own. `ctrl+g` (concept)
   and `ctrl+shift+g` (icon) work on whatever is selected, in every view; the
@@ -445,7 +446,7 @@ OpenAI's Images 2.6 models (the full design is [`IMAGES.md`](IMAGES.md)).
   Bench's `…` menu and image strip, and the palette.
 - **The confirm step comes first.** Claude writes a prompt (on Haiku, from
   the entity, its place and the art direction); you can edit it or write your
-  own. Choose the model (`gpt-image-2.6-flare` by default, or `sunburst`), the
+  own. Choose the model (`gpt-image-2.5-flare` by default), the
   quality (**low** by default) and the size, and see the estimated cost.
   `enter` sends it, `esc` cancels with nothing spent.
 
@@ -466,12 +467,17 @@ OpenAI's Images 2.6 models (the full design is [`IMAGES.md`](IMAGES.md)).
   quality, call count and estimated total, and skips entities that already
   have one unless you choose Replace. Concepts run two at a time, with
   progress, a cancel and a result per row. **Icons go out as one sheet** (up
-  to 100 icons in a single call), then a review: the sheet and each cell's
-  16×16 result. Unflagged cells start accepted; click a cell to accept or
-  reject it, "Regenerate" makes a smaller sheet of the rejected ones, and
-  "Accept" turns the accepted cells into icons, one undo step.
+  to 100 icons in a single call), then a review: the sheet with its grid,
+  and each cell's crop, 16×16 result and flags. Unflagged cells start
+  accepted. Arrows move, `k` accepts, `x` rejects, `a` accepts every
+  unflagged cell (or click). "Regenerate" makes a smaller sheet of the
+  rejected ones, and "Accept" turns the accepted cells into icons, one undo
+  step. The sheet is kept: "Review sheet" (the Bench, an icon's menu, the
+  palette) re-crops it for free, to take a cell you passed over.
 
   <img src="screens/images-batch.png" width="720" alt="A batch of icons">
+
+  <img src="screens/images-sheet.png" width="720" alt="Reviewing an icon sheet">
 
 - **Undo:** choosing and removing images are ordinary undo steps. Removing
   keeps the files; "Delete image files of removed images" in the palette
