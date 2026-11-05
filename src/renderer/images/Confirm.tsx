@@ -24,11 +24,13 @@ export const SIZE_LABEL: Record<ImageSize, string> = {
   '1024x1536': '1024 × 1536',
   '2880x2880': '2880 × 2880',
 };
-const MODEL_LABEL: Record<ImageModel, string> = {
+/** Model names as people say them; a model added to IMAGE_MODELS shows by its id until named here. */
+const MODEL_LABEL: Partial<Record<string, string>> = {
+  'gpt-image-2.5-flare': 'Images 2.5 flare',
   'gpt-image-2.6-flare': 'Images 2.6 flare',
   'gpt-image-2.6-sunburst': 'Images 2.6 sunburst',
 };
-export const modelOptions = IMAGE_MODELS.map((m) => ({ value: m, label: MODEL_LABEL[m] }));
+export const modelOptions = IMAGE_MODELS.map((m) => ({ value: m, label: MODEL_LABEL[m] ?? m }));
 export const qualityOptions = IMAGE_QUALITIES.map((q) => ({ value: q, label: q }));
 /** Icons are generated square and filtered to 16×16; concepts can be any of the sizes. */
 export const sizesFor = (kind: ImageKind): ImageSize[] =>
