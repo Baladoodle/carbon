@@ -66,14 +66,22 @@ export function registerIpc(deps: IpcDeps): void {
     inflight.get(req.requestId)?.abort();
     const ac = new AbortController();
     inflight.set(req.requestId, ac);
+    // Partials are numbered, and the reply says how many were sent: the event
+    // channel and the invoke reply have no shared order (the renderer waits).
+    let partials = 0;
     try {
-      return await ai.run(req.moment, req.request as MomentRequest<Moment>, {
+      const out = await ai.run(req.moment, req.request as MomentRequest<Moment>, {
         signal: ac.signal,
         onPartial: (partial: unknown) => {
-          if (!event.sender.isDestroyed())
-            event.sender.send(wire('ai:partial'), { requestId: req.requestId, partial });
+          if (event.sender.isDestroyed()) return;
+          event.sender.send(wire('ai:partial'), {
+            requestId: req.requestId,
+            seq: partials++,
+            partial,
+          });
         },
       });
+      return { ...out, partials };
     } finally {
       if (inflight.get(req.requestId) === ac) inflight.delete(req.requestId);
     }

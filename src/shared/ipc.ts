@@ -105,11 +105,31 @@ export const AiRunRequestSchema = z.object({
   /** The moment's request; validated by the gateway against MOMENT_SCHEMAS. */
   request: z.unknown(),
 });
+/**
+ * `partials`: how many `ai:partial` events main sent for the request. Events
+ * and the invoke reply travel on different channels with no shared order, so
+ * the renderer waits for that many (by `seq`) before it treats the run as done.
+ */
 export const AiRunResponseSchema = z.discriminatedUnion('ok', [
-  z.object({ ok: z.literal(true), result: z.unknown(), meta: AiCallMetaSchema }),
-  z.object({ ok: z.literal(false), error: AiErrorSchema, meta: AiCallMetaSchema.optional() }),
+  z.object({
+    ok: z.literal(true),
+    result: z.unknown(),
+    meta: AiCallMetaSchema,
+    partials: z.number().int().min(0).optional(),
+  }),
+  z.object({
+    ok: z.literal(false),
+    error: AiErrorSchema,
+    meta: AiCallMetaSchema.optional(),
+    partials: z.number().int().min(0).optional(),
+  }),
 ]);
-export const AiPartialEventSchema = z.object({ requestId: z.string(), partial: z.unknown() });
+/** One streamed item; `seq` numbers them 0, 1, 2… per request, in the order main sent them. */
+export const AiPartialEventSchema = z.object({
+  requestId: z.string(),
+  seq: z.number().int().min(0),
+  partial: z.unknown(),
+});
 
 // ── Platform (W6): store, notes, export ────────────────────────────────────
 
