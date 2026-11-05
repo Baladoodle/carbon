@@ -34,7 +34,8 @@ export const INSTRUCTIONS = `carbon is the user's live design studio for the gam
 - Every write is one undo step: the user can undo it with ctrl+z, and what you wrote is marked as agent-written until they edit it. Writes are validated exactly like the UI; a refusal gives the command's error code and why.
 - Lifecycle: idea → shaped → decided → exported, or graveyard. "decided" needs a why (the Why gate) and the state's required fields; get_entity lists what's missing.
 - Use focus (an entity on the Bench) and view to show the user what you're talking about.
-- Carbon's own AI (suggest, fill, critique, spread, image tools) costs money: those tools work only when the user has allowed agents to spend, within a budget. Reads, writes, icon_from_concept and sheet review are free.
+- Paid tools spend real money: suggest, fill, critique, spread, image_prompt, generate_image, run_image_batch, and plan_image_batch for concepts (Claude or OpenAI calls). Before calling one, ask the user for approval and quote its estimated cost: get it from estimate_cost with the same arguments. Don't call it until they say yes. Carbon's own AI and image budgets still apply.
+- Everything else is free and needs no approval: reads, writes, focus and view, estimate_cost, icon_from_concept, review_sheet and accept_sheet_cells.
 - Spreads: run spread, then keep or kill each candidate with judge_candidate, giving a reason; carbon's taste learns from your judgements.`;
 
 export class RelayError extends Error {}

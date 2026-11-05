@@ -139,27 +139,26 @@ test.describe('an agent over carbon mcp', () => {
     await identity.press('Escape');
   });
 
-  test('is refused a paid call until the user allows spending', async () => {
-    const r = await call(client, 'suggest', { entityId: 'glide', field: 'identity' });
-    expect(r.isError).toBe(true);
-    expect(r.content[0]?.text).toMatch(/^agent\.spend_off:/);
+  test('paid tools say they spend money and to ask first; estimate_cost quotes a number', async () => {
+    const { tools } = await client.listTools();
+    const spread = tools.find((t) => t.name === 'spread');
+    expect(spread?.description).toMatch(/spends real money/i);
+    expect(spread?.description).toMatch(/ask the user for approval/i);
+    expect(tools.find((t) => t.name === 'icon_from_concept')?.description).not.toMatch(/approval/);
+    expect(client.getInstructions()).toMatch(
+      /ask the user for approval and quote its estimated cost/,
+    );
+    const e = await data<{ estimateUsd: number; say: string }>(client, 'estimate_cost', {
+      tool: 'spread',
+      arguments: { spot: { type: 'cell', band: 'low-sky', lane: 'items' }, move: 'fill', count: 4 },
+    });
+    // The fake AI costs nothing; the number is there to quote.
+    expect(e.estimateUsd).toBe(0);
+    expect(e.say).toMatch(/^about \$/);
   });
 
-  test('with spending allowed, runs a spread on the fake AI and keeps a candidate', async () => {
+  test('runs a spread on the fake AI and keeps and kills candidates', async () => {
     const { page } = carbon;
-    await page.mouse.move(5, 5);
-    await page.locator('body').press('Control+Shift+l');
-    const panel = page.getByTestId('agent-panel');
-    await expect(panel).toBeVisible();
-    await expect(panel.getByTestId('agent-log-row').first()).toBeVisible();
-    const spend = panel.getByTestId('agent-spend');
-    await expect(spend).toHaveAttribute('aria-checked', 'false');
-    await spend.click();
-    await expect(spend).toHaveAttribute('aria-checked', 'true');
-    await carbon.screenshot('mcp-agent-panel', { docs: true });
-    await page.keyboard.press('Escape');
-    await expect(panel).toHaveCount(0);
-
     const s = await data<{ id: string; candidates: { key: string; role: string; name: string }[] }>(
       client,
       'spread',
@@ -202,6 +201,8 @@ test.describe('an agent over carbon mcp', () => {
     await expect(top.getByTestId('agent-undo')).toHaveCount(0);
     const n = await data<{ variables: Record<string, unknown> }>(client, 'get_numbers');
     expect(n.variables.k).toBe(100);
+    await page.mouse.move(5, 5);
+    await carbon.screenshot('mcp-agent-panel', { docs: true });
     await page.keyboard.press('Escape');
   });
 

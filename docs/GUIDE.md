@@ -532,14 +532,14 @@ short version:
 - **It follows the same rules as you.** The Why gate, required fields and
   every other check refuse it with the same reason they'd give you.
 - **The Agent overlay** (`ctrl+shift+l`, or click the agent's name) lists
-  every call, with Undo on the last write, and holds the settings: **Agent
-  access** (on by default: reads and writes) and **Allow agents to spend**
-  (off by default: Claude and OpenAI calls), with an agent budget ($1 a
-  session, $10 a month by default). They're kept in
-  `~/.config/carbon/agent.json`, outside the world, so an agent can't turn on
-  its own spending.
-- **Paid calls by an agent** are in the AI log marked `· agent`, and count
-  toward the AI's and images' budgets too.
+  every call, with Undo on the last write, what agents' paid calls have cost
+  this session, and the **Agent access** switch (on by default). It's kept in
+  `~/.config/carbon/agent.json`, outside the world.
+- **Paid tools ask you first.** Suggestions, critique, spreads and images
+  spend real money. Carbon tells the agent so, and to ask your approval with
+  an estimated cost (from its `estimate_cost` tool) before each one. There's
+  no switch to stop it: the AI's and images' own budgets are the hard limit,
+  for agents as for you. Every call is in the AI log marked `· agent`.
 - **`carbon mcp` without carbon running** says so and exits; nothing waits.
 - **From a checkout** (no install): `npm run build`, then
   `claude mcp add carbon-dev -- node ~/src/carbon/scripts/carbon-mcp.mjs`.
@@ -558,7 +558,7 @@ Everything is plain files in the world directory:
 | `ai-log/<date>.jsonl` | every AI call: moment, usage, cost (no prompts unless `ai.debug` is on) |
 | `carbon.json`, `schema.json` | settings; kinds and fields on top of the built-in ones |
 | `.carbon/` | carbon's bookkeeping: quarantine, backups, note dismissals |
-| `~/.config/carbon/agent.json` | outside the world: agent access, spending, the agent budget and this month's agent spend |
+| `~/.config/carbon/agent.json` | outside the world: whether agents have access |
 
 - **Saves** are immediate and atomic (write, fsync, rename): a crash never
   leaves half a file.

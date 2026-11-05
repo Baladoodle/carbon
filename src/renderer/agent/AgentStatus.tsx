@@ -1,9 +1,9 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import type { AgentLogEntry } from '@shared/agent';
 import { RANK, useActions } from '../actions';
 import { flash, setUi, uiStore, useUi } from '../state/ui';
 import { undo, useWorldMeta } from '../state/world';
-import { Button, Empty, Input, Table, TBody, TD, TH, THead, TR, Tooltip, cx } from '../ui';
+import { Button, Empty, Table, TBody, TD, TH, THead, TR, Tooltip, cx } from '../ui';
 import {
   connectedLabel,
   setAgentSettings,
@@ -41,9 +41,7 @@ export function AgentStatus(): ReactNode {
       ? `Connected: ${s.connections.map((c) => c.client ?? 'agent').join(', ')}`
       : null,
     s.settings.access ? null : 'Agent access is off',
-    s.settings.spend
-      ? `May spend: $${s.spend.sessionUsd.toFixed(2)} of $${s.settings.budget.sessionUsd.toFixed(2)}`
-      : 'Paid calls off',
+    s.spend.sessionUsd > 0 ? `Paid calls this session: ${usd(s.spend.sessionUsd)}` : null,
   ]
     .filter(Boolean)
     .join(' · ');
@@ -102,16 +100,14 @@ function Switch({
 }
 
 /**
- * The Agent overlay (ctrl+shift+l): access, spending and its budget, who is
- * connected, and every tool call this session, newest first. A write can be
+ * The Agent overlay (ctrl+shift+l): access, what agents' paid calls have
+ * cost this session, who is connected, and every tool call this session, newest first. A write can be
  * undone from here while it's still the last change.
  */
 function AgentPanel(): ReactNode {
   const s = useAgentStatus();
   const log = useAgentLog();
   const { rev } = useWorldMeta();
-  const [session, setSession] = useState(String(s.settings.budget.sessionUsd));
-  const [month, setMonth] = useState(String(s.settings.budget.monthUsd));
   const close = (): void => setUi({ overlay: null });
   useActions([
     {
@@ -123,18 +119,6 @@ function AgentPanel(): ReactNode {
       inInputs: true,
     },
   ]);
-  const parse = (v: string): number | null => {
-    const n = Number(v);
-    return v.trim() !== '' && Number.isFinite(n) && n >= 0 ? n : null;
-  };
-  const sessionUsd = parse(session);
-  const monthUsd = parse(month);
-  const budgetChanged =
-    sessionUsd !== s.settings.budget.sessionUsd || monthUsd !== s.settings.budget.monthUsd;
-  const saveBudget = (): void => {
-    if (sessionUsd === null || monthUsd === null) return;
-    void setAgentSettings({ budget: { sessionUsd, monthUsd } });
-  };
   const rows = [...log].reverse();
 
   return (
@@ -153,45 +137,11 @@ function AgentPanel(): ReactNode {
             testid="agent-access"
             onChange={(access) => void setAgentSettings({ access })}
           />
-          <Switch
-            on={s.settings.spend}
-            label="Allow agents to spend"
-            testid="agent-spend"
-            onChange={(spend) => void setAgentSettings({ spend })}
-          />
-          <form
-            className="agent-budget"
-            onSubmit={(e) => {
-              e.preventDefault();
-              saveBudget();
-            }}
-          >
-            <span className="t-2 num">{`${usd(s.spend.sessionUsd)} of`}</span>
-            <Input
-              mono
-              aria-label="Agent budget per session"
-              value={session}
-              invalid={sessionUsd === null}
-              onChange={(e) => setSession(e.target.value)}
-              data-testid="agent-budget-session"
-            />
-            <span className="t-3">this session</span>
-            <span className="t-2 num">{`· ${usd(s.spend.monthUsd)} of`}</span>
-            <Input
-              mono
-              aria-label="Agent budget per month"
-              value={month}
-              invalid={monthUsd === null}
-              onChange={(e) => setMonth(e.target.value)}
-              data-testid="agent-budget-month"
-            />
-            <span className="t-3">this month</span>
-            {budgetChanged && sessionUsd !== null && monthUsd !== null && (
-              <Button size="sm" type="submit" data-testid="agent-budget-save">
-                Save
-              </Button>
-            )}
-          </form>
+          {s.spend.sessionUsd > 0 && (
+            <span className="t-2 num agent-spent" data-testid="agent-spent">
+              {`${usd(s.spend.sessionUsd)} this session`}
+            </span>
+          )}
           <span className="agent-who t-2" data-testid="agent-connections">
             {s.connections.length === 0
               ? s.listening

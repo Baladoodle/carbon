@@ -6,6 +6,7 @@ import type { World } from '@core/model/world';
 import type { Note } from '@core/model/notes';
 // Type-only: modules.ts imports this file eagerly (see src/main/module-def.ts).
 import type { MainModule } from '../modules';
+import { ClaudeAiGateway } from '../ai/gateway';
 import { imageGateway } from '../images/current';
 import { META, readJson } from '../store/meta';
 import { AgentHost } from './host';
@@ -58,7 +59,7 @@ const agentModule: MainModule = {
         since: c.since,
         ...(c.client ? { client: c.client.name } : {}),
       })),
-      spend: store.spend(),
+      spend: { sessionUsd: host.spent() },
     });
     const pushStatus = (): void => push('agent:status', status());
 
@@ -68,7 +69,20 @@ const agentModule: MainModule = {
       // MainImageGateway is the full gateway; the tools use a part of it.
       images: () => imageGateway(),
       settings: () => store.get(),
-      spend: store,
+      // The real gateway prices a request before it's sent; the fake costs nothing; off can't say.
+      estimateAi: (moment, request) =>
+        ai instanceof ClaudeAiGateway
+          ? ai.estimate(moment, request as never)
+          : ai.status().mode === 'fake'
+            ? {
+                ok: true,
+                model: 'fake',
+                inputTokens: 0,
+                maxOutputTokens: 0,
+                inputUsd: 0,
+                maxUsd: 0,
+              }
+            : null,
       reveal: (r) => push('agent:reveal', r),
       notes,
       asAgent,

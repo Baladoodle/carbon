@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { AiGateway } from '@core/ai/gateway';
 import {
+  type Moment,
   CandidateSchema,
   MoveSchema,
   SpotSchema,
@@ -170,6 +171,32 @@ interface SheetReviewLike {
   cells: { index: number; entityId: string; row: number; col: number; flags: string[] }[];
 }
 
+/** What a Claude moment would cost (ClaudeAiGateway.estimate). */
+export type AiEstimate =
+  | {
+      ok: true;
+      model: string;
+      inputTokens: number;
+      maxOutputTokens: number;
+      inputUsd: number;
+      maxUsd: number;
+    }
+  | { ok: false; error: { code: string; message: string } };
+
+/** What a paid call would cost: an upper bound, and its parts. */
+export interface CostEstimate {
+  usd: number;
+  parts: { what: string; provider: 'claude' | 'openai'; usd: number; detail?: string }[];
+}
+
+/**
+ * The words every paid tool's description ends with (docs/MCP.md §4): the
+ * agent asks the user before it spends, quoting estimate_cost.
+ */
+export const PAID_NOTICE =
+  'It spends real money. Before calling it, ask the user for approval, quoting the estimated cost from estimate_cost.';
+const paid = (text: string, what: string): string => `${text} Paid: ${what}. ${PAID_NOTICE}`;
+
 export interface ToolContext {
   world(): World;
   /** One transaction: one undo step, labelled "Agent: …", marked `by: 'agent'`. */
@@ -179,8 +206,8 @@ export interface ToolContext {
   reveal(r: AgentReveal): void;
   /** Mechanical-check notes now open (not dismissed). */
   notes(): Promise<Note[]>;
-  /** What the agent may still spend before its budget stops it. */
-  remainingUsd(): number;
+  /** What a Claude moment would cost, before it's made; null when the AI can't say (it's off). */
+  estimateAi(moment: Moment, request: unknown): AiEstimate | null;
   now(): string;
   /** A fresh id for a request or batch. */
   newId(prefix: string): string;
@@ -195,10 +222,8 @@ export interface ToolDef<I extends z.ZodType = z.ZodType> {
   kind: ToolKind;
   /** True for a write that removes something (MCP's destructiveHint). */
   destructive?: boolean;
-  /** For a paid tool: true when this input costs nothing (an icon plan, say). */
-  free?: (input: z.output<I>) => boolean;
-  /** For a paid tool: the estimate it must fit in the agent's budget, before it runs. */
-  estimate?: (ctx: ToolContext, input: z.output<I>) => number | ToolError;
+  /** A paid tool: what this input would cost, for `estimate_cost`. Nothing is called. */
+  cost?: (ctx: ToolContext, input: z.output<I>) => CostEstimate | ToolError;
   run(ctx: ToolContext, input: z.output<I>): Promise<ToolOutcome> | ToolOutcome;
 }
 
@@ -452,7 +477,7 @@ const getNumbers = tool({
         })),
         errors: formulaErrors(a),
       },
-      summary: `${a.defs.length} formulas`,
+      summary: `${a.defs.length} formula${a.defs.length === 1 ? '' : 's'}`,
     };
   },
 });
@@ -1061,11 +1086,43 @@ const view = tool({
 const aiFailed = (e: { code: string; message: string }): ToolOutcome =>
   fail(`ai.${e.code}`, e.message);
 
+/** The cost part of one Claude moment, or why there's none. */
+function claudePart(
+  ctx: ToolContext,
+  moment: Moment,
+  request: unknown,
+  what: string,
+  times = 1,
+): CostEstimate['parts'][number] | ToolError {
+  const e = ctx.estimateAi(moment, request);
+  if (!e) return { code: 'ai.disabled', message: 'the AI is off in carbon' };
+  if (!e.ok) return { code: `ai.${e.error.code}`, message: e.error.message };
+  return {
+    what,
+    provider: 'claude',
+    usd: e.maxUsd * times,
+    detail: `${e.model}: about ${e.inputTokens} input tokens, at most ${e.maxOutputTokens} output${times > 1 ? `, ×${times}` : ''}`,
+  };
+}
+
+const isError = (x: unknown): x is ToolError =>
+  typeof x === 'object' && x !== null && 'code' in x && 'message' in x;
+
+/** Sums parts into an estimate; the first error wins. */
+function costOf(...parts: (CostEstimate['parts'][number] | ToolError)[]): CostEstimate | ToolError {
+  const bad = parts.find(isError);
+  if (bad) return bad;
+  const ok = parts as CostEstimate['parts'];
+  return { usd: ok.reduce((n, p) => n + p.usd, 0), parts: ok };
+}
+
 const suggest = tool({
   name: 'suggest',
   title: 'Suggest a value',
-  description:
-    "Carbon's inline suggestion for one field (as `tab` / `shift+tab` on the Bench): `count` 1 or 3 values, grounded in the world and taste. Nothing is applied: use update_entity to take one. Paid (Claude).",
+  description: paid(
+    "Carbon's inline suggestion for one field (as `tab` / `shift+tab` on the Bench): `count` 1 or 3 values, grounded in the world and taste. Nothing is applied: use update_entity to take one.",
+    'one Claude call',
+  ),
   kind: 'paid',
   input: z.object({
     entityId: Id,
@@ -1074,6 +1131,20 @@ const suggest = tool({
     avoid: z.array(z.unknown()).max(20).default([]),
     guidance: z.string().max(500).optional(),
   }),
+  cost: (ctx, p) =>
+    costOf(
+      claudePart(
+        ctx,
+        p.count === 3 ? 'suggest_three' : 'suggest_one',
+        {
+          entityId: p.entityId,
+          field: p.field,
+          avoid: p.avoid,
+          ...(p.guidance ? { guidance: p.guidance } : {}),
+        },
+        `suggest ${p.count === 3 ? 'three' : 'one'}`,
+      ),
+    ),
   async run(ctx, p) {
     const req = {
       entityId: p.entityId,
@@ -1106,10 +1177,13 @@ const suggest = tool({
 const fill = tool({
   name: 'fill',
   title: 'Fill entity',
-  description:
-    "Carbon's proposals for an entity's empty fields (as `ctrl+enter` on the Bench). Nothing is applied: take the ones you want with update_entity. Paid (Claude).",
+  description: paid(
+    "Carbon's proposals for an entity's empty fields (as `ctrl+enter` on the Bench). Nothing is applied: take the ones you want with update_entity.",
+    'one Claude call',
+  ),
   kind: 'paid',
   input: z.object({ entityId: Id }),
+  cost: (ctx, p) => costOf(claudePart(ctx, 'fill_entity', p, 'fill')),
   async run(ctx, p) {
     const out = await ctx.ai.run('fill_entity', p, {
       via: 'agent',
@@ -1123,10 +1197,14 @@ const fill = tool({
 const critique = tool({
   name: 'critique',
   title: 'Critique entity',
-  description:
-    "Carbon's critique of an entity (as `?` on the Bench): notes on weak identity, rule clashes, duplicates, contradicted relations, bare numbers. Paid (Claude).",
+  description: paid(
+    "Carbon's critique of an entity (as `?` on the Bench): notes on weak identity, rule clashes, duplicates, contradicted relations, bare numbers.",
+    'one Claude call',
+  ),
   kind: 'paid',
   input: z.object({ entityId: Id }),
+  cost: (ctx, p) =>
+    costOf(claudePart(ctx, 'critique', { entityId: p.entityId, trigger: 'on_demand' }, 'critique')),
   async run(ctx, p) {
     const out = await ctx.ai.run(
       'critique',
@@ -1146,8 +1224,10 @@ const critique = tool({
 const spread = tool({
   name: 'spread',
   title: 'Run a spread',
-  description:
-    "Runs a spread (as `enter` in the Spread view): candidates for a spot, by a move. Spot: `{ type: 'cell', band, lane }`, `{ type: 'region', band, climate }`, `{ type: 'entity', entity }`, `{ type: 'selection', entities }` or `{ type: 'note', note, entities }`. Moves: fill, vary, oppose, alloy, push, ground, cost, break, name. The spread is saved (it's in the Spread view's history) and its candidates come back; keep or kill each with judge_candidate. Paid (Claude).",
+  description: paid(
+    "Runs a spread (as `enter` in the Spread view): candidates for a spot, by a move. Spot: `{ type: 'cell', band, lane }`, `{ type: 'region', band, climate }`, `{ type: 'entity', entity }`, `{ type: 'selection', entities }` or `{ type: 'note', note, entities }`. Moves: fill, vary, oppose, alloy, push, ground, cost, break, name. The spread is saved (it's in the Spread view's history) and its candidates come back; keep or kill each with judge_candidate.",
+    'one Claude call, streamed',
+  ),
   kind: 'paid',
   input: z.object({
     spot: SpotSchema,
@@ -1157,6 +1237,25 @@ const spread = tool({
     axes: z.object({ x: AxisSchema, y: AxisSchema }).optional(),
     ruleIds: z.array(z.string()).max(100).optional(),
   }),
+  cost: (ctx, p) => {
+    const w = ctx.world();
+    const direction = p.direction?.trim();
+    return costOf(
+      claudePart(
+        ctx,
+        'spread',
+        {
+          spot: p.spot,
+          move: p.move,
+          count: p.count,
+          axes: p.axes ?? MOVE_DEFS[p.move].axes,
+          ruleIds: p.ruleIds ?? activeRules(w.taste).map((r) => r.id),
+          ...(direction ? { direction } : {}),
+        },
+        `spread of ${p.count}`,
+      ),
+    );
+  },
   async run(ctx, p) {
     const w = ctx.world();
     const check = checkSpot(w, p.spot, p.move);
@@ -1224,10 +1323,13 @@ const ImageCall = {
 const imagePrompt = tool({
   name: 'image_prompt',
   title: 'Write an image prompt',
-  description:
-    "Carbon writes the prompt for an entity's concept image or icon, from the entity, its place and the art direction. Returns the text; pass it (edited or not) to generate_image. Paid (Claude).",
+  description: paid(
+    "Carbon writes the prompt for an entity's concept image or icon, from the entity, its place and the art direction. Returns the text; pass it (edited or not) to generate_image.",
+    'one Claude call',
+  ),
   kind: 'paid',
   input: z.object({ entityId: Id, kind: ImageKindSchema }),
+  cost: (ctx, p) => costOf(claudePart(ctx, 'image_prompt', p, `${p.kind} prompt`)),
   async run(ctx, p) {
     const g = ctx.images();
     if (!g) return noImages();
@@ -1246,8 +1348,10 @@ const imagePrompt = tool({
 const generateImage = tool({
   name: 'generate_image',
   title: 'Generate an image',
-  description:
-    "Generates a concept image or a 16×16 icon for an entity (OpenAI), and adds it to the entity's images (chosen unless `select: false`). Without `prompt`, carbon writes one first. The cost is estimated first and must fit the agent budget. Paid (OpenAI, and Claude for the prompt).",
+  description: paid(
+    "Generates a concept image or a 16×16 icon for an entity (OpenAI), and adds it to the entity's images (chosen unless `select: false`). Without `prompt`, carbon writes one first.",
+    'one OpenAI image call, and one Claude call when carbon writes the prompt',
+  ),
   kind: 'paid',
   input: z.object({
     entityId: Id,
@@ -1257,17 +1361,35 @@ const generateImage = tool({
     select: z.boolean().default(true),
     ...ImageCall,
   }),
-  estimate(ctx, p) {
+  cost(ctx, p) {
     const g = ctx.images();
     if (!g) return { code: 'images.disabled', message: 'images are off in carbon' };
-    return g.estimate({
+    const e = g.estimate({
       kind: p.kind,
       calls: 1,
       ...(p.prompt ? { promptChars: p.prompt.length } : {}),
       ...(p.model ? { model: p.model } : {}),
       ...(p.quality ? { quality: p.quality } : {}),
       ...(p.size ? { size: p.size } : {}),
-    }).totalUsd;
+    });
+    return costOf(
+      ...(p.prompt
+        ? []
+        : [
+            claudePart(
+              ctx,
+              'image_prompt',
+              { entityId: p.entityId, kind: p.kind },
+              `${p.kind} prompt`,
+            ),
+          ]),
+      {
+        what: `${p.kind} image`,
+        provider: 'openai',
+        usd: e.totalUsd,
+        detail: `${e.model}, ${e.quality}, ${e.size}`,
+      },
+    );
   },
   async run(ctx, p) {
     const g = ctx.images();
@@ -1330,8 +1452,7 @@ const iconFromConcept = tool({
 const planImageBatch = tool({
   name: 'plan_image_batch',
   title: 'Plan an image batch',
-  description:
-    'Plans concepts or icons for many entities (skipping ones that already have one unless `replace`): the prompt per entity, the calls and the estimated cost. Concept plans have Claude write each prompt (paid); icon plans go out as sheets of up to 100 icons per call, with a line per entity (free to plan). Nothing is generated: run it with run_image_batch.',
+  description: `Plans concepts or icons for many entities (skipping ones that already have one unless \`replace\`): the prompt per entity, the calls and the estimated cost of running it. Icon plans write a line per entity for sheets of up to 100 icons per call, and are free. Concept plans have Claude write each prompt. Paid for concepts: one Claude call per entity. ${PAID_NOTICE} Nothing is generated: run it with run_image_batch.`,
   kind: 'paid',
   input: z.object({
     kind: ImageKindSchema,
@@ -1339,7 +1460,31 @@ const planImageBatch = tool({
     replace: z.boolean().default(false),
     ...ImageCall,
   }),
-  free: (p) => p.kind === 'icon',
+  cost: (ctx, p) => {
+    if (p.kind === 'icon') return { usd: 0, parts: [] };
+    const w = ctx.world();
+    const has = (id: string): boolean => !!w.images?.[id]?.concept;
+    const todo = p.entityIds.filter((id) => getEntity(w, id) && (p.replace || !has(id)));
+    if (todo.length === 0) return { usd: 0, parts: [] };
+    // One prompt priced as the costliest of a sample, times the count: an upper bound.
+    let worst: CostEstimate['parts'][number] | null = null;
+    for (const id of todo.slice(0, 5)) {
+      const part = claudePart(
+        ctx,
+        'image_prompt',
+        { entityId: id, kind: 'concept' },
+        'concept prompts',
+      );
+      if (isError(part)) return part;
+      if (!worst || part.usd > worst.usd) worst = part;
+    }
+    const one = worst as CostEstimate['parts'][number];
+    return costOf({
+      ...one,
+      usd: one.usd * todo.length,
+      detail: `${todo.length} × up to $${one.usd.toFixed(5)}`,
+    });
+  },
   async run(ctx, p) {
     const g = ctx.images();
     if (!g) return noImages();
@@ -1388,8 +1533,10 @@ const planImageBatch = tool({
 const runImageBatch = tool({
   name: 'run_image_batch',
   title: 'Run an image batch',
-  description:
-    'Runs a planned batch. Concepts: `items: [{ entityId, prompt }]`, each a paid call, added and chosen as they arrive. Icons: `items: [{ entityId, line }]`, sent as sheets of up to 100 per call; each sheet comes back for review (its cells and flags): accept cells with accept_sheet_cells. The whole estimate must fit the agent budget. Paid (OpenAI).',
+  description: paid(
+    'Runs a planned batch. Concepts: `items: [{ entityId, prompt }]`, one image each, added and chosen as they arrive. Icons: `items: [{ entityId, line }]`, sent as sheets of up to 100 per call; each sheet comes back for review (its cells and flags): accept cells with accept_sheet_cells.',
+    'one OpenAI image call per concept, or per sheet of up to 100 icons',
+  ),
   kind: 'paid',
   input: z.object({
     kind: ImageKindSchema,
@@ -1405,18 +1552,27 @@ const runImageBatch = tool({
       .max(500),
     ...ImageCall,
   }),
-  estimate(ctx, p) {
+  cost(ctx, p) {
     const g = ctx.images();
     if (!g) return { code: 'images.disabled', message: 'images are off in carbon' };
     const calls = p.kind === 'icon' ? Math.ceil(p.items.length / 100) : p.items.length;
     const chars = p.items.reduce((n, i) => n + (i.prompt ?? i.line ?? '').length, 0);
-    return g.estimate({
+    const e = g.estimate({
       kind: p.kind,
       calls,
       promptChars: Math.ceil(chars / Math.max(1, calls)),
       ...(p.model ? { model: p.model } : {}),
       ...(p.quality ? { quality: p.quality } : {}),
-    }).totalUsd;
+    });
+    return costOf({
+      what:
+        p.kind === 'icon'
+          ? `${calls} icon sheet${calls === 1 ? '' : 's'}`
+          : `${calls} concept images`,
+      provider: 'openai',
+      usd: e.totalUsd,
+      detail: `${e.model}, ${e.quality}, ${e.size}: $${e.perCallUsd.toFixed(4)} a call`,
+    });
   },
   async run(ctx, p) {
     const g = ctx.images();
@@ -1530,6 +1686,52 @@ const acceptSheetCells = tool({
   },
 });
 
+const PAID_TOOLS = [
+  'suggest',
+  'fill',
+  'critique',
+  'spread',
+  'image_prompt',
+  'generate_image',
+  'plan_image_batch',
+  'run_image_batch',
+] as const;
+
+const estimateCost = tool({
+  name: 'estimate_cost',
+  title: 'Estimate a cost',
+  description:
+    "What a paid tool would cost with these arguments, before anything is spent: an upper bound in USD and its parts (Claude: the request built as it would be sent, its output at its cap; OpenAI: carbon's image pricing). Quote it when you ask the user to approve the call. Free: nothing is called.",
+  kind: 'read',
+  input: z.object({
+    tool: z.enum(PAID_TOOLS),
+    arguments: z.record(z.string(), z.unknown()).default({}),
+  }),
+  run(ctx, p) {
+    const def = toolByName(p.tool);
+    if (!def?.cost) return fail('agent.unknown_tool', `${p.tool} has no cost`);
+    const input = def.input.safeParse(p.arguments);
+    if (!input.success)
+      return fail(
+        'agent.invalid_input',
+        input.error.issues.map((i) => `arguments.${i.path.join('.')}: ${i.message}`).join('; '),
+      );
+    const c = def.cost(ctx, input.data);
+    if (isError(c)) return { ok: false, error: c };
+    return {
+      ok: true,
+      data: {
+        tool: p.tool,
+        estimateUsd: Number(c.usd.toFixed(6)),
+        upperBound: true,
+        parts: c.parts.map((x) => ({ ...x, usd: Number(x.usd.toFixed(6)) })),
+        say: `about $${c.usd < 0.01 ? c.usd.toFixed(4) : c.usd.toFixed(2)} at most`,
+      },
+      summary: `${p.tool}: up to $${c.usd.toFixed(4)}`,
+    };
+  },
+});
+
 /** Every tool, in the order `tools/list` gives them. */
 export const TOOLS: readonly ToolDef[] = [
   worldSummary,
@@ -1543,6 +1745,7 @@ export const TOOLS: readonly ToolDef[] = [
   listSpreads,
   getSpread,
   previewExport,
+  estimateCost,
   createEntity,
   updateEntity,
   setAttribute,

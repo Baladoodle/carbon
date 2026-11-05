@@ -64,26 +64,18 @@ export type AppMessage = z.infer<typeof AppMessageSchema>;
 
 // ── The renderer's side ─────────────────────────────────────────────────────
 
-export const AgentBudgetSchema = z.object({
-  sessionUsd: z.number().min(0).max(10_000),
-  monthUsd: z.number().min(0).max(100_000),
-});
-
-/** Kept in `<userData>/agent.json`, not in the world: an agent can't turn on its own spending. */
+/**
+ * Kept in `<userData>/agent.json`, not in the world. Paid tools have no switch
+ * of their own: the agent is told to ask the user before each one (docs/MCP.md
+ * §4), and the AI's and images' own budgets apply to every call.
+ */
 export const AgentSettingsSchema = z.object({
-  /** Reads and writes (and the free image actions). On by default. */
+  /** Every tool: reads, writes, the UI and generation. On by default. */
   access: z.boolean().default(true),
-  /** Paid calls: Claude moments and OpenAI images. Off by default. */
-  spend: z.boolean().default(false),
-  budget: AgentBudgetSchema.default({ sessionUsd: 1, monthUsd: 10 }),
 });
 export type AgentSettings = z.infer<typeof AgentSettingsSchema>;
 
-export const AgentSettingsPatchSchema = z.object({
-  access: z.boolean().optional(),
-  spend: z.boolean().optional(),
-  budget: AgentBudgetSchema.optional(),
-});
+export const AgentSettingsPatchSchema = z.object({ access: z.boolean().optional() });
 
 export const AgentConnectionSchema = z.object({
   id: z.string(),
@@ -99,8 +91,8 @@ export const AgentStatusSchema = z.object({
   /** Why it isn't, when it isn't. */
   reason: z.string().optional(),
   connections: z.array(AgentConnectionSchema),
-  /** What agents' paid calls have cost. */
-  spend: z.object({ sessionUsd: z.number(), monthUsd: z.number() }),
+  /** What agents' paid calls have cost this session (also on the AI's and images' meters). */
+  spend: z.object({ sessionUsd: z.number() }),
 });
 export type AgentStatus = z.infer<typeof AgentStatusSchema>;
 

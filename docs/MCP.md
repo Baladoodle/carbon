@@ -11,7 +11,7 @@ Carbon doesn't provide the agent. It provides the way in.
 > its own and nothing changes the world on its own. An agent is something you
 > start, outside carbon, for a task you give it. Everything it does arrives
 > as a command, is one undo step, is marked as the agent's, and shows in the
-> Agent log. Carbon is still where you shape things; the agent is another pair
+> Agent log, and it's told to ask you before anything that costs money. Carbon is still where you shape things; the agent is another pair
 > of hands at the same bench.
 
 ---
@@ -70,17 +70,19 @@ at most 1 MiB; a longer one closes the connection.
 ## 2. Settings
 
 The Agent overlay (`ctrl+shift+l`, the palette's "Agent access and log", or a
-click on the agent's name in the status line) holds them:
+click on the agent's name in the status line) holds the one setting:
 
 | Setting | Default | What it covers |
 |---|---|---|
-| **Agent access** | on | Reads, writes, `focus` and `view`, and the free image actions. Off: every call is refused (`agent.access_off`) |
-| **Allow agents to spend** | off | Paid calls: Claude moments and OpenAI images. Off: refused (`agent.spend_off`) |
-| **Agent budget** | $1 a session, $10 a month | What agents' paid calls may cost, on top of the AI's and images' own budgets |
+| **Agent access** | on | Every tool. Off: every call is refused (`agent.access_off`) |
 
-They live in `~/.config/carbon/agent.json`, outside the world directory, so
-nothing an agent can write (the world's files) can turn on its own spending.
-The month's agent spend is kept there too.
+It lives in `~/.config/carbon/agent.json`, outside the world directory, so
+nothing an agent can write (the world's files) changes it. The overlay also
+shows what agents' paid calls have cost this session.
+
+There is no spending switch and no agent budget: paid tools are available to
+an agent, which is told to ask you first (§3, "Paying"). The AI's and images'
+own budgets apply to every call, an agent's included.
 
 ## 3. Tools
 
@@ -101,6 +103,7 @@ tool says what it is in MCP's annotations (`readOnlyHint`, `destructiveHint`).
 | `get_taste` | rules, kill reasons and their counts, learned patterns, art direction |
 | `list_spreads`, `get_spread` | spreads, and one spread's candidates with their roles and judgements |
 | `preview_export` | the spec carbon would export for decided or exported entities; nothing is written |
+| `estimate_cost` | what a paid tool would cost with given arguments: an upper bound and its parts. Nothing is called |
 
 **Resources** for the same data: `carbon://world/summary`, `carbon://schema`,
 `carbon://taste`, `carbon://numbers`, and `carbon://entity/{id}`.
@@ -167,14 +170,31 @@ Neither changes the world.
 | `review_sheet` | re-crops a kept sheet: cells, entities, flags | free |
 | `accept_sheet_cells` | turns cells into icons, one undo step | free |
 
-- **Paid calls are refused unless "Allow agents to spend" is on**, and while
-  the agent budget has room. Image calls are estimated first, and refused when
-  the estimate doesn't fit what's left. The AI's and images' own budgets and
-  off switches still apply on top.
+### Paying
+
+There's no hard guardrail on paid tools. Instead, carbon tells the agent, in
+words it can't miss:
+
+- **The server's instructions** (sent when the agent connects) name the paid
+  tools, say they spend real money, and say to ask the user for approval
+  before calling one, quoting its estimated cost from `estimate_cost`, and not
+  to call it until the user says yes.
+- **Every paid tool's description** ends with what it costs ("one Claude
+  call", "one OpenAI image call per concept…") and: *It spends real money.
+  Before calling it, ask the user for approval, quoting the estimated cost
+  from estimate_cost.* Free tools say nothing about approval.
+- **`estimate_cost`** takes a paid tool's name and arguments and returns an
+  upper bound without calling anything: for Claude, the request is built
+  exactly as it would be sent, its input tokens estimated and its output
+  priced at its cap; for OpenAI, carbon's own image pricing (the same as the
+  confirm step). `plan_image_batch` also returns what running the plan would
+  cost.
+- **The app-wide budgets still hold**: the AI's ($2 a session, $20 a month by
+  default) and images' ($1 and $10), which pause everything, the UI included,
+  when reached. `ctrl+shift+a` still turns the AI off.
 - **Every call is in the AI log** (`ctrl+l`) with `via: agent`, shown as
-  `· agent`, and its cost counts toward the AI's or images' meters as well as
-  the agent budget.
-- **The free actions are always allowed when access is on.**
+  `· agent`, on the AI's or images' meter, and in the Agent log with its
+  cost.
 
 ## 4. Safety
 
@@ -192,8 +212,8 @@ Neither changes the world.
   (`agent.rate_limited: Too many changes at once…`). Reads aren't limited.
 - **The socket is the user's alone**: mode 0600 in a 0700 directory.
 - **Order of checks for every call**: the tool exists → its input parses →
-  access is on → the write rate → (paid) spending is on, the budget has room,
-  the estimate fits → it runs → its cost is counted → it's logged → the
+  access is on → the write rate (anything but a read) → it runs (the AI's and
+  images' budgets apply inside) → its cost is counted → it's logged → the
   result is redacted.
 
 ## 5. The Agent log
@@ -211,8 +231,6 @@ connect one.
 | Code | Meaning |
 |---|---|
 | `agent.access_off` | Agent access is off |
-| `agent.spend_off` | a paid call while spending is off |
-| `agent.budget` | the agent budget is spent, or the estimate doesn't fit |
 | `agent.rate_limited` | more than 50 writes in a second |
 | `agent.invalid_input` | the input didn't match the tool's schema |
 | `agent.unknown_tool` | no such tool |

@@ -78,8 +78,8 @@ other and with your taste.
    Carbon shapes things; Claude Code builds them. An agent such as Claude Code may also
    *connect* to carbon while it's open ([`MCP.md`](MCP.md)), to work on the
    world with you: it acts only through carbon's commands, every change is
-   marked as its own and undoes with `ctrl+z`, and paid calls need your
-   permission. Carbon still runs no agents itself.
+   marked as its own and undoes with `ctrl+z`, and it's told to ask you
+   before any call that costs money. Carbon still runs no agents itself.
 8. **Keyboard first, native to Omarchy.** Every action has a key. Carbon has its
    own dark, neutral-gray look (`VISUAL.md`), and every piece of text on screen
    has to earn its place.

@@ -234,6 +234,62 @@ export class ClaudeAiGateway implements AiGateway {
     for (const l of this.listeners) l(s);
   }
 
+  /**
+   * What a call would cost, before it's made (added for the agent socket,
+   * docs/MCP.md): the request is built exactly as `run` builds it, its input
+   * tokens estimated locally, and priced with the output at its cap, so
+   * `maxUsd` is an upper bound. No API call; the cache isn't consulted (a
+   * cached answer would cost nothing).
+   */
+  estimate<M extends Moment>(
+    moment: M,
+    request: MomentRequest<M>,
+  ):
+    | {
+        ok: true;
+        model: string;
+        inputTokens: number;
+        maxOutputTokens: number;
+        inputUsd: number;
+        maxUsd: number;
+      }
+    | { ok: false; error: AiError } {
+    const parsed = MOMENT_SCHEMAS[moment].request.safeParse(request);
+    if (!parsed.success)
+      return {
+        ok: false,
+        error: { code: 'bad_request', message: z.prettifyError(parsed.error), retryable: false },
+      };
+    const builder = this.registry.get(moment);
+    if (!builder)
+      return {
+        ok: false,
+        error: { code: 'unknown', message: `no prompt builder for ${moment}`, retryable: false },
+      };
+    const world = this.opts.getWorld();
+    const settings = aiSettings(world.settings);
+    const effort = effortFor(settings, moment);
+    const maxTokens = settings.maxTokens[moment];
+    const built = builder.build(world, parsed.data as ParsedRequest<M>, {
+      ...(effort ? { effort } : {}),
+      ...(maxTokens ? { maxTokens } : {}),
+      pack: { budget: settings.packBudget },
+    });
+    if (!built.ok) return { ok: false, error: errorOf(built.error) };
+    const params = toMessageParams(built.value, this.model);
+    const price = priceFor(settings, this.model);
+    const input = built.value.estimate;
+    const zero = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
+    return {
+      ok: true,
+      model: this.model,
+      inputTokens: input,
+      maxOutputTokens: params.max_tokens,
+      inputUsd: nanosToUsd(costNanos({ ...zero, input }, price)),
+      maxUsd: nanosToUsd(costNanos({ ...zero, input, output: params.max_tokens }, price)),
+    };
+  }
+
   // ── run ──────────────────────────────────────────────────────────────────
 
   async run<M extends Moment>(

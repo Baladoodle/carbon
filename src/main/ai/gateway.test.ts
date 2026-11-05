@@ -620,3 +620,31 @@ describe('ClaudeAiGateway: cancellation, off switch, budget, token limit', () =>
 });
 
 afterEach(() => undefined);
+
+describe('ClaudeAiGateway: estimate (added for the agent socket)', () => {
+  it('prices the request it would send, output at its cap, without calling the API', () => {
+    const { f, g } = setup();
+    const e = g.estimate('critique', { entityId: 'glide', trigger: 'on_demand' });
+    expect(f.messages).toHaveLength(0);
+    if (!e.ok) throw new Error(e.error.message);
+    const price = DEFAULT_PRICING[MODEL]!;
+    expect(e.model).toBe(MODEL);
+    expect(e.inputTokens).toBeGreaterThan(100);
+    expect(e.inputUsd).toBeCloseTo((e.inputTokens * price.inputPerMTok) / 1e6, 8);
+    expect(e.maxUsd).toBeCloseTo(e.inputUsd + (e.maxOutputTokens * price.outputPerMTok) / 1e6, 8);
+    const spread = g.estimate('spread', {
+      spot: { type: 'entity', entity: 'glide' },
+      move: 'vary',
+    });
+    expect(spread.ok && spread.maxOutputTokens).toBeGreaterThan(e.maxOutputTokens);
+  });
+
+  it('refuses a bad request or a missing entity', () => {
+    const { g } = setup();
+    expect(g.estimate('critique', { entityId: 'glide' } as never)).toMatchObject({
+      ok: false,
+      error: { code: 'bad_request' },
+    });
+    expect(g.estimate('critique', { entityId: 'nobody', trigger: 'on_demand' }).ok).toBe(false);
+  });
+});

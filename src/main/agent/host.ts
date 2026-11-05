@@ -21,12 +21,15 @@ import { redactSecrets } from './redact';
  * in this one place, in this order, for every call:
  *
  *  1. the tool exists, and its input passes its zod schema
- *  2. agent access is on (reads, writes, the free image actions)
- *  3. a write (or ui) call is within the rate limit
- *  4. a paid call: spending is on, the budget isn't spent, and the estimate fits
- *  5. it runs, inside `asAgent` (the gateways log `via: agent`)
- *  6. its cost is counted, and it's logged for the Agent overlay
- *  7. the result is redacted for anything shaped like a key
+ *  2. agent access is on
+ *  3. anything but a read is within the rate limit
+ *  4. it runs, inside `asAgent` (the gateways log `via: agent`, and their own
+ *     budgets apply as they do to the UI)
+ *  5. its cost is counted, and it's logged for the Agent overlay
+ *  6. the result is redacted for anything shaped like a key
+ *
+ * Paid tools aren't gated here: the server's instructions and each paid tool's
+ * description tell the agent to ask the user first, quoting `estimate_cost`.
  */
 
 export class AgentFailure extends Error {
@@ -48,18 +51,13 @@ export interface AgentSession {
   ): DispatchResult;
 }
 
-export interface SpendMeter {
-  /** USD left before either the session or the month budget is reached (≤ 0: reached). */
-  remaining(budget: AgentSettings['budget']): number;
-  add(usd: number): void;
-}
-
 export interface AgentHostDeps {
   session: AgentSession;
   ai: AiGateway;
   images: () => AgentImages | null;
   settings: () => AgentSettings;
-  spend: SpendMeter;
+  /** What a Claude moment would cost (estimate_cost); null when the AI can't say (off). */
+  estimateAi?: ToolContext['estimateAi'];
   reveal: (r: AgentReveal) => void;
   notes: (world: World) => Note[] | Promise<Note[]>;
   /** Runs a tool call in the agent's async context (via.ts). Identity in tests. */
@@ -106,6 +104,7 @@ export class AgentHost {
   private readonly limiter: RateLimiter;
   private readonly entries: AgentLogEntry[] = [];
   private seq = 0;
+  private spentNanos = 0;
 
   constructor(private readonly deps: AgentHostDeps) {
     const rate = deps.rate ?? { limit: 50, windowMs: 1000 };
@@ -114,6 +113,11 @@ export class AgentHost {
 
   private now(): Date {
     return this.deps.now?.() ?? new Date();
+  }
+
+  /** What agents' tool calls have cost this session (USD). */
+  spent(): number {
+    return this.spentNanos / 1e9;
   }
 
   log(limit = 100): AgentLogEntry[] {
@@ -180,23 +184,6 @@ export class AgentHost {
           'Too many changes at once: agents may make 50 per second. Wait a moment and try again.',
       });
     const ctx = this.context();
-    const paid = def.kind === 'paid' && !(def.free?.(input) ?? false);
-    if (paid) {
-      if (!settings.spend) return refuse({ code: 'agent.spend_off', message: SPEND_OFF });
-      const left = this.deps.spend.remaining(settings.budget);
-      if (left <= 0)
-        return refuse({
-          code: 'agent.budget',
-          message: `The agent budget is spent ($${settings.budget.sessionUsd.toFixed(2)} a session, $${settings.budget.monthUsd.toFixed(2)} a month). The user can raise it in carbon.`,
-        });
-      const est = def.estimate?.(ctx, input);
-      if (typeof est === 'object') return refuse(est);
-      if (est !== undefined && est > left)
-        return refuse({
-          code: 'agent.budget',
-          message: `This would cost about $${est.toFixed(3)}, more than the $${left.toFixed(3)} left in the agent budget.`,
-        });
-    }
     const run = (): Promise<Awaited<ReturnType<ToolDef['run']>>> =>
       Promise.resolve().then(() => def.run(ctx, input));
     let out: Awaited<ReturnType<ToolDef['run']>>;
@@ -209,7 +196,7 @@ export class AgentHost {
       };
     }
     const cost = out.ok ? out.costUsd : undefined;
-    if (cost) this.deps.spend.add(cost);
+    if (cost) this.spentNanos += Math.round(cost * 1e9);
     if (!out.ok) {
       log({ ok: false, error: out.error, summary: out.summary ?? about });
       return errorResult(out.error);
@@ -235,7 +222,7 @@ export class AgentHost {
       images: this.deps.images,
       reveal: this.deps.reveal,
       notes: () => Promise.resolve(this.deps.notes(session.world)),
-      remainingUsd: () => this.deps.spend.remaining(this.deps.settings().budget),
+      estimateAi: this.deps.estimateAi ?? (() => null),
       now: () => this.now().toISOString(),
       newId: (prefix) => `${prefix}-${this.now().getTime().toString(36)}-${++this.seq}`,
     };
@@ -269,9 +256,6 @@ export class AgentHost {
 
 export const ACCESS_OFF =
   'Agent access is off in carbon. The user can turn it on from the status line (Agent) or the palette ("Agent access").';
-export const SPEND_OFF =
-  'Paid calls (Claude and OpenAI) are off for agents. The user can turn on "Allow agents to spend" in carbon (status line → Agent).';
-
 /** A call's arguments in a few words, for the log when the tool gave no summary: `get_entity glide`. */
 export function describeArgs(name: string, input: unknown): string {
   if (typeof input !== 'object' || input === null) return name;

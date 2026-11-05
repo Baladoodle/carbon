@@ -41,14 +41,8 @@
   min-height: 44px;
   border-bottom: 1px solid var(--line);
 }
-.agent-budget {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
+.agent-spent {
   font-size: var(--text-dense);
-}
-.agent-budget .ui-input {
-  width: 64px;
 }
 .agent-who {
   margin-left: auto;

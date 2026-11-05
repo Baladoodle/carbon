@@ -18,16 +18,16 @@ Every test runs on the fake AI and the fake images.
 | `src/shared/agent.ts` | the wire between `carbon mcp` and the app (NDJSON, version 1, 1 MiB lines), and the renderer's schemas: settings, status, log entries, reveals |
 | `src/main/agent/socket-path.ts` | where the socket is: `CARBON_SOCKET`, `$XDG_RUNTIME_DIR/carbon/carbon.sock`, or `<userData>/carbon.sock`. Shared by both ends |
 | `src/main/agent/server.ts` | the app's socket: stale-socket replacement, 0600 under a 0177 umask, a `ready` on connect, `hello` and `call` handling, `bye` on close |
-| `src/main/agent/host.ts` | `AgentHost`: every MCP method the relay forwards; the checks in order (tool, zod, access, write rate, spending, budget, estimate), `asAgent`, the cost, the log, redaction |
-| `src/main/agent/tools.ts` | the 41 tools: input schema, kind (`read`, `write`, `ui`, `paid`, `free`), handler |
+| `src/main/agent/host.ts` | `AgentHost`: every MCP method the relay forwards; the checks in order (tool, zod, access, write rate), `asAgent`, the session's agent cost, the log, redaction |
+| `src/main/agent/tools.ts` | the 42 tools: input schema, kind (`read`, `write`, `ui`, `paid`, `free`), handler, and for paid ones a `cost` (what `estimate_cost` returns) and the approval notice |
 | `src/main/agent/resources.ts` | 4 resources and the `carbon://entity/{id}` template, each the same data as its read tool |
-| `src/main/agent/settings.ts` | `AgentSettingsStore`: `<userData>/agent.json`, and the agent's spend (session in memory, the month on disk) |
+| `src/main/agent/settings.ts` | `AgentSettingsStore`: agent access, in `<userData>/agent.json` |
 | `src/main/agent/via.ts` | an `AsyncLocalStorage` that marks a call as the agent's, so the image gateway logs `via: agent` and `WorldSession` marks steps without new parameters |
 | `src/main/agent/redact.ts` | key-shaped strings and the process's keys become `[redacted]` |
 | `src/main/agent/module.ts` | the main module: wires the host to the session, the AI, the image gateway and the renderer; the `agent:*` IPC |
 | `src/main/agent/relay.ts`, `mcp.ts` | `carbon mcp`: the SDK's low-level `Server` over stdio, forwarding to the socket. Built as `out/main/mcp.js` |
 | `src/main/images/current.ts` | the image gateway the images module made, for the agent's image tools |
-| `src/renderer/agent/` | the status-line piece, the Agent overlay (settings, budget, the log with Undo), `focus`/`view`, `agent.css` |
+| `src/renderer/agent/` | the status-line piece, the Agent overlay (access, the session's agent cost, the log with Undo), `focus`/`view`, `agent.css` |
 | `scripts/carbon-mcp.mjs` | `npm run -s mcp`: the relay from a checkout, under the checkout's Electron in node mode |
 | `e2e/mcp.spec.ts` | the integration tests (§3) |
 
@@ -45,12 +45,11 @@ Every test runs on the fake AI and the fake images.
    mounts. ESM imports from inside the asar work under
    `ELECTRON_RUN_AS_NODE`: checked against a real `electron-builder --linux
    dir` build, with the packaged app and the packaged relay talking over the
-   socket (41 tools, the sample's 24 entities). The launcher tests check the
+   socket (41 tools then, before `estimate_cost`; the sample's 24 entities). The launcher tests check the
    `mcp` branch runs before the hyprctl focus.
-3. **Settings are outside the world**, in `<userData>/agent.json`. In the
-   world (`carbon.json`) an agent with file access could enable its own
-   spending; there's no tool for the settings either. Access defaults on,
-   spending off, the budget $1 a session and $10 a month.
+3. **The access setting is outside the world**, in `<userData>/agent.json`,
+   so an agent writing the world's files can't change it; there's no tool for
+   it either. It defaults on.
 4. **Provenance is a second marker, not the AI's.** `Origin.by` gains
    `'agent'`; an entity gains an optional `agent_fields` (absent when empty,
    so no existing file changes and the sample fixture is untouched). The
@@ -76,12 +75,17 @@ Every test runs on the fake AI and the fake images.
    in it (`entity.update`, marking `why` as the agent's, then
    `entity.setState`); a keep is `keepCommands` from triage, with the agent's
    note riding on its `spread.judge`.
-9. **Paid gating is per call, by kind.** A `paid` tool may declare itself
-   free for an input (an icon batch plan writes sheet lines, no Claude) and
-   an `estimate` (images: the gateway's own pricing) that must fit what's
-   left of the agent budget. The AI and images keep their own budgets and off
-   switches. The agent budget is a soft cap like theirs: a call that starts
-   with room may end a little over.
+9. **No guardrail on paid tools; the agent is told to ask.** First built
+   with an "Allow agents to spend" switch and an agent budget; the user then
+   asked for no hard guardrail (relayed by the coordinator), so both went.
+   Instead the server's `instructions` and every paid tool's description
+   (`PAID_NOTICE`, appended by `paid()`) say the tool spends real money and
+   that the agent must ask the user for approval first, quoting the estimated
+   cost; free tools say nothing. `estimate_cost` gives the number without
+   calling anything: `ClaudeAiGateway.estimate` (new) builds the request as
+   `run` would and prices it with the output at its cap, an upper bound; the
+   image gateway's own pricing does OpenAI. The AI's and images' budgets and
+   off switches still apply to every call, the agent's included.
 10. **Undo from the Agent log only while it's the last change.** An entry
     keeps the `rev` its write produced; Undo shows while the world is still at
     that `rev`, when the top of the undo history is certainly that step.
@@ -105,28 +109,30 @@ Every test runs on the fake AI and the fake images.
   resources); **each write tool maps to its commands** in one dispatch,
   labelled and marked `by: agent` (17 cases); provenance, and your edit
   clearing it; the Why gate's code and message passed through; zod refusals
-  before anything runs; focus and view; access off; every paid tool refused
-  while spending is off, without calling the AI; the free image actions;
-  `via: agent` in the AI log and the cost counted; the budget and the
-  estimate; the rate limit and its window; a spread run, kept with a note and
+  before anything runs; focus and view; access off; **every paid tool's
+  description and the server instructions carry the approval guidance, and no
+  free tool's does**; `estimate_cost` for Claude, OpenAI and a free icon plan,
+  calling nothing, and a paid tool then running without a switch; the free
+  image actions; `via: agent` in the AI log and the session's cost; the rate limit and its window; a spread run, kept with a note and
   killed with a reason (the reason counted); redaction; the settings file
-  (defaults, persistence, the month rolling, a bad file); the socket path;
+  (default, persistence, a bad file); the socket path;
   **a real MCP client through the relay and the socket** (in-memory
   transport, real socket, mode 0600); a stale socket replaced; a live one and
   a plain file left alone; an oversize line; `carbon mcp` with no carbon, when
   carbon quits, and when the agent hangs up; a step inside an agent call
   marked as the agent's. Plus the `agent` source in `commands.test.ts`, the
   `agent:` filter in `query.test.ts`, and `carbon mcp` in the launcher in
-  `tests/install-omarchy.test.ts`.
+  `tests/install-omarchy.test.ts`, and `ClaudeAiGateway.estimate` in
+  `src/main/ai/gateway.test.ts` (2).
 - **Integration** (`e2e/mcp.spec.ts`, 11): the SDK's `Client` through the
   real `carbon mcp` (`scripts/carbon-mcp.mjs` → `out/main/mcp.js` under
   Electron in node mode) into the running app: lists the tools and the status
   line names the agent (`@smoke`); reads the world; creates an entity that
   shows in the Column with the agent marker on the Bench, and `ctrl+z` undoes
   it; the Why gate's refusal; an agent edit of a field being typed in asks
-  Keep mine / Use theirs; a paid call refused; spending turned on in the
-  Agent overlay, a spread on the fake AI, a candidate kept (in the Column)
-  and one killed, and the call in the AI log as `· agent`; the overlay's log
+  Keep mine / Use theirs; the paid tools' approval guidance and
+  `estimate_cost` as the agent sees them; a spread on the fake AI, a
+  candidate kept (in the Column) and one killed, and the call in the AI log as `· agent`; the overlay's log
   and Undo; access off; `carbon mcp` with no carbon running; a socket left by
   a killed process replaced.
 
@@ -137,7 +143,7 @@ Every test runs on the fake AI and the fake images.
 | `src/core/model/entity.ts` | `Origin.by` gains `'agent'`; `agent_fields?` |
 | `src/core/model/schema.ts`, `core/files/entity-file.ts`, `main/store/merge.ts` | `agent_fields` among the common keys, the file order and the merged keys |
 | `src/core/commands/entity-commands.ts` | `SourceSchema` (`user`, `ai`, `agent`); `entity.create` takes `agent_fields` |
-| `src/core/ai/gateway.ts`, `core/ai/fake.ts`, `main/ai/gateway.ts` | `AiRunOptions.via`, `AiLogEntry.via` |
+| `src/core/ai/gateway.ts`, `core/ai/fake.ts`, `main/ai/gateway.ts` | `AiRunOptions.via`, `AiLogEntry.via`; `ClaudeAiGateway.estimate` |
 | `src/core/images/gateway.ts`, `main/images/gateway.ts` | `ImageLogEntry.via`, from the async context |
 | `src/core/codex/query.ts` | moved from the renderer (§2.11) |
 | `src/shared/ipc.ts` | `agent:status`, `agent:setSettings`, `agent:log`; events `agent:status`, `agent:logged`, `agent:reveal`; `PatchEvent.by` |

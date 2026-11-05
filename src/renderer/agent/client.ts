@@ -11,10 +11,10 @@ import { currentWorld } from '../state/world';
  */
 
 const INITIAL: AgentStatus = {
-  settings: { access: true, spend: false, budget: { sessionUsd: 1, monthUsd: 10 } },
+  settings: { access: true },
   listening: false,
   connections: [],
-  spend: { sessionUsd: 0, monthUsd: 0 },
+  spend: { sessionUsd: 0 },
 };
 
 export const agentStatusStore = createStore<AgentStatus>(INITIAL);

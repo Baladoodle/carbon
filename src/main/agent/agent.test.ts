@@ -18,11 +18,11 @@ import { AgentSettingsSchema } from '@shared/agent';
 import type { DispatchResult } from '@shared/ipc';
 import { AgentHost, RateLimiter, type AgentHostDeps, type ToolCallResult } from './host';
 import { redactSecrets } from './redact';
-import { connectToCarbon, createRelayServer, RelayError, runRelay } from './relay';
+import { connectToCarbon, createRelayServer, INSTRUCTIONS, RelayError, runRelay } from './relay';
 import { AgentSocketServer, prepareSocketPath, SocketInUse } from './server';
 import { AgentSettingsStore } from './settings';
 import { socketPath } from './socket-path';
-import { TOOLS, type AgentImages } from './tools';
+import { PAID_NOTICE, TOOLS, type AgentImages } from './tools';
 import { asAgent } from './via';
 import { writeWorldDir } from '../store/world-dir';
 import { WorldSession } from '../world-session';
@@ -58,16 +58,6 @@ function memSession(start: World = sampleWorld()) {
       return { ok: true, rev: ++rev };
     },
   };
-}
-
-class Meter {
-  spent = 0;
-  remaining(b: AgentSettings['budget']): number {
-    return b.sessionUsd - this.spent;
-  }
-  add(usd: number): void {
-    this.spent += usd;
-  }
 }
 
 function fakeImages(over: Partial<AgentImages> = {}): AgentImages {
@@ -112,7 +102,6 @@ function setup(
   const session = memSession(opts.world);
   const settings = AgentSettingsSchema.parse(opts.settings ?? {});
   const ai = opts.ai ?? new FakeAiGateway({ getWorld: () => session.world, now: () => NOW });
-  const meter = new Meter();
   const reveal = vi.fn();
   const logged: unknown[] = [];
   const host = new AgentHost({
@@ -120,7 +109,14 @@ function setup(
     ai,
     images: () => (opts.images === undefined ? fakeImages() : opts.images),
     settings: () => settings,
-    spend: meter,
+    estimateAi: (moment) => ({
+      ok: true,
+      model: 'stub',
+      inputTokens: 1000,
+      maxOutputTokens: moment === 'spread' ? 32_000 : 1_000,
+      inputUsd: 0.0001,
+      maxUsd: moment === 'spread' ? 0.0161 : 0.0006,
+    }),
     reveal,
     notes: () => [],
     now: () => new Date(NOW),
@@ -134,7 +130,7 @@ function setup(
     if (r.isError) throw new Error(r.content[0]?.text);
     return JSON.parse(r.content[0]?.text ?? 'null');
   };
-  return { session, host, call, data, settings, meter, reveal, logged, ai };
+  return { session, host, call, data, settings, reveal, logged, ai };
 }
 
 const errCode = (r: ToolCallResult): string | null =>
@@ -356,7 +352,7 @@ describe('writes map to commands, one transaction each', () => {
   });
 });
 
-describe('access, spending and the rate limit', () => {
+describe('access, paid tools and the rate limit', () => {
   it('refuses everything while access is off', async () => {
     const { call, host } = setup({ settings: { access: false } });
     expect(errCode(await call('world_summary'))).toBe('agent.access_off');
@@ -368,22 +364,61 @@ describe('access, spending and the rate limit', () => {
     ).rejects.toMatchObject({ code: 'agent.access_off' });
   });
 
-  it('refuses paid calls until spending is allowed, without calling the AI', async () => {
+  it('tells the agent, in the instructions and every paid tool, to ask before it spends', async () => {
+    const { host } = setup();
+    const { tools } = (await host.handle('tools/list', undefined)) as {
+      tools: { name: string; description: string }[];
+    };
+    const PAID = [
+      'suggest',
+      'fill',
+      'critique',
+      'spread',
+      'image_prompt',
+      'generate_image',
+      'plan_image_batch',
+      'run_image_batch',
+    ];
+    for (const t of tools) {
+      const asks = t.description.includes(PAID_NOTICE);
+      expect(asks, t.name).toBe(PAID.includes(t.name));
+      if (asks) expect(t.description).toMatch(/spends real money/i);
+    }
+    for (const free of ['icon_from_concept', 'review_sheet', 'accept_sheet_cells', 'create_entity'])
+      expect(tools.find((t) => t.name === free)?.description).not.toMatch(/approval|real money/i);
+    expect(INSTRUCTIONS).toMatch(/spend real money/);
+    expect(INSTRUCTIONS).toMatch(/ask the user for approval and quote its estimated cost/);
+    expect(INSTRUCTIONS).toContain('estimate_cost');
+    for (const name of PAID) expect(INSTRUCTIONS).toContain(name);
+  });
+
+  it('runs paid tools without a switch, and estimates them first without calling anything', async () => {
     const ai = new FakeAiGateway({ getWorld: () => sampleWorld() });
     const run = vi.spyOn(ai, 'run');
-    const { call } = setup({ ai });
-    for (const [name, args] of [
-      ['suggest', { entityId: 'glide', field: 'identity' }],
-      ['fill', { entityId: 'glide' }],
-      ['critique', { entityId: 'glide' }],
-      ['spread', { spot: { type: 'entity', entity: 'glide' }, move: 'vary' }],
-      ['image_prompt', { entityId: 'glide', kind: 'concept' }],
-      ['generate_image', { entityId: 'glide', kind: 'concept', prompt: 'p' }],
-      ['plan_image_batch', { kind: 'concept', entityIds: ['glide'] }],
-      ['run_image_batch', { kind: 'icon', items: [{ entityId: 'glide', line: 'x' }] }],
-    ] as const)
-      expect(errCode(await call(name, args)), name).toBe('agent.spend_off');
+    const { call, data } = setup({ ai });
+    const e = (await data('estimate_cost', {
+      tool: 'spread',
+      arguments: { spot: { type: 'entity', entity: 'glide' }, move: 'vary' },
+    })) as { estimateUsd: number; parts: { provider: string }[]; say: string };
+    expect(e.estimateUsd).toBeCloseTo(0.0161, 6);
+    expect(e.parts[0]?.provider).toBe('claude');
+    expect(e.say).toBe('about $0.02 at most');
+    const img = (await data('estimate_cost', {
+      tool: 'generate_image',
+      arguments: { entityId: 'glide', kind: 'concept' },
+    })) as { estimateUsd: number; parts: { provider: string }[] };
+    expect(img.parts.map((x) => x.provider)).toEqual(['claude', 'openai']);
+    expect(img.estimateUsd).toBeCloseTo(0.0106, 6);
+    const icons = (await data('estimate_cost', {
+      tool: 'plan_image_batch',
+      arguments: { kind: 'icon', entityIds: ['glide'] },
+    })) as { estimateUsd: number };
+    expect(icons.estimateUsd).toBe(0);
+    const bad = await call('estimate_cost', { tool: 'fill', arguments: { entityId: 'NOT AN ID' } });
+    expect(errCode(bad)).toBe('agent.invalid_input');
     expect(run).not.toHaveBeenCalled();
+    expect((await call('critique', { entityId: 'glide' })).isError).toBeUndefined();
+    expect(run).toHaveBeenCalledOnce();
   });
 
   it('keeps the free image actions free', async () => {
@@ -396,27 +431,15 @@ describe('access, spending and the rate limit', () => {
     ).toBe('images.not_found');
   });
 
-  it('logs paid calls via agent, and counts their cost against the agent budget', async () => {
-    const { call, ai, meter } = setup({ settings: { spend: true } });
+  it('logs paid calls via agent, and counts what they cost this session', async () => {
+    const { call, ai, host } = setup();
     const r = await call('suggest', { entityId: 'glide', field: 'identity', count: 3 });
     expect(r.isError).toBeUndefined();
     const log = await ai.log();
     expect(log.at(-1)).toMatchObject({ moment: 'suggest_three', via: 'agent' });
     await call('generate_image', { entityId: 'glide', kind: 'icon' });
-    expect(meter.spent).toBeCloseTo(0.011, 6);
-  });
-
-  it('stops at the budget, and refuses an estimate that doesn’t fit', async () => {
-    const tight = setup({ settings: { spend: true, budget: { sessionUsd: 0.005, monthUsd: 10 } } });
-    const r = await tight.call('generate_image', {
-      entityId: 'glide',
-      kind: 'concept',
-      prompt: 'p',
-    });
-    expect(errCode(r)).toBe('agent.budget');
-    expect(r.content[0]?.text).toContain('$0.010');
-    const spent = setup({ settings: { spend: true, budget: { sessionUsd: 0, monthUsd: 10 } } });
-    expect(errCode(await spent.call('critique', { entityId: 'glide' }))).toBe('agent.budget');
+    expect(host.spent()).toBeCloseTo(0.011, 6);
+    expect(host.log().at(-1)).toMatchObject({ tool: 'generate_image', costUsd: 0.011 });
   });
 
   it('limits writes per second with a clear error; reads are not limited', async () => {
@@ -448,7 +471,7 @@ describe('access, spending and the rate limit', () => {
 
 describe('spreads through the agent', () => {
   it('runs a spread, saves it, and keeps and kills candidates with reasons', async () => {
-    const { data, call, session } = setup({ settings: { spend: true } });
+    const { data, call, session } = setup();
     const s = (await data('spread', {
       spot: { type: 'cell', band: 'low-sky', lane: 'items' },
       move: 'fill',
@@ -511,28 +534,21 @@ describe('settings', () => {
   });
   afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
-  it('defaults to access on and spending off, and keeps changes and this month’s spend', async () => {
-    let now = new Date('2026-11-05T00:00:00Z');
-    const a = AgentSettingsStore.at(dir, () => now);
+  it('defaults to access on, and keeps a change', async () => {
+    const a = AgentSettingsStore.at(dir);
     await a.load();
-    expect(a.get()).toMatchObject({ access: true, spend: false });
-    await a.set({ spend: true, budget: { sessionUsd: 2, monthUsd: 3 } });
-    a.add(1.5);
-    await a.flush();
-    const b = AgentSettingsStore.at(dir, () => now);
+    expect(a.get()).toEqual({ access: true });
+    await a.set({ access: false });
+    const b = AgentSettingsStore.at(dir);
     await b.load();
-    expect(b.get()).toMatchObject({ spend: true, budget: { sessionUsd: 2, monthUsd: 3 } });
-    expect(b.spend()).toEqual({ sessionUsd: 0, monthUsd: 1.5 });
-    expect(b.remaining(b.get().budget)).toBeCloseTo(1.5);
-    now = new Date('2026-12-01T00:00:00Z');
-    expect(b.spend().monthUsd).toBe(0);
+    expect(b.get()).toEqual({ access: false });
   });
 
   it('falls back to the defaults on a bad file', async () => {
     writeFileSync(path.join(dir, 'agent.json'), '{ nope');
     const a = AgentSettingsStore.at(dir);
     await a.load();
-    expect(a.get()).toMatchObject({ access: true, spend: false });
+    expect(a.get()).toEqual({ access: true });
   });
 });
 
