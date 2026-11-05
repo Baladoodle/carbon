@@ -1,0 +1,19 @@
+{
+  "upstream": "Baladoodle/infinite:tools/genforge",
+  "status": "not-ported",
+  "statusReason": "The Infinite repository is private and could not be attached to this session (add_repo was refused; an unauthenticated clone needs credentials). No Genforge source was read, so nothing in src/core/pixel is derived from it yet.",
+  "revision": null,
+  "files": [
+    { "path": "genforge/filters/__init__.py", "sha256": null },
+    { "path": "genforge/filters/items.py", "sha256": null },
+    { "path": "genforge/filters/topology.py", "sha256": null },
+    { "path": "prompts/items/*.txt", "sha256": null },
+    { "path": "docs/filters.md", "sha256": null }
+  ],
+  "portNotes": [
+    "filter.ts, presets.ts and quantize.ts are carbon's provisional pipeline (area-average resample, optional linear light, alpha-weighted halo fix, alpha threshold, 4-neighbour rim darkening, median-cut palette). They are NOT Genforge's maths and report provisional: true.",
+    "Genforge stages named in the brief and not implemented: the inner-rim path, topology-preserving pooling (topology.py), and the material rim as Genforge defines it.",
+    "prompts.ts follows the conventions docs/IMAGES.md lists for prompts/items/*.txt; the wording is carbon's.",
+    "When the source is available: record the revision and each file's sha256 here, port the stages, regenerate fixtures/pixel/reference with scripts/pixel-references.mjs, and set report.provisional to false and report.upstream to the revision."
+  ]
+}

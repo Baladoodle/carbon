@@ -203,8 +203,9 @@ export function filterImage(src: RgbaImage, opts: FilterOptions): FilterResult {
   const { w, h } = opts.target;
   const data = resample(src, w, h, settings);
   if (settings.alphaThreshold !== null) applyAlphaThreshold(data, settings.alphaThreshold);
-  if (settings.paletteSize !== null) quantize(data, settings.paletteSize);
+  // The rim adds darker shades, so it runs before quantization keeps the palette bound.
   if (settings.rim > 0) applyRim(data, w, h, settings.rim);
+  if (settings.paletteSize !== null) quantize(data, settings.paletteSize);
   // Fully transparent pixels carry no colour: canonical zeros keep outputs byte-stable.
   for (let p = 0; p < data.length; p += 4) {
     if (data[p + 3] === 0) data[p] = data[p + 1] = data[p + 2] = 0;

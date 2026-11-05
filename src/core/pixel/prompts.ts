@@ -144,7 +144,8 @@ export function iconPrompt(entity: IconSubject, world: IconWorld, art: IconArt =
 
   const lines: string[] = [];
   const identity = entity.identity ? `: ${clean(entity.identity)}` : '';
-  lines.push(`Subject: ${clean(entity.name)}, a ${noun}${identity}.`);
+  const article = /^[aeiou]/i.test(noun) ? 'an' : 'a';
+  lines.push(`Subject: ${clean(entity.name)}, ${article} ${noun}${identity}.`);
   if (entity.description) lines.push(`Details: ${firstSentence(entity.description)}.`);
   lines.push(
     `Presentation: a single game inventory icon of the ${noun}, ${PRESENTATION[subkind ?? ''] ?? DEFAULT_PRESENTATION}, centred.`,
