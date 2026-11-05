@@ -18,6 +18,7 @@ import {
   Empty,
   Input,
   Kbd,
+  ResizablePane,
   Tooltip,
 } from '../../ui';
 import { defineView } from '../define';
@@ -233,71 +234,89 @@ function TasteBody({ taste, since }: { taste: Taste; since: number }): ReactNode
 
   return (
     <div className="taste-view" data-testid="taste-view">
-      <div className="taste-stack">
+      <ResizablePane
+        id="taste-rules"
+        edge="end"
+        min={200}
+        max={({ parent }) => parent * 0.6}
+        label="Rules width"
+        className="taste-pane"
+      >
+        <div className="taste-stack">
+          <section
+            className={cx('taste-col', cursor.col === 'rules' && 'is-current')}
+            aria-label="Rules"
+            data-testid="taste-rules"
+          >
+            <div className="taste-col-head">
+              <span>Rules</span>
+            </div>
+            <div className="taste-list">
+              {taste.rules.map((r, i) => (
+                <RuleRow
+                  key={r.id}
+                  r={r}
+                  current={cursor.col === 'rules' && row === i}
+                  onPick={() => setCursor({ col: 'rules', row: i })}
+                />
+              ))}
+            </div>
+            <form
+              className="taste-add"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const input = newRule.current;
+                const text = input?.value.trim() ?? '';
+                if (!input || text === '') return;
+                void run('Add rule', cmd('taste.addRule', { text })).then((ok) => {
+                  if (ok) input.value = '';
+                });
+              }}
+            >
+              <Input
+                ref={newRule}
+                aria-label="New rule"
+                placeholder="New rule"
+                data-testid="taste-new-rule"
+                onKeyDown={(e) => e.key === 'Escape' && e.currentTarget.blur()}
+              />
+            </form>
+          </section>
+          <ArtDirectionSection />
+        </div>
+      </ResizablePane>
+
+      <ResizablePane
+        id="taste-reasons"
+        edge="end"
+        min={200}
+        max={({ parent }) => parent * 0.6}
+        label="Kill reasons width"
+        className="taste-pane"
+      >
         <section
-          className={cx('taste-col', cursor.col === 'rules' && 'is-current')}
-          aria-label="Rules"
-          data-testid="taste-rules"
+          className={cx('taste-col', cursor.col === 'reasons' && 'is-current')}
+          aria-label="Kill reasons"
+          data-testid="taste-reasons"
         >
           <div className="taste-col-head">
-            <span>Rules</span>
+            <span>Kill reasons</span>
+            {totalKills > 0 && <span className="num t-3">{totalKills}</span>}
           </div>
           <div className="taste-list">
-            {taste.rules.map((r, i) => (
-              <RuleRow
-                key={r.id}
+            {reasons.map((r, i) => (
+              <ReasonRow
+                key={r.key}
                 r={r}
-                current={cursor.col === 'rules' && row === i}
-                onPick={() => setCursor({ col: 'rules', row: i })}
+                share={totalKills > 0 ? r.count / totalKills : 0}
+                current={cursor.col === 'reasons' && row === i}
+                onPick={() => setCursor({ col: 'reasons', row: i })}
               />
             ))}
           </div>
-          <form
-            className="taste-add"
-            onSubmit={(e) => {
-              e.preventDefault();
-              const input = newRule.current;
-              const text = input?.value.trim() ?? '';
-              if (!input || text === '') return;
-              void run('Add rule', cmd('taste.addRule', { text })).then((ok) => {
-                if (ok) input.value = '';
-              });
-            }}
-          >
-            <Input
-              ref={newRule}
-              aria-label="New rule"
-              placeholder="New rule"
-              data-testid="taste-new-rule"
-              onKeyDown={(e) => e.key === 'Escape' && e.currentTarget.blur()}
-            />
-          </form>
+          <AddReason taste={taste} />
         </section>
-        <ArtDirectionSection />
-      </div>
-
-      <section
-        className={cx('taste-col', cursor.col === 'reasons' && 'is-current')}
-        aria-label="Kill reasons"
-        data-testid="taste-reasons"
-      >
-        <div className="taste-col-head">
-          <span>Kill reasons</span>
-          {totalKills > 0 && <span className="num t-3">{totalKills}</span>}
-        </div>
-        <div className="taste-list">
-          {reasons.map((r, i) => (
-            <ReasonRow
-              key={r.key}
-              r={r}
-              share={totalKills > 0 ? r.count / totalKills : 0}
-              current={cursor.col === 'reasons' && row === i}
-              onPick={() => setCursor({ col: 'reasons', row: i })}
-            />
-          ))}
-        </div>
-        <AddReason taste={taste} />
-      </section>
+      </ResizablePane>
 
       <section
         className={cx('taste-col', cursor.col === 'patterns' && 'is-current')}

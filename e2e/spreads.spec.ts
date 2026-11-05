@@ -107,6 +107,28 @@ test.describe('spreads', () => {
     expect(rec.spot).toEqual({ type: 'cell', band: 'low-sky', lane: 'items' });
   });
 
+  test('k then x with no wait: the kill prompt opens on the next card', async () => {
+    const focused = page().locator('[data-testid="spread-card"][data-focused]');
+    const first = await focused.getAttribute('data-key');
+    // Back to back, in one task: x arrives before the keep's transaction lands
+    // and before the view re-renders, which is what load did to the acceptance walk.
+    await page().evaluate(() => {
+      for (const key of ['k', 'x'])
+        document.body.dispatchEvent(
+          new KeyboardEvent('keydown', { key, code: `Key${key.toUpperCase()}`, bubbles: true }),
+        );
+    });
+    await expect(page().getByTestId('spread-kill-reasons')).toBeVisible();
+    await expect(openCards()).toHaveCount(11);
+    await expect(focused).not.toHaveAttribute('data-key', first ?? '');
+    await expect(openCard(await focused.getAttribute('data-key'))).toHaveCount(1);
+    // Leave the field as it was for the tests after this one.
+    await page().keyboard.press('Escape');
+    await expect(page().getByTestId('spread-kill-reasons')).toHaveCount(0);
+    await page().locator('body').press('u');
+    await expect(openCards()).toHaveCount(12);
+  });
+
   test('kills with "other" and a few typed words', async () => {
     await page().locator('body').press('x');
     await page().keyboard.press('0');
@@ -274,7 +296,12 @@ test.describe('moves, findings and pattern learning', () => {
       await page().locator('body').press('x');
       await page().keyboard.press(i % 2 ? '2' : '5');
     }
-    await expect(page().getByText(/patterns? to review/)).toBeVisible();
+    // The toast itself: Radix also announces its text in a hidden live region for a moment.
+    await expect(
+      page()
+        .getByTestId('toast')
+        .filter({ hasText: /patterns? to review/ }),
+    ).toBeVisible();
     const w = await world();
     expect(w.taste.patterns.length).toBeGreaterThan(0);
     expect((w.settings as { patterns?: { judged?: number } }).patterns?.judged).toBe(25);

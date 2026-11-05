@@ -232,6 +232,7 @@ function CellEditor({
         aria-label={column.label}
         onFocus={(e) => e.currentTarget.select()}
         onChange={(e) => onDraft(e.target.value)}
+        onCommit={() => onCommit(editing.draft)}
         onKeyDown={(e) => {
           // Enter commits like every cell; shift+enter breaks the line.
           if (e.key === 'Enter' && e.shiftKey) return;
@@ -251,6 +252,7 @@ function CellEditor({
       aria-label={column.label}
       onFocus={(e) => e.currentTarget.select()}
       onChange={(e) => onDraft(e.target.value)}
+      onCommit={() => onCommit(editing.draft)}
       onKeyDown={keys}
       onBlur={onCancel}
     />

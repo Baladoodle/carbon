@@ -27,12 +27,22 @@ import {
   Kbd,
   Menu,
   Popover,
+  ResizablePane,
   Select,
   Tooltip,
 } from '../../ui';
 import { learnIfDue } from '../taste/learn';
 import { defineView } from '../define';
-import { follow, followWith, keep, kill, merge, toggleMark, undoLast } from './actions';
+import {
+  follow,
+  followWith,
+  keep,
+  kill,
+  merge,
+  toggleMark,
+  triageTarget,
+  undoLast,
+} from './actions';
 import { Detail } from './Detail';
 import { clearHandoff, handedSpot, handoffKey } from './handoff';
 import { SpotPicker } from './SpotPicker';
@@ -117,7 +127,7 @@ function SpreadBody({ world, s }: { world: World; s: SpreadSession }): ReactNode
   const order = readingOrder(placed);
   const focusCard = cards.find((c) => c.candidate.key === s.focus && c.state === 'open');
   // Triage works while streaming too: judgements queue until the record is saved.
-  const canTriage = (!!live || !!spread) && !!focusCard;
+  // Its keys read their target when pressed (triageTarget), not from this render.
 
   const moveTo = (key: string | undefined): void => {
     if (key) patchSession({ focus: key });
@@ -140,16 +150,6 @@ function SpreadBody({ world, s }: { world: World; s: SpreadSession }): ReactNode
   const run = (): void => {
     direction.current?.blur();
     void runSpread().then((e) => e && flash(e, 'error'));
-  };
-  /**
-   * The candidate a key acts on: the focus as the session holds it now, not
-   * as last rendered. A judgement moves the focus at once, and a key pressed
-   * before the next render must act on the new focus (otherwise a quick `x`
-   * after a kill prompts for the card just killed, and the prompt never shows).
-   */
-  const current = (): string | undefined => {
-    const f = sessionStore.get().focus;
-    return f && cards.some((c) => c.candidate.key === f && c.state === 'open') ? f : undefined;
   };
 
   const actions: Action[] = [
@@ -240,10 +240,10 @@ function SpreadBody({ world, s }: { world: World; s: SpreadSession }): ReactNode
       label: 'Keep',
       group: 'Spread',
       keys: ['k'],
-      enabled: () => canTriage && !!current(),
+      enabled: () => triageTarget() !== null,
       run: () => {
-        const k = current();
-        if (k) void keep(k, order);
+        const key = triageTarget();
+        if (key) void keep(key, order);
       },
     },
     {
@@ -251,10 +251,10 @@ function SpreadBody({ world, s }: { world: World; s: SpreadSession }): ReactNode
       label: 'Kill…',
       group: 'Spread',
       keys: ['x'],
-      enabled: () => canTriage && !!current(),
+      enabled: () => triageTarget() !== null,
       run: () => {
-        const k = current();
-        if (k) patchSession({ prompt: { type: 'kill', key: k } });
+        const key = triageTarget();
+        if (key) patchSession({ prompt: { type: 'kill', key } });
       },
     },
     {
@@ -262,10 +262,10 @@ function SpreadBody({ world, s }: { world: World; s: SpreadSession }): ReactNode
       label: 'Mark for merging',
       group: 'Spread',
       keys: ['space'],
-      enabled: () => canTriage && !!current(),
+      enabled: () => triageTarget() !== null,
       run: () => {
-        const k = current();
-        if (k) toggleMark(k);
+        const key = triageTarget();
+        if (key) toggleMark(key);
       },
     },
     {
@@ -330,11 +330,21 @@ function SpreadBody({ world, s }: { world: World; s: SpreadSession }): ReactNode
           {s.error.message}
         </div>
       )}
-      {focusCard ? (
-        <Detail world={world} spread={spread} candidate={focusCard.candidate} />
-      ) : (
-        <div className="spread-detail spread-detail-empty" />
-      )}
+      <ResizablePane
+        id="spread-detail"
+        axis="y"
+        edge="start"
+        min={64}
+        max={({ parent }) => parent * 0.6}
+        label="Detail height"
+        className="spread-detail-pane"
+      >
+        {focusCard ? (
+          <Detail world={world} spread={spread} candidate={focusCard.candidate} />
+        ) : (
+          <div className="spread-detail spread-detail-empty" />
+        )}
+      </ResizablePane>
     </div>
   );
 }

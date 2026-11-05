@@ -11,7 +11,18 @@ import { invoke } from '../../bridge';
 import { CHECK_ADAPTERS } from '../../palette/Platform';
 import { focusEntity } from '../../state/ui';
 import { currentWorld, useWorld } from '../../state/world';
-import { Button, cx, Input, Empty, Kbd, StateGlyph, Textarea, toast, Tooltip } from '../../ui';
+import {
+  Button,
+  cx,
+  Input,
+  Empty,
+  Kbd,
+  ResizablePane,
+  StateGlyph,
+  Textarea,
+  toast,
+  Tooltip,
+} from '../../ui';
 import { IconExport } from '../../ui/icons';
 import { defineView } from '../define';
 import { imagePaths } from '@core/images/model';
@@ -289,79 +300,88 @@ function ExportView(): ReactNode {
 
   return (
     <div className="export-view" ref={root} data-testid="export-view">
-      <div className="export-choose">
-        <div className="export-filters" role="group" aria-label="Choose by kind">
-          {kinds.map((k) => (
-            <button
-              key={k}
-              type="button"
-              className="export-chip"
-              aria-pressed={choice.kinds.includes(k)}
-              data-testid={`export-kind-${k}`}
-              onClick={() => setChoice((c) => ({ ...c, kinds: toggle(c.kinds, k) }))}
-            >
-              {label(k)}
-            </button>
-          ))}
-        </div>
-        {bands.length > 0 && (
-          <div className="export-filters" role="group" aria-label="Choose by band">
-            {[...bands].reverse().map((b) => (
+      <ResizablePane
+        id="export-choose"
+        edge="end"
+        defaultSize={360}
+        min={240}
+        max={({ parent }) => parent * 0.6}
+        label="List width"
+      >
+        <div className="export-choose">
+          <div className="export-filters" role="group" aria-label="Choose by kind">
+            {kinds.map((k) => (
               <button
-                key={b.id}
+                key={k}
                 type="button"
                 className="export-chip"
-                aria-pressed={choice.bands.includes(b.id)}
-                data-testid={`export-band-${b.id}`}
-                onClick={() => setChoice((c) => ({ ...c, bands: toggle(c.bands, b.id) }))}
+                aria-pressed={choice.kinds.includes(k)}
+                data-testid={`export-kind-${k}`}
+                onClick={() => setChoice((c) => ({ ...c, kinds: toggle(c.kinds, k) }))}
               >
-                {b.name}
+                {label(k)}
               </button>
             ))}
           </div>
-        )}
-        <div
-          className="export-list"
-          ref={listRef}
-          tabIndex={0}
-          role="listbox"
-          aria-label="Decided entities"
-          aria-multiselectable
-          data-testid="export-list"
-        >
-          {exportable.map((e, i) => {
-            const on = chosenIds.has(e.id);
-            return (
-              <div
-                key={e.id}
-                role="option"
-                aria-selected={on}
-                data-entity={e.id}
-                data-cursor={i === cursor ? '' : undefined}
-                className={cx('export-row', on && 'is-on')}
-                onMouseDown={(ev) => {
-                  ev.preventDefault();
-                  listRef.current?.focus();
-                  setCursor(i);
-                  toggleEntity(e.id);
-                }}
-              >
-                <span className="export-check" aria-hidden="true" />
-                <StateGlyph state={e.state} />
-                <span className="export-name">{e.name}</span>
-                {changed.has(e.id) && (
-                  <Tooltip content="Changed since it was exported">
-                    <span className="export-changed" aria-label="changed since exported" />
-                  </Tooltip>
-                )}
-                <span className="t-3 t-meta">
-                  {schemaOf(world).kinds[e.kind].label.toLowerCase()}
-                </span>
-              </div>
-            );
-          })}
+          {bands.length > 0 && (
+            <div className="export-filters" role="group" aria-label="Choose by band">
+              {[...bands].reverse().map((b) => (
+                <button
+                  key={b.id}
+                  type="button"
+                  className="export-chip"
+                  aria-pressed={choice.bands.includes(b.id)}
+                  data-testid={`export-band-${b.id}`}
+                  onClick={() => setChoice((c) => ({ ...c, bands: toggle(c.bands, b.id) }))}
+                >
+                  {b.name}
+                </button>
+              ))}
+            </div>
+          )}
+          <div
+            className="export-list"
+            ref={listRef}
+            tabIndex={0}
+            role="listbox"
+            aria-label="Decided entities"
+            aria-multiselectable
+            data-testid="export-list"
+          >
+            {exportable.map((e, i) => {
+              const on = chosenIds.has(e.id);
+              return (
+                <div
+                  key={e.id}
+                  role="option"
+                  aria-selected={on}
+                  data-entity={e.id}
+                  data-cursor={i === cursor ? '' : undefined}
+                  className={cx('export-row', on && 'is-on')}
+                  onMouseDown={(ev) => {
+                    ev.preventDefault();
+                    listRef.current?.focus();
+                    setCursor(i);
+                    toggleEntity(e.id);
+                  }}
+                >
+                  <span className="export-check" aria-hidden="true" />
+                  <StateGlyph state={e.state} />
+                  <span className="export-name">{e.name}</span>
+                  {changed.has(e.id) && (
+                    <Tooltip content="Changed since it was exported">
+                      <span className="export-changed" aria-label="changed since exported" />
+                    </Tooltip>
+                  )}
+                  <span className="t-3 t-meta">
+                    {schemaOf(world).kinds[e.kind].label.toLowerCase()}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      </ResizablePane>
 
       <div className="export-edit">
         <div className="export-bar">

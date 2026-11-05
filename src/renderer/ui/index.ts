@@ -12,6 +12,9 @@ export {
 } from './Button';
 export { Input, Textarea, ghostText, type InputProps, type TextareaProps } from './Input';
 export { Field, type FieldProps } from './Field';
+export { ResizablePane, type ResizablePaneProps } from './ResizablePane';
+export { nearestPane, anyPane, setPaneSize, paneStore } from './pane';
+export { toggleFocused, canToggleFocused, HOST as EXPAND_HOST, WAITS_FOR_ESC } from './expand';
 export { Select, type SelectProps, type SelectOption } from './Select';
 export { Combobox, type ComboboxProps, type ComboboxItem } from './Combobox';
 export { Popover, PopoverParts, type PopoverProps } from './Popover';

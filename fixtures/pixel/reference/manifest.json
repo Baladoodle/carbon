@@ -1,0 +1,549 @@
+{
+  "genforge": {
+    "revision": "52e6547bac6e4022abcc21e0820359ea3966a649",
+    "path": "upstream/genforge"
+  },
+  "command": "{python} -m genforge filter {src} --target {w}x{h} --preset {preset} --out {out} --replace",
+  "references": [
+    {
+      "path": "item/16x16/bow-1024.png",
+      "output_hash": "sha256:8a8dbfcc44e9cac01e72692668612aa5355d6979c885aba57da3ca4bc118ba34"
+    },
+    {
+      "path": "item/16x16/checker-256.png",
+      "output_hash": "sha256:2b447b9e28c76badbc5f70dc823a0c90ceccee0ec60e70dea4d90d499c2c9c58"
+    },
+    {
+      "path": "item/16x16/disc-256.png",
+      "output_hash": "sha256:e67555716684282624808dd48bc42e3002efcb4393de7a0e032fc87f9c737ff6"
+    },
+    {
+      "path": "item/16x16/gradient-256.png",
+      "output_hash": "sha256:1e0d28e45ada65caed0b9e6928ac9649636fcdacd032d8b2797fdd27d7f3d3a8"
+    },
+    {
+      "path": "item/16x16/lines-256.png",
+      "output_hash": "sha256:ca531fbc173a4983f113f072b9bb94dc0be590ae10be1da52efdef52d21676ed"
+    },
+    {
+      "path": "item/16x16/noise-300x200.png",
+      "output_hash": "sha256:8cce5f37301ed7a4822c017330fdfdf8110b6d58158d4b41fd59126fb18b4cc4"
+    },
+    {
+      "path": "item/16x16/potion-512.png",
+      "output_hash": "sha256:db7a7c63a0c5e9221066e8272cbfc21c5f4a4c572e4112323420c71ceb0ea63a"
+    },
+    {
+      "path": "item/16x16/softalpha-256.png",
+      "output_hash": "sha256:cfa4c5f158c00dff166c86c294d105b01325e89182896f7bc3c82fa54860ab02"
+    },
+    {
+      "path": "item/16x16/sword-512.png",
+      "output_hash": "sha256:7b8e16bc1c4ec0efd4bf663915fe63ff640534feb192539a2ee1ee4994724a99"
+    },
+    {
+      "path": "item/24x24/bow-1024.png",
+      "output_hash": "sha256:4faf33174dc1a8e3ef0df22b16bacd8340c932805cad84512e20332c23ec2659"
+    },
+    {
+      "path": "item/24x24/checker-256.png",
+      "output_hash": "sha256:d7f3f69ec02d082fd6a03bf7aab94ae202b70f344a1f7490c0b69172fa69186b"
+    },
+    {
+      "path": "item/24x24/disc-256.png",
+      "output_hash": "sha256:a7dea413c64da85fb9a657d15558f26d513c97d6a2b8ed2b2420a56b9023d25e"
+    },
+    {
+      "path": "item/24x24/gradient-256.png",
+      "output_hash": "sha256:bc29777b92837bb10a08aaaf8eb828a85a3cddd3e5557fa05ec770bf5744e64c"
+    },
+    {
+      "path": "item/24x24/lines-256.png",
+      "output_hash": "sha256:cdbe88fd577cbf3fdd8ce635f10411d7a52c479ec27aa03b1af2fd6582d22ad7"
+    },
+    {
+      "path": "item/24x24/noise-300x200.png",
+      "output_hash": "sha256:50f88109affdf710646f595f3d21be5df35088d6df7393988364d6d5b2cc3e70"
+    },
+    {
+      "path": "item/24x24/potion-512.png",
+      "output_hash": "sha256:bb6ade5a97de7e00e5076b94b38e6c4eeaebc0c24cb452dad527eca27b34b4ef"
+    },
+    {
+      "path": "item/24x24/softalpha-256.png",
+      "output_hash": "sha256:866d09b2544d7c0ecfdb509428d8d95d9b92847360288930fc808ece2c191cb7"
+    },
+    {
+      "path": "item/24x24/sword-512.png",
+      "output_hash": "sha256:ca79d81f079dc4583454206f500698fd783d94473658f80df89e227ed8b78746"
+    },
+    {
+      "path": "item/32x32/bow-1024.png",
+      "output_hash": "sha256:5fbbcefa9829103bff1d936ee83ff8eb3c273e79446c1d9ace349d5d98558544"
+    },
+    {
+      "path": "item/32x32/checker-256.png",
+      "output_hash": "sha256:9937347ff618709b4f2b58905dc5d7205dbbfe93a62d25b8957605ed00bfd666"
+    },
+    {
+      "path": "item/32x32/disc-256.png",
+      "output_hash": "sha256:5f14232552c53f50a6e89740f53d1f7753f50f33c86692fb0af3b7355a454802"
+    },
+    {
+      "path": "item/32x32/gradient-256.png",
+      "output_hash": "sha256:b5160ba6e06d4d9310806760f1c2d3f9f60166659644fcae027590b90aa63944"
+    },
+    {
+      "path": "item/32x32/lines-256.png",
+      "output_hash": "sha256:445687a1a4a397a25310134b7488c393472603730694419f3f5830a77b49be7e"
+    },
+    {
+      "path": "item/32x32/noise-300x200.png",
+      "output_hash": "sha256:3a2f2774b6ca63bf1e6e0c9bf5c079d8329e972c779e7bba6490f524add338dc"
+    },
+    {
+      "path": "item/32x32/potion-512.png",
+      "output_hash": "sha256:5c2e895887afa103c144ee044bbf873a2e6ad610c0474ff9376bddb57e322988"
+    },
+    {
+      "path": "item/32x32/softalpha-256.png",
+      "output_hash": "sha256:9c28ab0c4e57dd9a66881aa82fcc9465b65a6a12e74c428ad77360372042479e"
+    },
+    {
+      "path": "item/32x32/sword-512.png",
+      "output_hash": "sha256:cd97dbf850b162b3d7103573f6eb2fff2eabbe0e94f971ddfe4c7d64f7dab0d6"
+    },
+    {
+      "path": "sprite/16x16/bow-1024.png",
+      "output_hash": "sha256:eb99c27a92169cb35b5926b93e9aa5a9ab5593dd30e178c87e103b6e2a2941fe"
+    },
+    {
+      "path": "sprite/16x16/checker-256.png",
+      "output_hash": "sha256:8a3e27b8ed00583bec1b7de85678642c7af5352a13aa68cb73bd258ad5f04be3"
+    },
+    {
+      "path": "sprite/16x16/disc-256.png",
+      "output_hash": "sha256:f92769a13f256839d048bcb6aaca07f607125062a7ede687afc82eae1705bc2b"
+    },
+    {
+      "path": "sprite/16x16/gradient-256.png",
+      "output_hash": "sha256:63deb8ce4163840d6a868f432615c986fce85986a0a185100281e447a6283fd1"
+    },
+    {
+      "path": "sprite/16x16/lines-256.png",
+      "output_hash": "sha256:6555e6c76158364d62fb3723910f94cf489932af5b2cb74193b8a5a56b78a578"
+    },
+    {
+      "path": "sprite/16x16/noise-300x200.png",
+      "output_hash": "sha256:d19f0f01403f282ea8559b50c73cd04406e2aaca00da49ffe6368bb2f1ad1ce1"
+    },
+    {
+      "path": "sprite/16x16/potion-512.png",
+      "output_hash": "sha256:ad887472bd8f96dd67f5aaeef4a392d57c895be737f56d179b819fca65a36718"
+    },
+    {
+      "path": "sprite/16x16/softalpha-256.png",
+      "output_hash": "sha256:f2e77a5f2422cbf7757f83abb9892266830c35a1b3a8e02628a0c61de47474fa"
+    },
+    {
+      "path": "sprite/16x16/sword-512.png",
+      "output_hash": "sha256:13bebc0edba83a2141f2cac5341c9e2cf312cbe6890ea7cbb06d6e583caea3f7"
+    },
+    {
+      "path": "sprite/32x32/bow-1024.png",
+      "output_hash": "sha256:666614c070aedb63831d32943e3755003565b20f353aa1d2b85e6b88fbd724c2"
+    },
+    {
+      "path": "sprite/32x32/checker-256.png",
+      "output_hash": "sha256:c41c9bf79c18fe381b48333a8563b68af0a91ff0c51ff16970fce54c0b0634fb"
+    },
+    {
+      "path": "sprite/32x32/disc-256.png",
+      "output_hash": "sha256:500c01a3eec6e6a3aab0f069085070828a40034dba09d03a8702f4457cb2a09b"
+    },
+    {
+      "path": "sprite/32x32/gradient-256.png",
+      "output_hash": "sha256:29fbc0456f7207f683846bbde0fbcaf3bab72d588c3aaee9615337a935eb0a1c"
+    },
+    {
+      "path": "sprite/32x32/lines-256.png",
+      "output_hash": "sha256:244ddb540453de3ea215da06638116e1ec5f1bda8efa6e4fed7923faaf0b3c7d"
+    },
+    {
+      "path": "sprite/32x32/noise-300x200.png",
+      "output_hash": "sha256:ae492e959ad940322c6d5e2c088a07a800ce1ebbc8062ebe9794a996e10f6072"
+    },
+    {
+      "path": "sprite/32x32/potion-512.png",
+      "output_hash": "sha256:d8d302fd9048da6013cd4e5c63a0a4cc0850fff57c787f7064dcb8b552fc61b1"
+    },
+    {
+      "path": "sprite/32x32/softalpha-256.png",
+      "output_hash": "sha256:15e03c6c662cbb2b362670e1b7244895a8cdd3d8978bcff011d071aa5a9ae259"
+    },
+    {
+      "path": "sprite/32x32/sword-512.png",
+      "output_hash": "sha256:207ab5fdd0405651633cb86c7733c99bb285b59c1451cdef1fbb0cc01e1752f1"
+    },
+    {
+      "path": "sprite/24x16/bow-1024.png",
+      "output_hash": "sha256:2e8483c51f6ce0314fa76fe1ae9eb80215c7cc47d51613c699f70390f7f6a8b3"
+    },
+    {
+      "path": "sprite/24x16/checker-256.png",
+      "output_hash": "sha256:7591dbbbf7f9478c62fdcb165de2a561a37b791694c7ce6b1e50a52c65eaa8fc"
+    },
+    {
+      "path": "sprite/24x16/disc-256.png",
+      "output_hash": "sha256:f4730b0eebd729d36f2187862745a5b167fb6a5dbbcd9ba822896b0264545c18"
+    },
+    {
+      "path": "sprite/24x16/gradient-256.png",
+      "output_hash": "sha256:17c79fd94f1a0e200ba9b61de9332048a61c03c5d01e64d766ea14dbd088a2ff"
+    },
+    {
+      "path": "sprite/24x16/lines-256.png",
+      "output_hash": "sha256:13e27b026c02829676303e575b5bb4992d41a78e6875a6282a2359a9b454f692"
+    },
+    {
+      "path": "sprite/24x16/noise-300x200.png",
+      "output_hash": "sha256:59ca8b2afce8df169629702320ce530b140549fb9f4c15ce4cfbe05a641d0bad"
+    },
+    {
+      "path": "sprite/24x16/potion-512.png",
+      "output_hash": "sha256:a56215b9f59e1197d6bd497e293c6a2f48c09df674e93493d07c9024467be7a2"
+    },
+    {
+      "path": "sprite/24x16/softalpha-256.png",
+      "output_hash": "sha256:884fd5ba8de5fa6a9a90b31c29b05fcadbee4b6ff5118a50d0a1b477b79c2ce4"
+    },
+    {
+      "path": "sprite/24x16/sword-512.png",
+      "output_hash": "sha256:aba0590dd5401ffac6129744bcbda54909fecb0ebaee14f99327efa11e8332df"
+    },
+    {
+      "path": "sprite/13x21/bow-1024.png",
+      "output_hash": "sha256:df4b79bd1b6d0e3714575989dc83241b681ec42f14788fc30085dda8b4b5e18c"
+    },
+    {
+      "path": "sprite/13x21/checker-256.png",
+      "output_hash": "sha256:0b4f592c681b96466bb49fcc2a0a0f395736f1de57774aa59e1a1af655d63093"
+    },
+    {
+      "path": "sprite/13x21/disc-256.png",
+      "output_hash": "sha256:350108bd39ca1dc416005ee1586507140c3e8b318729438dad9292843ad3159f"
+    },
+    {
+      "path": "sprite/13x21/gradient-256.png",
+      "output_hash": "sha256:27774697ec520294e2af5469e99a5b98c2f36cd4d4fae981d158f3538165882c"
+    },
+    {
+      "path": "sprite/13x21/lines-256.png",
+      "output_hash": "sha256:0c1b4d864cbae51782ff4cbfc7cd69b88b91b31f4ef46b22be3500a6bcbd15b2"
+    },
+    {
+      "path": "sprite/13x21/noise-300x200.png",
+      "output_hash": "sha256:966cbedef030f8646405e50b8ffa9e69549ac126d0356353e2131861368e55f4"
+    },
+    {
+      "path": "sprite/13x21/potion-512.png",
+      "output_hash": "sha256:af7bb356b1032b35703af70206d1692e4d25f50753e8b3a647844b831d67446f"
+    },
+    {
+      "path": "sprite/13x21/softalpha-256.png",
+      "output_hash": "sha256:8b7398064764e098cd26cf0dc2a3aab15b732a5e2427bebf365cc236da217354"
+    },
+    {
+      "path": "sprite/13x21/sword-512.png",
+      "output_hash": "sha256:03c55ffcf8c35597bc1136ac6bc8a26e5c82c358614b1bb4b8fa6f39b35eed7c"
+    },
+    {
+      "path": "texture/16x16/bow-1024.png",
+      "output_hash": "sha256:2c9ca01cb808da999cc2ee4aa40e61b0a1c688649368293575276b0e7e25ff6c"
+    },
+    {
+      "path": "texture/16x16/checker-256.png",
+      "output_hash": "sha256:c0cf0322e6ae257e647ac41bd25623720adf7dde675c66ff8332bf37886f62d4"
+    },
+    {
+      "path": "texture/16x16/disc-256.png",
+      "output_hash": "sha256:193e765591861dc6417ad11d26212f8aa74a3dcf0728d25d253e209fc8ef58fb"
+    },
+    {
+      "path": "texture/16x16/gradient-256.png",
+      "output_hash": "sha256:d8c03476ef8fbb68f174ba3b7271f4992f571544a961da764234b0ba68addc91"
+    },
+    {
+      "path": "texture/16x16/lines-256.png",
+      "output_hash": "sha256:50b068e07b4bf235705c19b77da49fdbbc7e98ddc0a46f1c6659cca98c963904"
+    },
+    {
+      "path": "texture/16x16/noise-300x200.png",
+      "output_hash": "sha256:325d79e4fcddd309cb3b1489661b5f86a39bbfc5655faeeca501a86033706f77"
+    },
+    {
+      "path": "texture/16x16/potion-512.png",
+      "output_hash": "sha256:9d1299b4780940a45502b6528745327b25d962a4c9be57a75be85da791a9069f"
+    },
+    {
+      "path": "texture/16x16/softalpha-256.png",
+      "output_hash": "sha256:a5d87c24556f5707786c594cd4c2355b0f12dafe9d2397b2f82647157cc9f0af"
+    },
+    {
+      "path": "texture/16x16/sword-512.png",
+      "output_hash": "sha256:e607bf1ba0a0270982570b6666dd7dad38fac85086de42387a5a6d39f478b493"
+    },
+    {
+      "path": "texture/32x32/bow-1024.png",
+      "output_hash": "sha256:7fb3898c823dd08d7f1ade76e459374e3383e8c52a739269a86c103cbe669000"
+    },
+    {
+      "path": "texture/32x32/checker-256.png",
+      "output_hash": "sha256:3aa0a5b7078f19b1c9fcbd4d5bc912421a30eac709a95c6460e44959921654ee"
+    },
+    {
+      "path": "texture/32x32/disc-256.png",
+      "output_hash": "sha256:34dc94ebfb2dafa24458b0fe5731e57245d67756d0fd6bd479a2006bd7f9973d"
+    },
+    {
+      "path": "texture/32x32/gradient-256.png",
+      "output_hash": "sha256:75e7e478b806ac6362e215c3b9a189af64a9cb6f71e1f3df37f51df9c8665dde"
+    },
+    {
+      "path": "texture/32x32/lines-256.png",
+      "output_hash": "sha256:1ce7ef7126969638d1960ef09b366d57da835ff28e217bdee34d1b7badf48826"
+    },
+    {
+      "path": "texture/32x32/noise-300x200.png",
+      "output_hash": "sha256:9a39f10dd13d10877c6f7f4896ce6e52eded4b2da460665f10a9c7742036552b"
+    },
+    {
+      "path": "texture/32x32/potion-512.png",
+      "output_hash": "sha256:af87f6f2c49bcaed7c07cca1c26ad0f1a1454f161f725582bfbeb573389296b0"
+    },
+    {
+      "path": "texture/32x32/softalpha-256.png",
+      "output_hash": "sha256:39553c8ec38e03c98d0aacdf308363a1195bddf3b21d126d946e8d4db1cc7f6d"
+    },
+    {
+      "path": "texture/32x32/sword-512.png",
+      "output_hash": "sha256:2b991fd81b60bce3f1892eb1ef6f9e25212450ba4cc0deb76d558343a337f9d0"
+    },
+    {
+      "path": "texture/24x16/bow-1024.png",
+      "output_hash": "sha256:af1704f3b344374a3e25d24639389fe58bf68b04f224776bd6caaf3435df36ce"
+    },
+    {
+      "path": "texture/24x16/checker-256.png",
+      "output_hash": "sha256:5cfbec447ca4c167f417435b30e22681f29eedddf331fa18649a2242c5d3dcee"
+    },
+    {
+      "path": "texture/24x16/disc-256.png",
+      "output_hash": "sha256:107f6ec2d0cbf0e65e4fc3a935ea937fd37dcf6ed64ba614563433c93f7ebd42"
+    },
+    {
+      "path": "texture/24x16/gradient-256.png",
+      "output_hash": "sha256:b9acf0f08952e367ecfb60c74303d0b5e4a52c275165c4e00ac9c119c5e59eb1"
+    },
+    {
+      "path": "texture/24x16/lines-256.png",
+      "output_hash": "sha256:b9ea8ed9c689d6eccbb46d2e7961b7ce31f8b2432afc3a3a3e278e1b26361456"
+    },
+    {
+      "path": "texture/24x16/noise-300x200.png",
+      "output_hash": "sha256:cb073d4c02e2f4f52d20b88e0e818101fc1a855bc7b58c29f92cb15d88e20d91"
+    },
+    {
+      "path": "texture/24x16/potion-512.png",
+      "output_hash": "sha256:e2d077ecc6a29e3ed7e918065dd445e4ebda99696720a30c1927b916ef9365ff"
+    },
+    {
+      "path": "texture/24x16/softalpha-256.png",
+      "output_hash": "sha256:e817451164d735fff4a2a75446ad1e2600486a69214edd580d74ed30c148ced8"
+    },
+    {
+      "path": "texture/24x16/sword-512.png",
+      "output_hash": "sha256:75bedda2369bdd3ef97a0c1507db24aa1e74a05ae5e5707737ee5646fe7c4187"
+    },
+    {
+      "path": "texture/13x21/bow-1024.png",
+      "output_hash": "sha256:c2ecda2ba444e166fb806e3128985d8e8778fb879ef430909c7cad5f88ead515"
+    },
+    {
+      "path": "texture/13x21/checker-256.png",
+      "output_hash": "sha256:db3975c5cbc9a1bfeb1b280c9977a71bf8295e4e95f45045033516ce9850c166"
+    },
+    {
+      "path": "texture/13x21/disc-256.png",
+      "output_hash": "sha256:ff57d9628fec3fd4336593ef3eac1b888c3c6911de41a9fd74f0abdea614fbfb"
+    },
+    {
+      "path": "texture/13x21/gradient-256.png",
+      "output_hash": "sha256:474b0bc7bc739cd534c25c37ba02c6909896e55e97c48d532d3839d503c1acd5"
+    },
+    {
+      "path": "texture/13x21/lines-256.png",
+      "output_hash": "sha256:39768d618649d5cfa49527ac56b5df3aa2d051f0c4dbda5049c819c3c8db7ebf"
+    },
+    {
+      "path": "texture/13x21/noise-300x200.png",
+      "output_hash": "sha256:3069989744c349621a89da4231144fe86f17bafb021ede51b66a3bfe136fcbf2"
+    },
+    {
+      "path": "texture/13x21/potion-512.png",
+      "output_hash": "sha256:aae0617706c01fa37c6cdb21a45c926e12525c2c61cff744237681d26f564c62"
+    },
+    {
+      "path": "texture/13x21/softalpha-256.png",
+      "output_hash": "sha256:e27e1d5f3328e9dd0798ef49f3c443f24fbe7e04809f15544be518e072e473ec"
+    },
+    {
+      "path": "texture/13x21/sword-512.png",
+      "output_hash": "sha256:fa01ddceb4c50e77750bd9b2cdeda1c22da891c30b120eee8a984d8009e92a8c"
+    },
+    {
+      "path": "none/16x16/bow-1024.png",
+      "output_hash": "sha256:f4f5c6c2060378ca36df70911bc27ac07ce7327a733fd34879dbeb7c058c7da4"
+    },
+    {
+      "path": "none/16x16/checker-256.png",
+      "output_hash": "sha256:44c90f506c0a18c94128e2d8036064e0104a9dc19c30ec905bab8e599a8a2c52"
+    },
+    {
+      "path": "none/16x16/disc-256.png",
+      "output_hash": "sha256:65a2dbd5712adb28da3b2e985b51d3bd265d12510b08848f685729d221df7faa"
+    },
+    {
+      "path": "none/16x16/gradient-256.png",
+      "output_hash": "sha256:39eadf757729e838da3aa0b2b90628d086be53636f2409834d36efd9589cfed9"
+    },
+    {
+      "path": "none/16x16/lines-256.png",
+      "output_hash": "sha256:1a55fca0472d28be6e0c565edbde17bbb4d0a716435202ab181d7549caa48fcc"
+    },
+    {
+      "path": "none/16x16/noise-300x200.png",
+      "output_hash": "sha256:41abedf96cb2ddbe1fa4f8cc04dd111d5f9699187698e2dad48caaf2da3df93e"
+    },
+    {
+      "path": "none/16x16/potion-512.png",
+      "output_hash": "sha256:0f202216f9ea2e55077480ccf6946636078b172b0cf9623254672b57ca80cc00"
+    },
+    {
+      "path": "none/16x16/softalpha-256.png",
+      "output_hash": "sha256:2fc954ac5e871b58c60fb059f1b5d585993847c70c078920c89257c2cbb65fd9"
+    },
+    {
+      "path": "none/16x16/sword-512.png",
+      "output_hash": "sha256:b1473a63184dbb158168fb006a655c86796eac93e1a46a45284b79a868fad8d0"
+    },
+    {
+      "path": "none/32x32/bow-1024.png",
+      "output_hash": "sha256:c5634e8a011e47e38de24de63d0f19e6fdba4fde7a8b64bbc14bd9d1eba0a43c"
+    },
+    {
+      "path": "none/32x32/checker-256.png",
+      "output_hash": "sha256:7422d93622b2d3ad42dd54b1ff66d7eff16244e095e334a792cb785b6b50b6d5"
+    },
+    {
+      "path": "none/32x32/disc-256.png",
+      "output_hash": "sha256:3929c086e257084d7df5b22670c96216bec2338b58dfa437d94c08868deb50f9"
+    },
+    {
+      "path": "none/32x32/gradient-256.png",
+      "output_hash": "sha256:fc82b6b07dd329bda923006eb634a26a9ed71cf5cd1b8e9cf54e65b744aa926f"
+    },
+    {
+      "path": "none/32x32/lines-256.png",
+      "output_hash": "sha256:ea631a89700a02b0af84dcb1187f7e8ded9d922d9cd1015ec2f1856f943afa9d"
+    },
+    {
+      "path": "none/32x32/noise-300x200.png",
+      "output_hash": "sha256:870538c455287277a9ab15033b1029fb0470a9455caf0a9451c5ac4b76caaf1e"
+    },
+    {
+      "path": "none/32x32/potion-512.png",
+      "output_hash": "sha256:1db2827a1576983786eab8b25632af2e37c0ff5723558020d81d161854582bf1"
+    },
+    {
+      "path": "none/32x32/softalpha-256.png",
+      "output_hash": "sha256:3f5b9a63f356c547deafa1b61c482ce74d7c6fd3dd8242e382750ced9a096843"
+    },
+    {
+      "path": "none/32x32/sword-512.png",
+      "output_hash": "sha256:1b66afa3a909e1da77ea14a7a9485464d471103bec30256e60238eda23f56e6f"
+    },
+    {
+      "path": "none/24x16/bow-1024.png",
+      "output_hash": "sha256:2c92d06dd8b80e36d56ab04faf3ba0af11d851e3cc0303331cb2dcafc6245288"
+    },
+    {
+      "path": "none/24x16/checker-256.png",
+      "output_hash": "sha256:f6c73c4e38f57d59a2526c7403fbce3e27db6b116c110363b3a9ee8fed2537a2"
+    },
+    {
+      "path": "none/24x16/disc-256.png",
+      "output_hash": "sha256:69ab4e462810218504911260b4aeb7a2f49d66162701f46ffd0934cc032f7904"
+    },
+    {
+      "path": "none/24x16/gradient-256.png",
+      "output_hash": "sha256:7ae54c7f4688d29514a29c3681b87358149e88f3c4dc9a4ac5ce7cf40a06010f"
+    },
+    {
+      "path": "none/24x16/lines-256.png",
+      "output_hash": "sha256:a55b5cac4a7c671358e90db18a77be626358bfceaed67f55e83b01e9d1c26205"
+    },
+    {
+      "path": "none/24x16/noise-300x200.png",
+      "output_hash": "sha256:70624d6521c25ba1724ead2be632a6801ade83940cb45868c16a0fccbca983cf"
+    },
+    {
+      "path": "none/24x16/potion-512.png",
+      "output_hash": "sha256:63e41f6f4da216c6a6b6d1a11b5bb7c5f753c4f5a3d63132fcfe3897ba586105"
+    },
+    {
+      "path": "none/24x16/softalpha-256.png",
+      "output_hash": "sha256:9db00e4acf0e13b1eea792bb4c34444d44f340f7ec4d1de4632a39aece6fea2a"
+    },
+    {
+      "path": "none/24x16/sword-512.png",
+      "output_hash": "sha256:5144d5aaa53096d124de05d53a27e3a23e677dec1a1c8348324152d4ccb1a1c1"
+    },
+    {
+      "path": "none/13x21/bow-1024.png",
+      "output_hash": "sha256:7efb43bfb3e9a8a270c5f21a9dc49c187927bb2a41aa66c81b6fa6595dac4e9c"
+    },
+    {
+      "path": "none/13x21/checker-256.png",
+      "output_hash": "sha256:62afaef571506c69f782cbc3cca3b1b2d7efd1691c507cc40aba9822c681d2f6"
+    },
+    {
+      "path": "none/13x21/disc-256.png",
+      "output_hash": "sha256:de93b7dee5873c9384c7c4f5cc5edb30fdb59d750b6cef8dba937c65937bf5a0"
+    },
+    {
+      "path": "none/13x21/gradient-256.png",
+      "output_hash": "sha256:a03d65b9510e263ba3cebdc4e1bc92987b36167936b5e3fff31dabb9e0311bf5"
+    },
+    {
+      "path": "none/13x21/lines-256.png",
+      "output_hash": "sha256:4441bcf893097326ad618562027851fae42c3bdc06855643149be3fbbf103702"
+    },
+    {
+      "path": "none/13x21/noise-300x200.png",
+      "output_hash": "sha256:cdce98361cf83a8b0ee7a0f3034a0f0b768af290dd24298c87a176d67ca50540"
+    },
+    {
+      "path": "none/13x21/potion-512.png",
+      "output_hash": "sha256:b45e3fff47fac085b64f46ac771814a904b875ef954f7c9a0685b5957e614fc4"
+    },
+    {
+      "path": "none/13x21/softalpha-256.png",
+      "output_hash": "sha256:5878029ea70408b52a9608fe94bc7a255f9b77997c57dfbd07e81bc2107feb4a"
+    },
+    {
+      "path": "none/13x21/sword-512.png",
+      "output_hash": "sha256:7a5a3b39b4a2e39335f26370da74489191a5fb2581145f1aa11b3ed20c38e6e1"
+    }
+  ]
+}

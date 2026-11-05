@@ -677,6 +677,7 @@ function AttributeRow({
         <Input
           id={`bench-attr-${entity.id}-${attrKey}`}
           mono
+          expandable={false}
           value={draft}
           invalid={error !== null}
           onChange={(e) => setDraft(e.target.value)}

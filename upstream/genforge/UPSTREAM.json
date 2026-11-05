@@ -1,0 +1,79 @@
+{
+  "repository": "https://github.com/Baladoodle/defacing-spider",
+  "revision": "83ff40703cf163ced90673582a6964dbc1cf1fc3",
+  "note": "Snapshot of working-tree files; hashes identify the exact inputs. Imports made local, trailing whitespace normalized, and unused backend processor wrappers omitted.",
+  "files": [
+    {
+      "source": "api/v2/filter/__init__.py",
+      "destination": "genforge/filters/__init__.py",
+      "source_sha256": "bdbd10283b16951d4fe1b676669e1ca7fc623f3f34cda4447e8041a1056c80be",
+      "ported_sha256": "2c0c646e91692e6ab049e426f5520040e19066065be1ccf1411f1e20c9517ea2"
+    },
+    {
+      "source": "api/v2/filter/items.py",
+      "destination": "genforge/filters/items.py",
+      "source_sha256": "915969ec1ea171d75cdec4ebbc6addabe6abc72730b7ce9c38fc96313dca8d96",
+      "ported_sha256": "e9aa6a6dc0a2bc1ea823571e628be0711710854e82fd9d828650054992f801ee"
+    },
+    {
+      "source": "api/processing/pixelart.py",
+      "destination": "genforge/filters/topology.py",
+      "source_sha256": "9d9dfd20e8f34eb8af4ea1bd91b6eea1fb531c35839def8b76c1e41e1ee2c45c",
+      "ported_sha256": "128a44c7230110196e1e91e303c15eb0ba74f6017e53f652a578934bcaaefbb4"
+    },
+    {
+      "source": "api/walltiles/layout.py",
+      "destination": "genforge/walls/layout.py",
+      "source_sha256": "f3eee21f07b166bc74b649e8b1527f28e2ebaea3ae5b8b3e2429fef3178b292a",
+      "ported_sha256": "f3eee21f07b166bc74b649e8b1527f28e2ebaea3ae5b8b3e2429fef3178b292a"
+    },
+    {
+      "source": "api/walltiles/draft.py",
+      "destination": "genforge/walls/draft.py",
+      "source_sha256": "3a0400bc833319e9ef390aad860def1a2a454f698bb7277fecf5309f96f6e02d",
+      "ported_sha256": "b2d4969255e5b21cc222f0f04bc1bfd080a2dad52baad77a40d24c90b989a2b1"
+    },
+    {
+      "source": "api/walltiles/prompts.py",
+      "destination": "genforge/walls/prompts.py",
+      "source_sha256": "bcafc312a69151e89b85c52140c6e0cb57e845d5b8f3ce62f99ebd7fbb5b5ad3",
+      "ported_sha256": "f03c6453fb88b9f6b9fe750d31d0aef17f7fb0ddb0fb4b35a934ec098bb2ce30"
+    },
+    {
+      "source": "api/walltiles/evaluate.py",
+      "destination": "genforge/walls/evaluate.py",
+      "source_sha256": "71d5517b3f684e1f53bd822555570b12d86784ba1b9a0cad8b191521b8eae4fb",
+      "ported_sha256": "9cf14df0736fc5433464df5a66dd931ebc12953405eefc7990d1148ccbb89c65"
+    },
+    {
+      "source": "api/walltiles/kit.py",
+      "destination": "genforge/walls/kit.py",
+      "source_sha256": "fc96907473c68efafdb3d09a42eb4abea0f22aceb0e2e53914aba37adffab419",
+      "ported_sha256": "a204504d3f196c9c5095609c7736eba9e4a1b03bf273f63dc858363f5bfa59db"
+    },
+    {
+      "source": "api/walltiles/autotile.py",
+      "destination": "genforge/walls/autotile.py",
+      "source_sha256": "77d9dbbce65557e6a66f008b0bc71e764c6d69b55513c6ee80fe836f6b8622a8",
+      "ported_sha256": "3940ebde3e0e1b8616017f8d3675297256a1ef73f83f16a6758bf3b476bd9df1"
+    },
+    {
+      "source": "api/walltiles/maps.py",
+      "destination": "genforge/walls/maps.py",
+      "source_sha256": "bf3ef986c1b069ba321305fd65afb74df1bdb99d532870c32e526d759d896861",
+      "ported_sha256": "bf3ef986c1b069ba321305fd65afb74df1bdb99d532870c32e526d759d896861"
+    },
+    {
+      "source": "api/walltiles/layouts/board_H1.json",
+      "destination": "genforge/walls/layouts/board_H1.json",
+      "source_sha256": "802bc8ebfa3052d1649410a5073c07a8997230dd635c880be6201eca8814eb37",
+      "ported_sha256": "802bc8ebfa3052d1649410a5073c07a8997230dd635c880be6201eca8814eb37"
+    },
+    {
+      "source": "api/walltiles/layouts/board_H3.json",
+      "destination": "genforge/walls/layouts/board_H3.json",
+      "source_sha256": "3d97f041fd0162fc73845647f9e6d1f0767328cdc75b73639b78cd45ff1da45a",
+      "ported_sha256": "3d97f041fd0162fc73845647f9e6d1f0767328cdc75b73639b78cd45ff1da45a"
+    }
+  ]
+}

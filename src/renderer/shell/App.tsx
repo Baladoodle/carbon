@@ -7,7 +7,15 @@ import { Palette } from '../palette/Palette';
 import { PlatformRuntime } from '../palette/Platform';
 import { flash, setUi, uiStore, useUi } from '../state/ui';
 import { redo, startWorldSync, undo, useWorldMeta } from '../state/world';
-import { Toaster, TooltipProvider } from '../ui';
+import {
+  ResizablePane,
+  Toaster,
+  TooltipProvider,
+  anyPane,
+  canToggleFocused,
+  nearestPane,
+  toggleFocused,
+} from '../ui';
 import { Gallery } from '../ui/Gallery';
 import { startImageSync } from '../images/client';
 import { ImageOverlays } from '../images/Overlays';
@@ -15,6 +23,9 @@ import { invoke } from '../bridge';
 import { VIEWS, viewById } from '../views/registry';
 import { Rail } from './Rail';
 import { StatusLine } from './StatusLine';
+
+/** The Bench's width until it's resized (min 300px, max 60% of the window). */
+const BENCH_W = 360;
 
 /** The shell's own actions: views, Bench, palette, undo/redo, AI log, AI off. */
 function useShellActions(): void {
@@ -83,6 +94,29 @@ function useShellActions(): void {
         ),
     },
     {
+      id: 'field.expand',
+      label: 'Expand the field',
+      group: 'Edit',
+      keys: ['ctrl+shift+e'],
+      inInputs: true,
+      enabled: canToggleFocused,
+      run: () => void toggleFocused(),
+    },
+    {
+      id: 'pane.widen',
+      label: 'Widen panel',
+      group: 'Window',
+      enabled: anyPane,
+      run: () => nearestPane()?.step(1),
+    },
+    {
+      id: 'pane.narrow',
+      label: 'Narrow panel',
+      group: 'Window',
+      enabled: anyPane,
+      run: () => nearestPane()?.step(-1),
+    },
+    {
       id: 'overlay.close',
       label: 'Close',
       keys: ['escape'],
@@ -141,9 +175,20 @@ export function App(): ReactNode {
           {meta.status !== 'loading' && View ? <View /> : null}
         </main>
         {benchOpen && (
-          <aside className="bench" data-testid="bench" aria-label="Bench">
-            <Bench />
-          </aside>
+          <ResizablePane
+            id="bench"
+            edge="start"
+            defaultSize={BENCH_W}
+            min={300}
+            max={({ window }) => window * 0.6}
+            onCollapse={() => setUi({ benchOpen: false })}
+            label="Bench width"
+            className="shell-bench"
+          >
+            <aside className="bench" data-testid="bench" aria-label="Bench">
+              <Bench />
+            </aside>
+          </ResizablePane>
         )}
         <StatusLine />
         {overlay === 'palette' && <Palette />}
