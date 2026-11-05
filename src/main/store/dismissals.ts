@@ -96,7 +96,10 @@ export class Dismissals {
       notes: this.map ?? {},
       ...(Object.keys(this.dead).length > 0 ? { dead: this.dead } : {}),
     };
-    this.queue = this.queue.then(() => writeJson(this.dir, META.dismissals, snapshot));
-    return this.queue;
+    // One failed write (a full disk) reports to its caller but doesn't stop
+    // the queue: the next save writes the whole map, this entry included.
+    const run = this.queue.then(() => writeJson(this.dir, META.dismissals, snapshot));
+    this.queue = run.catch(() => undefined);
+    return run;
   }
 }
