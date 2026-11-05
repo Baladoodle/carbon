@@ -1,8 +1,8 @@
 # Build notes: `review-b` (Phase 3, hardening)
 
 Branch `claude/blissful-einstein-8u27ty-review-b`, from
-`claude/blissful-einstein-8u27ty` at `829c669`. Main didn't move during the
-review, so no rebase was needed. Scope: **numbers** (W3) and **ai** (W4):
+`claude/blissful-einstein-8u27ty` at `829c669`, rebased at the end onto
+`fc09a2a` (review-c's merge). Scope: **numbers** (W3) and **ai** (W4):
 `src/core/numbers/`, `src/renderer/views/numbers/`, `src/main/ai/`,
 `src/core/context/`, `src/core/prompts/`, `src/core/ai/`,
 `src/renderer/ai/`, `evals/`, `scripts/eval.mjs`, `scripts/smoke-ai.mjs`,
@@ -160,6 +160,45 @@ or deleted.
     - **Test:** "a spec draft over hundreds of entities and formulas builds
       quickly" (< 1.5 s).
 
+### Asked for by the coordinator: engine updates that touch nothing read
+
+14. **An entity change that no formula reads still cost 3.4 ms** (median,
+    measured alone, 2,000 entities). review-c measured about 4 ms in the
+    checks. Read-set skipping already worked: nothing was re-evaluated. The
+    cost was fixed work done on every update:
+    - the placement adapter rebuilt a 2,000-entry Map (~1.8 ms)
+    - the engine compared it entry by entry
+    - the analysis object was rebuilt even when nothing changed
+
+    **Fix:**
+    - The adapter reuses its Map while `resolvePlacement` reuses its result
+      and every band is the same object. A band's *state* isn't one of
+      `resolvePlacement`'s placing inputs, but it moves tiers, so the bands
+      are checked too.
+    - The engine skips comparing placements when the Map is the same one.
+    - When nothing re-parsed, re-checked or re-evaluated, the previous
+      analysis is reused, with only the new world in its internals.
+    - The entity diff is one keys pass, and the read-set check iterates the
+      smaller set.
+
+    **Result: about 0.9 ms**, most of it one unavoidable identity scan over
+    the entities (`update(world)` gets no patch).
+
+    **Tests:**
+    - `perf.test.ts` asserts the mechanism deterministically: nothing
+      re-evaluated, the same placement Map, the same definitions.
+    - A property in `fuzz.test.ts` compares incremental updates with an
+      **unmemoised** placement (`freshPlacement`) while bands, relations and
+      states move. I checked that it fails when the band check is removed.
+      The first version compared against the memoised adapter on both
+      sides, so it couldn't fail.
+
+    **Not done:** finer read tokens. A query over `items` reads
+    `kind:item`, so changing *any* item re-evaluates it, even an
+    identity the query never reads. Making collection tokens track
+    membership only, and property reads per property, is the next step
+    (§7).
+
 ### Checked and found sound, now covered by tests
 
 - **The streaming partial-JSON parser.** `stream.test.ts`: arbitrary JSON
@@ -232,6 +271,8 @@ or deleted.
     to the same frame. On the 2,000-entity stress world: **median 3.9 ms,
     max 6.8 ms** per keystroke. Completion takes **0.3 ms**. Both are
     enforced in `perf.test.ts`.
+  - An entity change no formula reads: from 3.4 ms to about 0.9 ms median
+    (§1.14).
   - The pathological nested query: from 27 s to under 1.5 s (it stops at
     the step limit).
   - A spec draft for 400 entities: from 8.5 s to under 1.5 s.
@@ -305,6 +346,10 @@ before.
 - **Go-to-definition in the formula editor** (the other half of W3's editor
   gap) isn't built. Hovering a value shows its type, and completion shows
   each name's type.
+- **Finer read tokens in the numbers engine** (§1.14). A formula over
+  `items` re-evaluates when any item changes, even in a field it never
+  reads. Tracking collection membership and per-property reads would make
+  most item edits free.
 - **ASCII estimates** remain empirical (2.8 characters per token). Pathological
   ASCII such as long random strings could tokenize denser. Near the limit,
   the gateway's `count_tokens` check backs the estimate; above 80k it always
