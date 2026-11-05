@@ -220,7 +220,7 @@ test('codex: the image column, the row menu, and a batch from the bulk bar (skip
   const cells = page().getByTestId('image-cell');
   await expect(cells).toHaveCount(3);
   await expect(page().getByTestId('image-batch-progress')).toContainText('1 of 1 sheet');
-  await expect(page().getByTestId('image-batch-progress')).not.toContainText('$0 ');
+  await expect(page().getByTestId('image-batch-progress')).toContainText(/\$0\.0*[1-9]/);
   await carbon.screenshot('images-sheet-review');
   // Reject the Cloud Anklet's cell, and regenerate it as a smaller sheet.
   const anklet = page().locator('[data-testid="image-cell"][data-entity="cloud-anklet"]');
