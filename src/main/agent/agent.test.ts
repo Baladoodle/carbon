@@ -232,7 +232,9 @@ describe('reads', () => {
     const r = (await host.handle('resources/read', { uri: 'carbon://entity/glide' })) as {
       contents: { text: string }[];
     };
-    expect(JSON.parse(r.contents[0]?.text ?? '{}').entity.id).toBe('glide');
+    expect((JSON.parse(r.contents[0]?.text ?? '{}') as { entity: { id: string } }).entity.id).toBe(
+      'glide',
+    );
     await expect(host.handle('resources/read', { uri: 'carbon://nope' })).rejects.toMatchObject({
       code: 'agent.not_found',
     });

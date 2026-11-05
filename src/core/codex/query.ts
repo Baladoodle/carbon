@@ -1,12 +1,6 @@
 import type { Entity } from '../model/entity';
 import { isEmptyValue, type FieldDef } from '../model/fields';
-import {
-  ENTITY_KINDS,
-  ENTITY_STATES,
-  LANE_OF_KIND,
-  LANES,
-  type EntityKind,
-} from '../model/kinds';
+import { ENTITY_KINDS, ENTITY_STATES, LANE_OF_KIND, LANES, type EntityKind } from '../model/kinds';
 import { fieldValue } from '../model/lifecycle';
 import { schemaOf, type World } from '../model/world';
 import type { Placement } from '../placement';
