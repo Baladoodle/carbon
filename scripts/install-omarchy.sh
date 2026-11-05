@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Installs carbon on an Omarchy (Arch + Hyprland) desktop, for the current user.
 #
-#   scripts/install-omarchy.sh                 install the newest dist/*.AppImage (or dist/linux-unpacked)
+#   scripts/install-omarchy.sh                 install dist/linux-unpacked (or the newest dist/*.AppImage)
 #   scripts/install-omarchy.sh --appimage F    install that AppImage
 #   scripts/install-omarchy.sh --dir D         install an unpacked build (e.g. dist/linux-unpacked)
 #   scripts/install-omarchy.sh --hypr          also source the window rule from hyprland.conf
@@ -18,12 +18,15 @@
 #   ~/.config/hypr/carbon.conf          the suggested Hyprland window rule (a file of its own;
 #                                       hyprland.conf sources it only with --hypr)
 #
-# Run `npm run dist` first. Environment overrides (used by the tests): XDG_DATA_HOME,
-# XDG_CONFIG_HOME, CARBON_BIN_DIR.
+# Run `npm run dist` first. The unpacked build is preferred: it starts faster and needs no
+# FUSE (an AppImage needs libfuse.so.2, which Arch has only in the fuse2 package).
+# Environment overrides (used by the tests): XDG_DATA_HOME, XDG_CONFIG_HOME, CARBON_BIN_DIR,
+# CARBON_DIST.
 set -euo pipefail
 
 MARK='# carbon: installed by scripts/install-omarchy.sh'
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+DIST="${CARBON_DIST:-$ROOT/dist}"
 DATA="${XDG_DATA_HOME:-$HOME/.local/share}"
 CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}"
 BIN="${CARBON_BIN_DIR:-$HOME/.local/bin}"
@@ -154,14 +157,20 @@ uninstall() {
 install() {
   # Find what to install.
   if [ -z "$appimage" ] && [ -z "$unpacked" ]; then
-    appimage="$(ls -t "$ROOT"/dist/*.AppImage 2>/dev/null | head -n1 || true)"
-    if [ -z "$appimage" ] && [ -x "$ROOT/dist/linux-unpacked/carbon" ]; then unpacked="$ROOT/dist/linux-unpacked"; fi
+    if [ -x "$DIST/linux-unpacked/carbon" ]; then unpacked="$DIST/linux-unpacked"
+    else appimage="$(ls -t "$DIST"/*.AppImage 2>/dev/null | head -n1 || true)"; fi
   fi
   [ -n "$appimage" ] || [ -n "$unpacked" ] || die 'nothing to install: run `npm run dist` first, or pass --appimage/--dir'
   if [ -n "$appimage" ]; then [ -f "$appimage" ] || die "no such AppImage: $appimage"; fi
   if [ -n "$unpacked" ]; then [ -x "$unpacked/carbon" ] || die "no carbon executable in $unpacked"; fi
 
   echo "Installing carbon"
+  # An AppImage mounts itself through libfuse.so.2; without it, it won't start.
+  if [ -n "$appimage" ] && command -v ldconfig >/dev/null 2>&1 &&
+     ! ldconfig -p 2>/dev/null | grep -q 'libfuse\.so\.2'; then
+    echo "Warning: the AppImage needs libfuse.so.2, which isn't installed."
+    echo "  Install it (sudo pacman -S fuse2), or install the unpacked build: --dir dist/linux-unpacked"
+  fi
   run mkdir -p "$APP_DIR"
   local exe
   if [ -n "$appimage" ]; then

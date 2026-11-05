@@ -165,6 +165,38 @@ describe('install-omarchy.sh', () => {
     expect(readFileSync(p('started'), 'utf8').trim()).toBe('unpacked');
   });
 
+  it('by default prefers the unpacked build, which needs no FUSE, over the AppImage', () => {
+    mkdirSync(p('dist/linux-unpacked'), { recursive: true });
+    writeFileSync(
+      p('dist/linux-unpacked/carbon'),
+      '#!/bin/sh\necho unpacked > "' + p('started') + '"\n',
+    );
+    chmodSync(p('dist/linux-unpacked/carbon'), 0o755);
+    writeFileSync(p('dist/carbon-0.1.0-x86_64.AppImage'), readFileSync(fakeApp));
+    env.CARBON_DIST = p('dist');
+    const r = run();
+    expect(r.status).toBe(0);
+    expect(existsSync(p('home/.local/share/carbon/app/carbon'))).toBe(true);
+    expect(existsSync(p('home/.local/share/carbon/carbon.AppImage'))).toBe(false);
+    execFileSync(launcher(), [], { env });
+    expect(readFileSync(p('started'), 'utf8').trim()).toBe('unpacked');
+  });
+
+  it('warns when the AppImage needs libfuse.so.2 and the system has none', () => {
+    writeFileSync(p('fakebin/ldconfig'), '#!/bin/sh\necho "12 libs found in cache"\n');
+    chmodSync(p('fakebin/ldconfig'), 0o755);
+    const r = run('--appimage', fakeApp);
+    expect(r.status).toBe(0);
+    expect(r.out).toContain('needs libfuse.so.2');
+    expect(r.out).toContain('pacman -S fuse2');
+    // With it present, no warning.
+    writeFileSync(
+      p('fakebin/ldconfig'),
+      '#!/bin/sh\necho "\tlibfuse.so.2 (libc6,x86-64) => /usr/lib/libfuse.so.2"\n',
+    );
+    expect(run('--appimage', fakeApp).out).not.toContain('libfuse.so.2');
+  });
+
   it('uninstalls everything it installed, and only that', () => {
     mkdirSync(p('home/.config/hypr'), { recursive: true });
     writeFileSync(p('home/.config/hypr/hyprland.conf'), 'monitor = ,preferred,auto,1\n');
