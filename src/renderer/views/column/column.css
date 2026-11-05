@@ -153,6 +153,15 @@
   stroke: var(--accent);
   filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 45%, transparent));
 }
+/* The cursor's whole name over a truncated chip: raised, opaque, never hit by the pointer. */
+.column-chip.column-reveal {
+  pointer-events: none;
+  opacity: 1;
+}
+.column-chip.column-reveal .column-chip-box {
+  fill: var(--surface-3);
+  stroke-dasharray: none;
+}
 .column-more-text {
   fill: var(--text-2);
   font: 400 var(--text-meta) var(--font-mono);

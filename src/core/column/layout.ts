@@ -224,6 +224,9 @@ export interface Glyph extends Rect {
   id: string;
   /** The name as shown (possibly truncated with an ellipsis). */
   text: string;
+  /** The whole name, and the chip's width with all of it (to reveal a truncated chip). */
+  name: string;
+  fullW: number;
   state: EntityState;
   inferred: boolean;
 }
@@ -235,6 +238,54 @@ export interface CellLayout {
   hidden: string[];
   /** The "+N" chip, when something is hidden. */
   more: (Rect & { count: number }) | null;
+}
+
+/** A chip's natural width: its state glyph and its whole name. */
+export const chipWidth = (name: string, measure: Measure): number =>
+  Math.ceil(CHIP_PAD_L + CHIP_GLYPH + measure(name) + CHIP_PAD_R);
+
+/**
+ * Lane widths that share `available` px fairly by need (max–min fair, or
+ * "water-filling"): a lane whose widest chip is narrow gets just that, and
+ * the room it leaves goes to lanes with longer names, which share it equally.
+ * Room left once every lane has what it needs is shared equally. No lane is
+ * narrower than `min`; when even that doesn't fit, every lane gets `min` and
+ * the Column scrolls sideways. Integer widths that sum to exactly
+ * `max(available, n · min)`.
+ */
+export function laneWidths(demands: readonly number[], available: number, min: number): number[] {
+  const n = demands.length;
+  if (n === 0) return [];
+  const total = Math.max(Math.floor(available), n * min);
+  const want = demands.map((d) => Math.max(min, Math.ceil(d)));
+  const sum = want.reduce((a, b) => a + b, 0);
+  if (sum <= total) {
+    const extra = total - sum;
+    return want.map((w, i) => w + Math.floor(extra / n) + (i < extra % n ? 1 : 0));
+  }
+  // The level `cap` with sum(min(want, cap)) = total: lanes under it keep what they need.
+  const sorted = [...want].sort((a, b) => a - b);
+  let rest = total;
+  let left = n;
+  let cap = Infinity;
+  for (const w of sorted) {
+    if (w * left <= rest) {
+      rest -= w;
+      left--;
+    } else {
+      cap = rest / left;
+      break;
+    }
+  }
+  const widths = want.map((w) => (w <= cap ? w : Math.floor(cap)));
+  // Hand out the pixels lost to rounding, left to right, among the capped lanes.
+  let short = total - widths.reduce((a, b) => a + b, 0);
+  for (let i = 0; short > 0 && i < n; i++)
+    if ((want[i] as number) > cap) {
+      widths[i] = (widths[i] as number) + 1;
+      short--;
+    }
+  return widths;
 }
 
 const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
@@ -357,6 +408,8 @@ export function layoutCell(
   const glyphs: Glyph[] = shown.map((p) => ({
     id: p.e.id,
     text: p.text,
+    name: p.e.name,
+    fullW: chipWidth(p.e.name, measure),
     state: p.e.state,
     inferred: p.e.inferred,
     x: rect.x + CELL_PAD + p.x,

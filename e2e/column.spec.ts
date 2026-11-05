@@ -137,6 +137,22 @@ test.describe('the Column', () => {
     expect(read(carbon, 'entities/band/groundline.md')).toContain('y_bottom: -64');
   });
 
+  test('the cursor shows a truncated name whole, over its neighbours', async () => {
+    const { page } = carbon;
+    await focusOn(carbon, 'glowmoss-caverns');
+    const text = chip(page, 'glowmoss-caverns').locator('.column-chip-text');
+    // With every lane and the Bench at 1440 px, this name doesn't fit its lane.
+    await expect(text).toHaveText(/…$/);
+    const reveal = page.locator('[data-reveal="glowmoss-caverns"]');
+    await expect(reveal).toHaveText('Glowmoss Caverns');
+    await expect(reveal).toHaveCSS('pointer-events', 'none');
+    // Moving on hides it; a name that fits is never revealed.
+    await press(page, 'j');
+    await expect(reveal).toHaveCount(0);
+    await focusOn(carbon, 'glide');
+    await expect(page.locator('[data-reveal]')).toHaveCount(0);
+  });
+
   test('a burst of alt+k moves the edge by every press, as one undo step', async () => {
     const { page } = carbon;
     await focusOn(carbon, 'meadow-steps');

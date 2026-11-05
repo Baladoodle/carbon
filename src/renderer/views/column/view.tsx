@@ -45,6 +45,7 @@ import {
   DrawPreview,
   Grid,
   Ruler,
+  Reveal,
   RowsLayer,
   yAtPx,
 } from './Layers';
@@ -57,16 +58,18 @@ import {
   pxOfY,
   uOfPx,
   type BandSpan,
+  type Glyph,
   type Rect,
 } from '@core/column/layout';
 import { Margin } from './Margin';
-import { measureChip, measureNote, resetMeasures } from './measure';
+import { measureBand, measureChip, measureNote, resetMeasures } from './measure';
 import {
   columnModel,
   sameColumnInputs,
   geometry,
   HEAD_H,
   inboxHasEntities,
+  laneAtX,
   LABEL_W,
   locate,
   navContext,
@@ -124,7 +127,7 @@ function cursorRect(
   geo: Geometry,
   model: ColumnModel,
   c: Cursor,
-): { cell: Rect | null; focus: Rect | null; inbox: boolean } {
+): { cell: Rect | null; focus: Rect | null; inbox: boolean; glyph?: Glyph } {
   if (c.row === INBOX_ROW) {
     const lane = model.lanes[c.lane];
     const box =
@@ -137,13 +140,18 @@ function cursorRect(
       box?.rect ??
       (c.lane < 0
         ? { x: RULER_W, y: 0, w: LABEL_W, h: geo.inbox?.height ?? 32 }
-        : { x: geo.laneX[c.lane] ?? 0, y: 0, w: geo.laneW, h: geo.inbox?.height ?? 32 });
+        : {
+            x: geo.laneX[c.lane] ?? 0,
+            y: 0,
+            w: geo.laneW[c.lane] ?? 0,
+            h: geo.inbox?.height ?? 32,
+          });
     return { cell: rect, focus: null, inbox: true };
   }
   const row = geo.rows.find((r) => r.row.key === c.row);
   if (!row) return { cell: null, focus: null, inbox: false };
   const x = c.lane < 0 ? RULER_W : (geo.laneX[c.lane] ?? 0);
-  const w = c.lane < 0 ? LABEL_W : geo.laneW;
+  const w = c.lane < 0 ? LABEL_W : (geo.laneW[c.lane] ?? 0);
   const cell = { x, y: row.top, w, h: row.bottom - row.top };
   const g =
     c.entity && c.lane >= 0
@@ -159,7 +167,12 @@ function cursorRect(
   const edge = fromBottom
     ? { ...cell, y: cell.y + Math.max(0, cell.h - 90), h: Math.min(cell.h, 90) }
     : { ...cell, h: Math.min(cell.h, 90) };
-  return { cell, focus: g ?? (c.entity && more ? more : edge), inbox: false };
+  return {
+    cell,
+    focus: g ?? (c.entity && more ? more : edge),
+    inbox: false,
+    ...(g ? { glyph: g } : {}),
+  };
 }
 
 interface HoverTip {
@@ -190,7 +203,9 @@ function ColumnView(): ReactNode {
   let model = memo?.model ?? null;
   if (world && memo?.world !== world) {
     model =
-      memo && sameColumnInputs(memo.world, world) ? memo.model : columnModel(world, memo ?? undefined);
+      memo && sameColumnInputs(memo.world, world)
+        ? memo.model
+        : columnModel(world, memo ?? undefined);
     setMemo({ world, model });
   }
   if (!world || !model) return null;
@@ -262,6 +277,7 @@ function Column({ world, model }: { world: World; model: ColumnModel }): ReactNo
         pxPerU,
         width: Math.max(width, 600),
         measure: measureChip,
+        measureHead: measureBand,
         version: fontVer,
         ...(dragBands ? { bands: dragBands } : {}),
       }),
@@ -621,10 +637,7 @@ function Column({ world, model }: { world: World; model: ColumnModel }): ReactNo
     const r = contentRef.current?.getBoundingClientRect();
     return { x: e.clientX - (r?.left ?? 0), y: e.clientY - (r?.top ?? 0) };
   };
-  const laneAt = (x: number): number =>
-    x < RULER_W + LABEL_W
-      ? -1
-      : Math.min(model.lanes.length - 1, Math.floor((x - RULER_W - LABEL_W) / geo.laneW));
+  const laneAt = (x: number): number => laneAtX(geo, x);
   const rowAtPx = (y: number): string | null =>
     geo.rows.find((r) => y >= r.top && y < r.bottom)?.row.key ?? null;
 
@@ -781,7 +794,7 @@ function Column({ world, model }: { world: World; model: ColumnModel }): ReactNo
             <div
               key={l}
               className="column-lane-head"
-              style={{ width: geo.laneW }}
+              style={{ width: geo.laneW[i] }}
               data-lane={l}
               data-cursor={cursor.lane === i ? '' : undefined}
             >
@@ -822,6 +835,7 @@ function Column({ world, model }: { world: World; model: ColumnModel }): ReactNo
             {visibleCells.map((c) => (
               <Cell key={c.key} cell={c} cursorId={c.row === cursor.row ? cursorId : null} />
             ))}
+            {rects.glyph && <Reveal g={rects.glyph} right={geo.width} />}
             {draw && (
               <DrawPreview
                 frame={geo.frame}
@@ -896,10 +910,7 @@ function Inbox({
           const chip = (e.target as Element).closest('[data-id]');
           const r = e.currentTarget.getBoundingClientRect();
           const x = e.clientX - r.left;
-          const lane =
-            x < RULER_W + LABEL_W
-              ? -1
-              : Math.min(model.lanes.length - 1, Math.floor((x - RULER_W - LABEL_W) / geo.laneW));
+          const lane = laneAtX(geo, x);
           onPick({ row: INBOX_ROW, lane, entity: chip?.getAttribute('data-id') ?? null });
         }}
       >

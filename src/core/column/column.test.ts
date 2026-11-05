@@ -6,7 +6,16 @@ import { LANES } from '../model/kinds';
 import { validateWorld } from '../model/validate';
 import type { World } from '../model/world';
 import { sampleWorld } from '../testing/sample';
-import { columnModel, type ColumnModel } from './model';
+import {
+  columnModel,
+  geometry,
+  inboxHasEntities,
+  laneAtX,
+  laneDemands,
+  locate,
+  navContext,
+  type ColumnModel,
+} from './model';
 import { at, normalize, side, step, stopsOf, type NavContext } from './cursor';
 import {
   clampEdge,
@@ -38,6 +47,7 @@ import {
   fitText,
   frameOf,
   INBOX_ROW,
+  laneWidths,
   layoutCell,
   pxOfY,
   rowsOf,
@@ -869,5 +879,112 @@ describe('incremental cell indexing', () => {
     );
     if (moved.ok)
       expect(columnModel(moved.value.world, { world: w, model: m }).index).not.toBe(m.index);
+  });
+});
+
+describe('lane widths', () => {
+  it('share the room fairly by need, sum exactly, never under the minimum (property)', () => {
+    fc.assert(
+      fc.property(
+        fc.array(fc.integer({ min: 0, max: 400 }), { minLength: 1, maxLength: 9 }),
+        fc.integer({ min: 0, max: 2400 }),
+        fc.integer({ min: 20, max: 100 }),
+        (demands, available, min) => {
+          const w = laneWidths(demands, available, min);
+          const n = demands.length;
+          const total = Math.max(available, n * min);
+          expect(w).toHaveLength(n);
+          expect(w.every((x) => Number.isInteger(x) && x >= min)).toBe(true);
+          expect(w.reduce((a, b) => a + b, 0)).toBe(total);
+          const want = demands.map((d) => Math.max(min, d));
+          const fits = want.reduce((a, b) => a + b, 0) <= total;
+          if (fits) {
+            // Everyone gets what they need, and the rest is shared equally.
+            const extra = w.map((x, i) => x - (want[i] as number));
+            expect(Math.max(...extra) - Math.min(...extra)).toBeLessThanOrEqual(1);
+          } else {
+            // A lane that got less than it needs is (within a pixel) the widest there is:
+            // no lane got more at its expense.
+            for (let i = 0; i < n; i++)
+              if ((w[i] as number) < (want[i] as number))
+                for (let j = 0; j < n; j++)
+                  expect(w[j] as number).toBeLessThanOrEqual((w[i] as number) + 1);
+          }
+        },
+      ),
+    );
+  });
+
+  it('gives short-name lanes what they need and long-name lanes the rest', () => {
+    expect(laneWidths([80, 80, 300, 300], 600, 64)).toEqual([80, 80, 220, 220]);
+    expect(laneWidths([80, 80], 300, 64)).toEqual([150, 150]);
+    expect(laneWidths([80, 80, 80], 100, 64)).toEqual([64, 64, 64]);
+    expect(laneWidths([], 100, 64)).toEqual([]);
+  });
+});
+
+describe('geometry', () => {
+  const w = sampleWorld();
+  const model = columnModel(w);
+  const geo = (width = 1100) => geometry(model, { pxPerU: 200, width, measure });
+
+  it('sizes lanes by their widest name and keeps them in order, edge to edge', () => {
+    const g = geo();
+    expect(g.laneW).toHaveLength(model.lanes.length);
+    for (let i = 1; i < g.laneX.length; i++)
+      expect(g.laneX[i]).toBe((g.laneX[i - 1] as number) + (g.laneW[i - 1] as number));
+    expect(g.marginX).toBe((g.laneX.at(-1) as number) + (g.laneW.at(-1) as number));
+    const d = laneDemands(model, measure);
+    expect(d.every((x) => x % 8 === 0)).toBe(true);
+    // The widest chip in a lane fits whole when there's room for every lane's need.
+    const roomy = geo(4000);
+    for (const c of roomy.cells.values()) for (const gl of c.glyphs) expect(gl.text).toBe(gl.name);
+  });
+
+  it('finds the lane at an x, and -1 left of the lanes', () => {
+    const g = geo();
+    expect(laneAtX(g, 0)).toBe(-1);
+    expect(laneAtX(g, (g.laneX[0] as number) - 1)).toBe(-1);
+    expect(laneAtX(g, g.laneX[0] as number)).toBe(0);
+    expect(laneAtX(g, (g.laneX[2] as number) + 3)).toBe(2);
+    expect(laneAtX(g, 1e6)).toBe(model.lanes.length - 1);
+    expect(laneAtX({ laneX: [], laneW: [] }, 500)).toBe(-1);
+  });
+
+  it('puts every placed glyph in its cell and the Inbox under the Column', () => {
+    const g = geo();
+    for (const c of g.cells.values())
+      for (const gl of c.glyphs) {
+        expect(gl.x).toBeGreaterThanOrEqual(c.rect.x);
+        expect(gl.x + gl.w).toBeLessThanOrEqual(c.rect.x + c.rect.w);
+        expect(g.glyphsOf.get(gl.id)).toContain(gl);
+      }
+    expect(inboxHasEntities(model)).toBe(true);
+    expect(g.inbox?.cells.size).toBeGreaterThan(0);
+    for (const c of g.inbox?.cells.values() ?? []) expect(c.rect.h).toBe(g.inbox?.height);
+  });
+
+  it('navigates rows and lanes, and locates entities', () => {
+    const nav = navContext(model, true);
+    expect(nav.rows.at(-1)).toBe(INBOX_ROW);
+    expect(nav.laneCount).toBe(model.lanes.length);
+    expect(nav.entitiesAt('low-sky', -1)).toEqual(['low-sky']);
+    expect(nav.entitiesAt('gap:0', -1)).toEqual([]);
+    expect(nav.entitiesAt('low-sky', 99)).toEqual([]);
+    expect(locate(model, 'low-sky')).toEqual({ row: 'low-sky', lane: -1 });
+    const glide = locate(model, 'glide');
+    expect(glide?.row).toBe('low-sky');
+    expect(model.lanes[glide?.lane ?? -1]).toBe('capabilities');
+    expect(locate(model, 'sky-coral')?.row).toBe(INBOX_ROW);
+    expect(locate(model, 'nobody')).toBeNull();
+  });
+
+  it('applies a live edge drag to the rows without moving the frame', () => {
+    const bands = model.bands.map((b) => (b.id === 'groundline' ? { ...b, top: 200 } : b));
+    const g = geometry(model, { pxPerU: 200, width: 1100, measure, bands });
+    expect(g.frame).toEqual(geo().frame);
+    expect(g.rows.find((r) => r.row.key === 'groundline')?.top).toBeLessThan(
+      geo().rows.find((r) => r.row.key === 'groundline')?.top as number,
+    );
   });
 });

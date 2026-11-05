@@ -5,7 +5,9 @@ import type { NavContext } from './cursor';
 import { columnSettings, type ColumnSettings } from './lanes';
 import {
   bandSpans,
+  chipWidth,
   compareCellEntities,
+  laneWidths,
   groupOf,
   CELL_PAD,
   CHIP_GAP,
@@ -205,7 +207,12 @@ function reindex(prevWorld: World, prev: ColumnModel, next: World): ColumnModel 
 export const RULER_W = 42;
 export const LABEL_W = 100;
 export const MARGIN_W = 184;
-export const LANE_MIN_W = 92;
+/** The narrowest a lane gets (an empty lane with a short label). */
+export const LANE_MIN_W = 64;
+/** Room around a lane's header label. */
+const HEAD_PAD = 16;
+/** Lane demands are rounded up to this, so a small rename doesn't shift every lane. */
+const DEMAND_STEP = 8;
 export const HEAD_H = 30;
 const INBOX_MAX_LINES = 3;
 
@@ -226,8 +233,9 @@ export interface Geometry {
   frame: Frame;
   /** Content width (at least the viewport's). */
   width: number;
+  /** Each shown lane's left edge and width (lanes are as wide as their names need, fairly). */
   laneX: number[];
-  laneW: number;
+  laneW: number[];
   marginX: number;
   rows: RowBox[];
   /** Band row cells with something in them. */
@@ -247,6 +255,50 @@ export interface GeometryOptions {
   bands?: BandSpan[];
   /** Cell layouts are cached by content; bump this when `measure` changes (fonts loaded). */
   version?: number;
+  /** Measures a lane's header label (default: `measure`). */
+  measureHead?: Measure;
+}
+
+const demandCache = new WeakMap<
+  CellIndex,
+  { measure: Measure; version: number; byLane: Map<Lane, number> }
+>();
+
+/**
+ * How wide each lane wants to be: its widest chip with the whole name (in any
+ * band or the Inbox), or its header label, whichever is wider. Cached per
+ * index, so panning and zooming don't measure again.
+ */
+export function laneDemands(
+  model: ColumnModel,
+  measure: Measure,
+  measureHead: Measure = measure,
+  version = 0,
+): number[] {
+  let hit = demandCache.get(model.index);
+  if (!hit || hit.measure !== measure || hit.version !== version) {
+    const byLane = new Map<Lane, number>();
+    for (const [key, es] of model.index.cells) {
+      const lane = key.slice(key.lastIndexOf('|') + 1) as Lane;
+      let w = byLane.get(lane) ?? 0;
+      for (const e of es) w = Math.max(w, chipWidth(e.name, measure) + 2 * CELL_PAD);
+      byLane.set(lane, w);
+    }
+    hit = { measure, version, byLane };
+    demandCache.set(model.index, hit);
+  }
+  const byLane = hit.byLane;
+  return model.lanes.map((l) => {
+    const want = Math.max(byLane.get(l) ?? 0, measureHead(model.laneLabels[l]) + HEAD_PAD);
+    return Math.ceil(want / DEMAND_STEP) * DEMAND_STEP;
+  });
+}
+
+/** The lane at a content x (−1: the ruler and the band labels), clamped to the last lane. */
+export function laneAtX(geo: Pick<Geometry, 'laneX' | 'laneW'>, x: number): number {
+  if (geo.laneX.length === 0 || x < (geo.laneX[0] ?? 0)) return -1;
+  for (let i = geo.laneX.length - 1; i >= 0; i--) if (x >= (geo.laneX[i] ?? 0)) return i;
+  return -1;
 }
 
 /**
@@ -313,11 +365,19 @@ function cachedCell(
 export function geometry(model: ColumnModel, opts: GeometryOptions): Geometry {
   const frame = frameOf(model.bands, opts.pxPerU);
   const rows = opts.bands ? rowsOf(opts.bands) : model.rows;
-  const n = Math.max(1, model.lanes.length);
   const left = RULER_W + LABEL_W;
-  const laneW = Math.max(LANE_MIN_W, Math.floor((opts.width - left - MARGIN_W) / n));
-  const laneX = model.lanes.map((_, i) => left + i * laneW);
-  const marginX = left + model.lanes.length * laneW;
+  const laneW = laneWidths(
+    laneDemands(model, opts.measure, opts.measureHead, opts.version ?? 0),
+    opts.width - left - MARGIN_W,
+    LANE_MIN_W,
+  );
+  const laneX: number[] = [];
+  let x = left;
+  for (const w of laneW) {
+    laneX.push(x);
+    x += w;
+  }
+  const marginX = x;
   const width = Math.max(opts.width, marginX + MARGIN_W);
 
   const boxes: RowBox[] = rows.map((row) => ({
@@ -342,7 +402,7 @@ export function geometry(model: ColumnModel, opts: GeometryOptions): Geometry {
       const key = cellKey(band.id, lane);
       const es = model.index.cells.get(key);
       if (!es || es.length === 0) return;
-      const rect = { x: laneX[i] ?? 0, y: box.top, w: laneW, h: box.bottom - box.top };
+      const rect = { x: laneX[i] ?? 0, y: box.top, w: laneW[i] ?? 0, h: box.bottom - box.top };
       const cell = cachedCell(
         key,
         band.id,
@@ -386,7 +446,7 @@ export function geometry(model: ColumnModel, opts: GeometryOptions): Geometry {
   model.lanes.forEach((lane, i) => {
     const key = cellKey(INBOX_ROW, lane);
     const es = model.index.cells.get(key);
-    if (es && es.length > 0) inboxCells.set(key, lay(key, lane, laneX[i] ?? 0, laneW, es));
+    if (es && es.length > 0) inboxCells.set(key, lay(key, lane, laneX[i] ?? 0, laneW[i] ?? 0, es));
   });
   let bandsBox =
     model.index.unplacedBands.length > 0

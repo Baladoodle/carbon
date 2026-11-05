@@ -250,6 +250,33 @@ export const Cell = memo(function Cell({
   );
 });
 
+/**
+ * The cursor's chip with its whole name, when its cell had to truncate it:
+ * drawn above every cell (over its neighbours), kept inside the content, and
+ * never in the way of the pointer.
+ */
+export function Reveal({ g, right }: { g: Glyph; right: number }): ReactNode {
+  if (g.text === g.name) return null;
+  const x = Math.max(RULER_W + LABEL_W, Math.min(g.x, right - g.fullW - 2));
+  return (
+    <g
+      className="column-chip column-reveal"
+      transform={`translate(${x},${g.y})`}
+      data-reveal={g.id}
+      data-state={g.state}
+      data-inferred={g.inferred ? '' : undefined}
+      data-cursor=""
+      aria-hidden="true"
+    >
+      <rect width={g.fullW} height={CHIP_H} rx={4} className="column-chip-box" />
+      <StateMark x={6} y={5} state={g.state} />
+      <text x={19} y={14} className="column-chip-text">
+        {g.name}
+      </text>
+    </g>
+  );
+}
+
 /** Lane separators and band edges (draggable where finite). */
 export function Grid({
   rows,
@@ -262,7 +289,7 @@ export function Grid({
 }: {
   rows: RowBox[];
   laneX: number[];
-  laneW: number;
+  laneW: number[];
   right: number;
   edges: Edge[];
   frame: Frame;
@@ -274,7 +301,9 @@ export function Grid({
     <g className="column-grid">
       {[
         ...laneX,
-        laneX.length > 0 ? (laneX[laneX.length - 1] ?? 0) + laneW : RULER_W + LABEL_W,
+        laneX.length > 0
+          ? (laneX[laneX.length - 1] ?? 0) + (laneW[laneW.length - 1] ?? 0)
+          : RULER_W + LABEL_W,
       ].map((x) => (
         <line key={x} x1={x + 0.5} y1={0} x2={x + 0.5} y2={height} className="column-lane-line" />
       ))}
