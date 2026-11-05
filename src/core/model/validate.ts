@@ -1,5 +1,5 @@
 import { EntitySchema, type Entity } from './entity';
-import { fieldValueSchema } from './fields';
+import { fieldValueSchema, heightValue, HeightSchema, type Height } from './fields';
 import { getEntity, schemaOf, type World } from './world';
 import type { KindSet, RelationTypeDef, WorldSchema } from './schema';
 import type { EntityKind } from './kinds';
@@ -20,6 +20,55 @@ export interface Problem {
 
 export const kindAllowed = (set: KindSet, kind: EntityKind): boolean =>
   set === '*' || set.includes(kind);
+
+/** A band whose bottom edge isn't strictly below its top edge (both set). */
+export const BAND_INVERTED = 'band.inverted';
+
+/**
+ * Errors that a file on disk may carry and still load. Commands refuse to
+ * introduce them like any error, but on load (and on an outside edit) the
+ * entity is kept, not quarantined: it is the user's file, and quarantining a
+ * whole band over one swapped number would lose far more than it protects.
+ * Readers treat such a band as edgeless (`bandRange`), and the mechanical
+ * checks name it (`band-inverted`), so the user sees why it has no place.
+ */
+export const TOLERATED_ON_LOAD: ReadonlySet<string> = new Set([BAND_INVERTED]);
+
+/** A height as the user reads it: a number, or ±∞. */
+export const heightLabel = (h: Height): string =>
+  typeof h === 'number' ? String(h) : h === '+inf' ? '+∞' : '−∞';
+
+/**
+ * The edge rule of a band: when both edges are set, the bottom lies strictly
+ * below the top. A zero-height band covers no height, so it is inverted too
+ * (placement already treats both the same: `bandRange` needs bottom < top).
+ */
+export function bandEdgeProblems(entity: Entity): Problem[] {
+  if (entity.kind !== 'band') return [];
+  const lo = HeightSchema.safeParse(entity.fields.y_bottom);
+  const hi = HeightSchema.safeParse(entity.fields.y_top);
+  if (!lo.success || !hi.success) return [];
+  if (heightValue(lo.data) < heightValue(hi.data)) return [];
+  return [
+    {
+      severity: 'error',
+      code: BAND_INVERTED,
+      message: `the bottom (${heightLabel(lo.data)}) must be below the top (${heightLabel(hi.data)})`,
+      entity: entity.id,
+      path: ['fields', 'y_bottom'],
+    },
+  ];
+}
+
+/**
+ * Whether setting one field of an entity keeps its band edges in order (true
+ * for every other field and kind). For proposals made outside a command, such
+ * as AI suggestions, so a value carbon would refuse is never offered.
+ */
+export function edgesFit(entity: Entity, key: string, value: unknown): boolean {
+  if (entity.kind !== 'band' || (key !== 'y_bottom' && key !== 'y_top')) return true;
+  return bandEdgeProblems({ ...entity, fields: { ...entity.fields, [key]: value } }).length === 0;
+}
 
 /** Structural problems of one entity against the schema (no cross-entity checks). */
 export function entityProblems(schema: WorldSchema, entity: Entity): Problem[] {
@@ -71,6 +120,11 @@ export function entityProblems(schema: WorldSchema, entity: Entity): Problem[] {
         path: ['attributes', a.key],
       });
   }
+  // Only when the edges themselves are well-formed (a bad value is already reported).
+  if (
+    !out.some((p) => p.path[0] === 'fields' && (p.path[1] === 'y_bottom' || p.path[1] === 'y_top'))
+  )
+    out.push(...bandEdgeProblems(entity));
   return out;
 }
 

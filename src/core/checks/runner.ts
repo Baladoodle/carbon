@@ -3,6 +3,7 @@ import type { Note } from '../model/notes';
 import type { WorldSchema } from '../model/schema';
 import { getEntity, schemaOf, type World } from '../model/world';
 import {
+  bandInvertedNotes,
   bandOverlapNotes,
   curveNotes,
   cycleNotes,
@@ -208,7 +209,11 @@ export function createCheckRunner(adapters: CheckAdapters = {}): CheckRunner {
           out.push(...c.notes);
           continue;
         }
-        const notes = [...requiredNotes(schema, e, y), ...relationNotes(world, e, y)];
+        const notes = [
+          ...requiredNotes(schema, e, y),
+          ...relationNotes(world, e, y),
+          ...bandInvertedNotes(e),
+        ];
         perEntity.set(e.id, { entity: e, schema, targets, y, notes });
         out.push(...notes);
       }

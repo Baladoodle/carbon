@@ -1,6 +1,7 @@
 import type { Entity } from '../model/entity';
 import { isEmptyValue } from '../model/fields';
 import { fieldValue } from '../model/lifecycle';
+import { edgesFit } from '../model/validate';
 import { getEntity, schemaOf, type World } from '../model/world';
 import { err, ok } from '../util/result';
 import { assemble } from './common';
@@ -84,6 +85,7 @@ export const fillBuilder: PromptBuilder<'fill_entity'> = {
     const fields = emptyFields(world, e);
     const proposals: { field: string; value: unknown; note?: string }[] = [];
     let dropped = 0;
+    let withProposals = e;
     for (const [key, p] of Object.entries(map as Record<string, unknown>)) {
       if (p === null) continue;
       const f = fields.find((x) => x.key === key);
@@ -92,11 +94,17 @@ export const fillBuilder: PromptBuilder<'fill_entity'> = {
       if (
         !f ||
         value === undefined ||
-        (key === 'name' && typeof value === 'string' && duplicatesName(world, value, e.id))
+        (key === 'name' && typeof value === 'string' && duplicatesName(world, value, e.id)) ||
+        // Each proposal is accepted on its own, so it must fit the entity alone and
+        // with the proposals before it: of a bottom and a top that cross, the top goes.
+        !edgesFit(e, key, value) ||
+        !edgesFit(withProposals, key, value)
       ) {
         dropped++;
         continue;
       }
+      if (f.def)
+        withProposals = { ...withProposals, fields: { ...withProposals.fields, [key]: value } };
       proposals.push({
         field: key,
         value,

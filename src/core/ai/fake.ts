@@ -5,7 +5,7 @@ import { fieldValue } from '../model/lifecycle';
 import { isEditableCommonField } from '../model/schema';
 import { getEntity, schemaOf, type World } from '../model/world';
 import type { Entity, Relation } from '../model/entity';
-import { kindAllowed } from '../model/validate';
+import { edgesFit, kindAllowed } from '../model/validate';
 import { hashValue, seededRandom } from '../util/hash';
 import {
   cancelled,
@@ -259,6 +259,8 @@ export class FakeAiGateway implements AiGateway {
         for (let salt = 0; out.length < n && salt < 50; salt++) {
           const value = valueFor(r.field, e.kind, salt);
           if (seen.has(hashValue(value))) continue;
+          // Like the real gateway: never a value the command would refuse.
+          if (!edgesFit(e, r.field, value)) continue;
           seen.add(hashValue(value));
           out.push({ value, note: `fits ${e.name}` });
         }
@@ -273,17 +275,26 @@ export class FakeAiGateway implements AiGateway {
           'description',
           ...schema.kinds[e.kind].fields.filter((f) => f.ai !== false).map((f) => f.key),
         ];
-        const proposals = keys
-          .filter((k) => {
-            const v = fieldValue(e, k);
-            return v === undefined || v === '' || (Array.isArray(v) && v.length === 0);
-          })
-          .map((field) => ({
-            field,
-            value: valueFor(field, e.kind, 0),
-            note: 'proposed to fill the gap',
-          }))
-          .filter((p) => p.value !== null);
+        const proposals: { field: string; value: unknown; note: string }[] = [];
+        let filled = e;
+        for (const field of keys) {
+          const v = fieldValue(e, field);
+          if (!(v === undefined || v === '' || (Array.isArray(v) && v.length === 0))) continue;
+          // Every proposal fits the entity alone and with the ones before it
+          // (a band's edges stay in order), as the real gateway checks.
+          let value: unknown = null;
+          for (let salt = 0; salt < 50; salt++) {
+            const x = valueFor(field, e.kind, salt);
+            if (x !== null && edgesFit(e, field, x) && edgesFit(filled, field, x)) {
+              value = x;
+              break;
+            }
+          }
+          if (value === null) continue;
+          if (!isEditableCommonField(field))
+            filled = { ...filled, fields: { ...filled.fields, [field]: value } };
+          proposals.push({ field, value, note: 'proposed to fill the gap' });
+        }
         return { proposals };
       }
       case 'critique': {

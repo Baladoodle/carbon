@@ -1,7 +1,6 @@
 import type { Entity } from '../model/entity';
-import { heightValue, HeightSchema } from '../model/fields';
 import type { World } from '../model/world';
-import { resolvePlacement } from '../placement';
+import { bandRange, resolvePlacement } from '../placement';
 
 /**
  * The checks' view of placement: which bands each entity is in, and whether
@@ -25,15 +24,16 @@ export interface BandSpan {
 
 const live = (e: Entity | undefined): e is Entity => !!e && e.state !== 'graveyard';
 
-/** Bands with both edges set, bottom to top (graveyard bands left out). */
+/** Bands with usable edges (both set, bottom below top), bottom to top; graveyard bands left out. */
 export function bandSpans(world: World): BandSpan[] {
   const out: BandSpan[] = [];
   for (const e of Object.values(world.entities)) {
     if (e.kind !== 'band' || !live(e)) continue;
-    const b = HeightSchema.safeParse(e.fields.y_bottom);
-    const t = HeightSchema.safeParse(e.fields.y_top);
-    if (!b.success || !t.success) continue;
-    out.push({ id: e.id, name: e.name, bottom: heightValue(b.data), top: heightValue(t.data) });
+    // Usable edges only, as the resolver reads them: an inverted band has no
+    // place (its own check names it), so no band check reasons about it.
+    const r = bandRange(e);
+    if (!r) continue;
+    out.push({ id: e.id, name: e.name, bottom: r.min, top: r.max });
   }
   return out.sort((a, b) => a.bottom - b.bottom || a.top - b.top || a.id.localeCompare(b.id));
 }

@@ -3,7 +3,7 @@ import type { Patch } from '../commands/patch';
 import { ENTITY_KINDS, type EntityKind } from '../model/kinds';
 import { CurveSchema } from '../model/curves';
 import { SchemaFileSchema } from '../model/schema';
-import { entityProblems } from '../model/validate';
+import { entityProblems, TOLERATED_ON_LOAD } from '../model/validate';
 import {
   emptyWorld,
   KillReasonSchema,
@@ -147,7 +147,11 @@ export function worldFromFiles(files: FileMap): { world: World; issues: LoadIssu
         });
         continue;
       }
-      const errors = entityProblems(schema, e).filter((p) => p.severity === 'error');
+      // Errors a file may carry and still load (an inverted band) keep the entity;
+      // the checks name them.
+      const errors = entityProblems(schema, e).filter(
+        (p) => p.severity === 'error' && !TOLERATED_ON_LOAD.has(p.code),
+      );
       if (errors.length > 0) {
         issues.push({
           path,

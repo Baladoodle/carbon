@@ -3,7 +3,8 @@ import { LANE_OF_KIND, type Lane, LANES } from '../model/kinds';
 import { missingFor } from '../model/lifecycle';
 import type { Note } from '../model/notes';
 import type { WorldSchema } from '../model/schema';
-import { cycleProblems, referenceProblems } from '../model/validate';
+import type { Height } from '../model/fields';
+import { bandEdgeProblems, cycleProblems, heightLabel, referenceProblems } from '../model/validate';
 import { getEntity, schemaOf, type World } from '../model/world';
 import { hashValue } from '../util/hash';
 import type { CurveDeviation, FormulaProblem } from './numbers';
@@ -29,6 +30,7 @@ export const CHECK_KINDS = [
   'duplicate-name',
   'near-duplicate-name',
   'band-overlap',
+  'band-inverted',
   'formula-error',
   'off-curve',
 ] as const;
@@ -367,6 +369,28 @@ export function requiredNotes(schema: WorldSchema, e: Entity, y: number | undefi
       state: e.state,
       missing,
     }),
+  ];
+}
+
+/**
+ * A band whose bottom isn't below its top: carbon refuses to make one, but a
+ * file edited by hand can hold one. It loads (it's the user's file) and has
+ * no place on the Column or in Climate; this note says why.
+ */
+export function bandInvertedNotes(e: Entity): Note[] {
+  if (bandEdgeProblems(e).length === 0) return [];
+  const bottom = heightLabel(e.fields.y_bottom as Height);
+  const top = heightLabel(e.fields.y_top as Height);
+  return [
+    note(
+      'band-inverted',
+      e.id,
+      'error',
+      `${e.name}: the bottom (${bottom}) is not below the top (${top}), so it has no place`,
+      [e.id],
+      undefined,
+      { bottom, top },
+    ),
   ];
 }
 
