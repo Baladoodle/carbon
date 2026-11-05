@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { Entity } from '../model/entity';
+import { canonicalPatch } from '../files/canonical';
 import { schemaProblems, type WorldSchema } from '../model/schema';
 import { problemsOf, validateWorld, type Problem } from '../model/validate';
 import { getEntity, schemaOf, WorldSchemaZ, type World } from '../model/world';
@@ -153,7 +154,9 @@ function noteMissing(after: World, before: ReadonlySet<string>, touched: Iterabl
 }
 
 /** Applies a patch and checks the result. The building block for commands, undo and redo. */
-export function applyChecked(world: World, patch: Patch): Result<Applied> {
+export function applyChecked(world: World, given: Patch): Result<Applied> {
+  // Values in the form the files give back, so a save and a reopen change nothing.
+  const patch = canonicalPatch(given);
   let applied: { doc: World; inverse: Patch };
   try {
     applied = applyWithInverse(world, patch);
