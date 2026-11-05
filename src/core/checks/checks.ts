@@ -397,7 +397,8 @@ export function curveNotes(
         'off-curve',
         `${d.entity}:${d.attribute}`,
         'warn',
-        `${d.attribute} ${fmt(d.value)} is far off its curve (${fmt(d.expected)} ± ${fmt(d.tolerance)})`,
+        // Name the entity (a margin note floats) and the curve; the numbers say how far.
+        `${getEntity(world, d.entity)?.name ?? d.entity} is far off ${d.attribute}: ${fmt(d.value)}, intent ${fmt(d.expected)} ± ${fmt(d.tolerance)}`,
         [d.entity],
         ys(d.entity),
         d,

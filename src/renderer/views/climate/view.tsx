@@ -14,7 +14,7 @@ import { entitiesInBiome, knownBands, resolvePlacement } from '@core/placement';
 import { useActions } from '../../actions';
 import { flash, focusEntity, startSpreadAt, useUi } from '../../state/ui';
 import { currentWorld, dispatch, useWorld } from '../../state/world';
-import { StateGlyph, Tabs, Tooltip, cx } from '../../ui';
+import { Kbd, StateGlyph, Tabs, Tooltip, cx } from '../../ui';
 import { IconClimate } from '../../ui/icons';
 import { defineView } from '../define';
 import {
@@ -379,8 +379,8 @@ function ClimateView(): ReactNode {
   if (!world) return <div className="view-empty" />;
   if (bands.length === 0 || !band)
     return (
-      <div className="climate-none t-2" data-testid="climate-empty">
-        No bands yet. <kbd className="ui-kbd">1</kbd> to draw one on the Column.
+      <div className="climate-none ui-empty" data-testid="climate-empty">
+        No bands yet. <Kbd>1</Kbd> to draw one on the Column.
       </div>
     );
 

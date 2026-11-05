@@ -286,7 +286,7 @@ export function Curves({
         <CurveCard key={c.id} curve={c} world={world} analysis={analysis} />
       ))}
       {curves.length === 0 ? (
-        <p className="numbers-empty t-3">
+        <p className="numbers-empty ui-empty">
           No curves yet. <Kbd>c</Kbd> to add one.
         </p>
       ) : (

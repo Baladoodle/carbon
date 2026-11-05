@@ -412,12 +412,12 @@ test.describe('numbers into checks, decided into an export', () => {
     await carbon.gotoView('column', '1');
     const offCurve = page.locator(
       '[data-testid="column-margin"] .column-note[data-source="check"]',
-      { hasText: 'far off its curve' },
+      { hasText: 'is far off defense' },
     );
     await expect(offCurve).toHaveCount(1);
     await chip(page, 'vent-glass-visor').click();
     await expect(
-      page.getByTestId('bench-notes').locator('li', { hasText: 'far off its curve' }),
+      page.getByTestId('bench-notes').locator('li', { hasText: 'is far off defense' }),
     ).toHaveCount(1);
     // The Bench shows the attribute's live consequence (W3), then brings it onto the curve.
     await expect(page.getByTestId('bench-consequences')).toContainText('soak(Vent Glass Visor)12');

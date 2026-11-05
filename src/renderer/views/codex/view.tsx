@@ -18,7 +18,7 @@ import { resolvePlacement, type Placements } from '@core/placement';
 import { useActions } from '../../actions';
 import { flash, focusEntity, setUi, startSpreadAt, useUi } from '../../state/ui';
 import { currentWorld, dispatch, useWorld } from '../../state/world';
-import { Button, Combobox, Input, StateGlyph, Tabs, Tooltip, cx } from '../../ui';
+import { Button, Combobox, Input, Kbd, StateGlyph, Tabs, Tooltip, cx } from '../../ui';
 import { IconCodex } from '../../ui/icons';
 import { defineView } from '../define';
 import { columnsFor, commandForEdit, draftOf, sortEntities, type Column } from './columns';
@@ -667,12 +667,11 @@ function CodexView(): ReactNode {
         }
       >
         {rows.length === 0 ? (
-          <div className="codex-empty t-2" data-testid="codex-empty">
+          <div className="codex-empty ui-empty" data-testid="codex-empty">
             {compiled.empty ? (
               tab === 'all' ? null : (
                 <>
-                  No {schema.kinds[tab].plural.toLowerCase()} yet. <kbd className="ui-kbd">n</kbd>{' '}
-                  to add one.
+                  No {schema.kinds[tab].plural.toLowerCase()} yet. <Kbd>n</Kbd> to add one.
                 </>
               )
             ) : (

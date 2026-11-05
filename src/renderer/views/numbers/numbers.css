@@ -24,8 +24,7 @@
   border-left: 1px solid var(--line);
 }
 .numbers-empty {
-  margin: 0;
-  font-size: var(--text-dense);
+  padding: 4px 0;
 }
 
 /* ── The formula editor ─────────────────────────────────────────────────── */
@@ -259,6 +258,8 @@
     fill var(--dur-hover) var(--ease),
     stroke var(--dur-hover) var(--ease);
 }
+/* Keyboard focus on an intent point (↑/↓ nudge it): the accent, like grabbing it. */
+.plot-handle:focus-visible,
 .plot-handle:hover,
 .plot-handle[data-active] {
   fill: var(--accent);

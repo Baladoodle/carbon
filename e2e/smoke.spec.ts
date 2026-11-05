@@ -45,7 +45,8 @@ test('@smoke switches views with 1–7 and screenshots each', async () => {
   for (const [id, key] of VIEWS) {
     await carbon.gotoView(id, key);
     await expect(page().getByTestId(`rail-${id}`)).toHaveAttribute('aria-current', 'page');
-    await carbon.screenshot(`foundation-${id}`);
+    // A test artifact; docs/screens/<view>.png comes from screens.spec.ts.
+    await carbon.screenshot(`smoke-${id}`, { docs: false });
   }
   await carbon.gotoView('column', '1');
   // The Column (W1) draws the bands top to bottom.
@@ -102,7 +103,7 @@ test('@smoke the fake AI answers over IPC and shows in the AI log', async () => 
   expect(out.ok).toBe(true);
   await page().locator('body').press('Control+l');
   await expect(page().getByTestId('ai-log')).toContainText('critique');
-  await carbon.screenshot('foundation-ai-log');
+  await carbon.screenshot('smoke-ai-log', { docs: false });
   await page().locator('body').press('Escape');
   await expect(page().getByTestId('ai-log')).toHaveCount(0);
   await page().locator('body').press('Control+Shift+a');

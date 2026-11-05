@@ -811,7 +811,7 @@ function Column({ world, model }: { world: World; model: ColumnModel }): ReactNo
         />
       )}
       {empty && (
-        <div className="column-empty t-2">
+        <div className="column-empty ui-empty">
           No bands yet. <Kbd>n</Kbd> to add one.
         </div>
       )}

@@ -87,7 +87,7 @@
 .ai-status-paused:focus-visible {
   outline: none;
   box-shadow: var(--ring);
-  border-radius: 4px;
+  border-radius: var(--radius-control);
 }
 .ai-status-pending {
   display: inline-block;

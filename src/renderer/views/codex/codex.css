@@ -142,8 +142,8 @@
 }
 .codex-box {
   display: inline-block;
-  width: 10px;
-  height: 10px;
+  width: 12px;
+  height: 12px;
   border: 1px solid var(--line-strong);
   border-radius: 3px;
   opacity: 0;

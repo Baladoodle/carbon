@@ -18,7 +18,7 @@ import { useActions, type Action } from '../../actions';
 import { useAiStatus } from '../../ai/client';
 import { flash, setUi, uiStore, useUi } from '../../state/ui';
 import { currentWorld, useWorld } from '../../state/world';
-import { Button, cx, IconSpread, Input, Menu, Popover, Select, Tooltip } from '../../ui';
+import { Button, cx, IconSpread, Input, Kbd, Menu, Popover, Select, Tooltip } from '../../ui';
 import { learnIfDue } from '../taste/learn';
 import { defineView } from '../define';
 import { follow, followWith, keep, kill, merge, toggleMark, undoLast } from './actions';
@@ -257,7 +257,9 @@ function SpreadBody({ world, s }: { world: World; s: SpreadSession }): ReactNode
     s.prompt && s.focus === s.prompt.key ? <PromptFor world={world} order={order} /> : undefined;
   // Only one empty state carries a message: there's nothing to aim at.
   const empty = !s.setup.spot ? (
-    <span className="t-3">Nothing to spread on. s to choose a spot.</span>
+    <span className="ui-empty">
+      Nothing to spread on. <Kbd>s</Kbd> to choose a spot.
+    </span>
   ) : !status.enabled && !live && !spread ? (
     <span className="t-3" data-testid="spread-ai-off">
       {status.reason ?? 'AI is off'}

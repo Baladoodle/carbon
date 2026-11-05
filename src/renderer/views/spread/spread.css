@@ -55,7 +55,7 @@
   height: 22px;
   padding: 0 7px;
   border: 0;
-  border-radius: 4px;
+  border-radius: var(--radius-control);
   background: transparent;
   color: var(--text-2);
   font-size: var(--text-dense);
@@ -327,7 +327,7 @@
   height: 26px;
   padding: 0 8px;
   border: 0;
-  border-radius: 4px;
+  border-radius: var(--radius-control);
   background: transparent;
   color: var(--text);
   text-align: left;

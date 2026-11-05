@@ -393,7 +393,7 @@ describe('numbers, through the adapter (W3 stub)', () => {
       notes.filter((n) => n.kind === 'formula-error').map((n) => [n.severity, n.text]),
     ).toEqual([['error', 'taken: unknown name "kk"']]);
     expect(notes.filter((n) => n.kind === 'off-curve').map((n) => [n.id, n.text])).toEqual([
-      ['check:off-curve:deep:defense', 'defense 40 is far off its curve (10 ± 5)'],
+      ['check:off-curve:deep:defense', 'deep is far off defense: 40, intent 10 ± 5'],
     ]);
   });
 });

@@ -14,6 +14,9 @@ import { formatValue } from './values';
  *   it: `ttk(c)` on a creature shows `ttk(Cinder Wasp) = 4`.
  * - Other functions (several parameters, numbers only) have no single value
  *   for the entity and are left out.
+ * - Only numbers and true/false are consequences: a constant that is a list
+ *   or an entity (`armor = items where …`) is a query, not a consequence of
+ *   this entity's numbers, and is left out. Errors always show.
  */
 export interface Consequence {
   name: string;
@@ -36,6 +39,8 @@ export function entityConsequences(
     const def = analysis.byName.get(f.name);
     if (!def) continue;
     if (def.kind === 'const') {
+      if (f.error === undefined && typeof f.plain !== 'number' && typeof f.plain !== 'boolean')
+        continue;
       out.push({
         name: f.name,
         label: f.name,
@@ -47,6 +52,7 @@ export function entityConsequences(
     const c = compileExpression(analysis, `${f.name}(it)`, {}, entityOf(e.kind));
     if (!c.ok) continue;
     const r = c.run({}, { $: 'entity', id: e.id });
+    if (r.ok && typeof r.value !== 'number' && typeof r.value !== 'boolean') continue;
     const label = `${f.name}(${e.name})`;
     out.push(
       r.ok

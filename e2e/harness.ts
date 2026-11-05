@@ -1,4 +1,9 @@
-import { _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
+import {
+  _electron as electron,
+  type ElectronApplication,
+  type Locator,
+  type Page,
+} from '@playwright/test';
 import { cpSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -26,7 +31,11 @@ export interface CarbonApp {
   /** Switches view with its rail key and waits for it. */
   gotoView(id: string, key: string): Promise<void>;
   /** Saves `test-results/screens/<name>.png` (and `docs/screens/<name>.png` with UPDATE_SCREENS=1). */
-  screenshot(name: string): Promise<void>;
+  /**
+   * Saves `test-results/screens/<name>.png`; with UPDATE_SCREENS=1 also
+   * `docs/screens/<name>.png`, unless `docs: false` (a test artifact only).
+   */
+  screenshot(name: string, opts?: { docs?: boolean; element?: Locator }): Promise<void>;
   close(): Promise<void>;
 }
 
@@ -85,10 +94,11 @@ export async function launchCarbon(opts: LaunchOptions = {}): Promise<CarbonApp>
       await page.locator('body').press(key);
       await page.waitForSelector(`[data-testid="view-${id}"]`);
     },
-    async screenshot(name) {
+    async screenshot(name, opts = {}) {
       const file = path.join(ROOT, 'test-results/screens', `${name}.png`);
-      await page.screenshot({ path: file, animations: 'disabled' });
-      if (process.env.UPDATE_SCREENS === '1')
+      if (opts.element) await opts.element.screenshot({ path: file, animations: 'disabled' });
+      else await page.screenshot({ path: file, animations: 'disabled' });
+      if (process.env.UPDATE_SCREENS === '1' && opts.docs !== false)
         cpSync(file, path.join(ROOT, 'docs/screens', `${name}.png`));
     },
     async close() {

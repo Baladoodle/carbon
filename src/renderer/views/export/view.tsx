@@ -266,7 +266,7 @@ function ExportView(): ReactNode {
   if (!world) return null;
   if (exportable.length === 0)
     return (
-      <div className="export-empty" data-testid="export-empty">
+      <div className="export-empty ui-empty" data-testid="export-empty">
         Nothing decided to export. <Kbd>d</Kbd> decides the entity on the Bench.
       </div>
     );

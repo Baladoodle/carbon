@@ -500,7 +500,7 @@ describe('API for other packages', () => {
 
   it('entityConsequences: constants that read the entity, and one-entity functions applied to it', () => {
     const w = withFormulas(
-      `${src}soak(a: item) = a.defense * 2\npair(a: item, b: item) = a.defense + b.defense\n`,
+      `${src}soak(a: item) = a.defense * 2\npair(a: item, b: item) = a.defense + b.defense\narmor = items where subkind == "armor"\nlast(a: item) = a\n`,
     );
     const a = analyzeNumbers(w);
     expect(entityConsequences(a, w, 'vent-glass-visor')).toEqual([

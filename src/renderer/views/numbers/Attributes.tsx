@@ -284,7 +284,7 @@ export function Attributes({ world }: { world: World }): ReactNode {
         </div>
       )}
       {defs.length === 0 && adding === null && (
-        <p className="numbers-empty t-3">
+        <p className="numbers-empty ui-empty">
           No attributes yet. <Kbd>a</Kbd> to add one.
         </p>
       )}

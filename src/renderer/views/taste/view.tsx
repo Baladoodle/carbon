@@ -341,8 +341,8 @@ function TasteBody({ taste, since }: { taste: Taste; since: number }): ReactNode
             />
           ))}
           {taste.patterns.length === 0 && since === 0 && (
-            <div className="taste-empty t-3">
-              No judgements yet. Spread something and keep or kill.
+            <div className="taste-empty ui-empty">
+              No judgements yet. <Kbd>5</Kbd> to spread.
             </div>
           )}
         </div>
