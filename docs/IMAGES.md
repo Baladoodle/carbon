@@ -61,6 +61,40 @@ recorded:
   transparent background, no text or border) becomes the icon prompt template.
   Concept art uses the world's **art direction** (§5).
 
+## 2a. Icon sheets (batch = one image, then crop)
+
+The user's own testing: one 10×10 generation gives about 100 good sprites
+about 99% of the time. Batch icon generation therefore **generates one sheet
+and crops it**. It doesn't make one call per icon.
+
+1. **Layout:** N items (up to 100 per sheet; more makes several sheets) go in
+   a `cols × rows` grid (default 10×10, or smaller for small N) on one canvas.
+   Use the largest square size the model supports, verified, so each cell is as
+   large as possible. Cells are equal, with gutters.
+2. **Guide:** a guide image is drawn as a reference, as Genforge's tile
+   workflow does: faint cell boxes on a flat background. It goes with the
+   prompt, so the model keeps to the grid.
+3. **Prompt:** the item house style once, then each cell by position
+   ("row 1, col 1: a chunky iron pickaxe …"), with every item centred in its
+   cell, no item crossing a cell edge, no text or labels, and one flat
+   background colour, or transparent where supported.
+4. **Crop** (pure, in `src/core/pixel/sheet.ts`):
+   - cut each cell by the grid, with a margin
+   - find the sprite inside it by background segmentation (the flat colour, or
+     alpha), take its bounding box and pad it to square
+   - **flag** a cell when it's empty, when the sprite touches the cell edge
+     (it may bleed into a neighbour), when it has several large disconnected
+     parts, or when it's the near-uniform background
+5. **Filter:** each crop goes through the `item` preset to 16×16, the same as
+   single icons.
+6. **Review:** the sheet, each cell's crop and result, and its flags. Accept or
+   reject per cell. Accepted cells become icons (`origin.by: 'sheet'`, with
+   the sheet image id and cell index). The sheet is kept as an image too (kind
+   `sheet`) so it can be re-cropped for free. "Regenerate flagged" makes a new,
+   smaller sheet of just those items.
+7. **Run rules:** a sheet is one paid call, with its plan, guide, prompt,
+   receipt and provenance kept. No automatic retry of an unknown outcome.
+
 ## 3. Storage
 
 Image metadata is part of `World`, so choosing and removing images is an
@@ -76,10 +110,11 @@ ordinary undoable command. Pixels are files beside it.
 interface ImageMeta {
   id: string;                     // ulid-like, sortable
   entity: EntityId;
-  kind: 'concept' | 'icon';
+  kind: 'concept' | 'icon' | 'sheet';
   origin:
     | { by: 'openai'; model: string; quality: string; size: string; prompt: string; requestId?: string }
-    | { by: 'filter'; from: string /* image id */; preset: string; settings?: unknown };
+    | { by: 'filter'; from: string /* image id */; preset: string; settings?: unknown }
+    | { by: 'sheet'; sheet: string /* sheet image id */; cell: number; preset: string };
   usage?: { inputTokens?: number; outputTokens?: number; images: number };
   costUsd?: number;
   created: string;
@@ -138,7 +173,7 @@ direction's palette words.
 | Where | What |
 |---|---|
 | **Bench** | An image strip under the title: the selected concept image (click to enlarge), the icon at 1× and 4×, and earlier versions as small thumbnails. Actions (keys in the palette and tooltips): **Concept** generates, **Icon** generates, **Icon from concept** (free), **Choose**, **Remove**. Before a paid call: the editable prompt, the model, quality and size, the estimated cost, `enter` to run, `esc` to cancel |
-| **Batch** | Select entities in the Codex, or a Column lane or cell, and run "Generate icons (N)" or "Generate concepts (N)" from the palette. A dialog lists every prompt (each editable), the model and quality, the call count and the estimated total; nothing runs until you confirm. It runs with concurrency 2, shows progress, can be cancelled, and gives a receipt per item. Entities that already have one are skipped unless "replace" is ticked |
+| **Batch** | Select entities in the Codex, or a Column lane or cell, and run "Generate icons (N)" or "Generate concepts (N)" from the palette. **Icons batch as sheets (§2a): one call for up to 100 icons.** Concepts batch one call each. A dialog lists the items and their per-item prompt lines, the model and quality, the call count and the estimated total; nothing runs until you confirm. Then a sheet review: the generated sheet with its grid, each cell's crop and 16×16 result, cell flags, accept or reject per cell, and "regenerate flagged" (a smaller sheet). Entities that already have an icon are skipped unless "replace" is ticked |
 | **Column** | Item chips show their icon (16×16, `image-rendering: pixelated`) before the name |
 | **Codex** | An image column: the icon, or a concept thumbnail |
 | **Climate** | A biome panel with a concept image is filled by it (cover, cropped to the panel), with the name and signature on a soft scrim so the text stays readable. An empty panel shows a quiet generate affordance on hover or selection, and the panel's menu has **Generate concept** |
