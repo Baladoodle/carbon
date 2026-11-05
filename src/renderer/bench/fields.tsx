@@ -192,7 +192,10 @@ function Control(props: ControlProps): ReactNode {
 
 function TextControl({ entity, def, suggestion, onError, variant }: ControlProps): ReactNode {
   const stored = formatValue(def, fieldValue(entity, def.key));
-  const { draft, setDraft, dirty, theirs, choose, rebase } = useTypedDraft(stored, entity.id);
+  const { draft, setDraft, dirty, theirs, choose, rebase, landed } = useTypedDraft(
+    stored,
+    entity.id,
+  );
   const focus = useFieldFocus(entity.id, def.key);
   // The kit's Input wraps itself when a suggestion shows, which remounts the
   // <input>: keep focus (and the caret at the end) on this field across that.
@@ -212,7 +215,10 @@ function TextControl({ entity, def, suggestion, onError, variant }: ControlProps
     if (!dirty()) return onError(null);
     const p = parseText(def, draft);
     if (!p.ok) return onError(p.error);
-    onError(await commitField(entity.id, def.key, p.value));
+    const sent = draft;
+    const error = await commitField(entity.id, def.key, p.value);
+    onError(error);
+    if (error === null) landed(sent);
   };
   const conflict =
     theirs === null ? null : (
@@ -354,6 +360,17 @@ function RefControl({ world, entity, def, onError }: ControlProps): ReactNode {
   );
 }
 
+/** Shows a refusal; the commit didn't happen. */
+const refuse = (onError: (e: string | null) => void, error: string): false => {
+  onError(error);
+  return false;
+};
+/** Shows a commit's outcome; true when it landed. */
+const landedOk = (onError: (e: string | null) => void, error: string | null): boolean => {
+  onError(error);
+  return error === null;
+};
+
 /**
  * Number pairs (range, climate): each input commits when the pair is valid. An outside
  * edit that lands in an end you're typing in waits for Keep mine / Use theirs.
@@ -372,7 +389,8 @@ function NumberPair({
   entityId: string;
   labels: [string, string];
   values: [number | undefined, number | undefined];
-  onCommit: (a: number | null, b: number | null) => void;
+  /** Resolves true once the value has landed (false: refused, the draft stays). */
+  onCommit: (a: number | null, b: number | null) => Promise<boolean>;
   onFocus: () => void;
   onBlur: () => void;
   first?: boolean;
@@ -385,7 +403,12 @@ function NumberPair({
   const commit = (force = false): void => {
     if (waiting && !force) return;
     if (!a.dirty() && !b.dirty()) return;
-    onCommit(parseNumber(a.draft), parseNumber(b.draft));
+    const sent = [a.draft, b.draft] as const;
+    void onCommit(parseNumber(sent[0]), parseNumber(sent[1])).then((ok) => {
+      if (!ok) return;
+      a.landed(sent[0]);
+      b.landed(sent[1]);
+    });
   };
   const blur = (): void => {
     onBlur();
@@ -456,13 +479,14 @@ function RangeControl({ entity, def, onError }: ControlProps): ReactNode {
       values={[v?.min, v?.max]}
       onFocus={focus.onFocus}
       onBlur={focus.onBlurField}
-      onCommit={(min, max) => {
-        if (min === null && max === null)
-          return void commitField(entity.id, def.key, null).then(onError);
-        if (min === null || max === null) return onError('Both ends, as numbers');
+      onCommit={async (min, max) => {
+        if (min === null || max === null) {
+          if (min !== null || max !== null) return refuse(onError, 'Both ends, as numbers');
+          return landedOk(onError, await commitField(entity.id, def.key, null));
+        }
         const r = checkValue(def, { min, max });
-        if (!r.ok) return onError(r.error);
-        void commitField(entity.id, def.key, r.value).then(onError);
+        if (!r.ok) return refuse(onError, r.error);
+        return landedOk(onError, await commitField(entity.id, def.key, r.value));
       }}
     />
   );
@@ -473,13 +497,17 @@ function ClimateControl({ entity, def, onError }: ControlProps): ReactNode {
     | { temperature?: { min: number; max: number }; moisture?: { min: number; max: number } }
     | undefined;
   const focus = useFieldFocus(entity.id, def.key);
-  const put = (axis: 'temperature' | 'moisture', min: number | null, max: number | null): void => {
-    if (min === null || max === null) return onError('Both ends, from 0 to 1');
+  const put = async (
+    axis: 'temperature' | 'moisture',
+    min: number | null,
+    max: number | null,
+  ): Promise<boolean> => {
+    if (min === null || max === null) return refuse(onError, 'Both ends, from 0 to 1');
     const other = axis === 'temperature' ? 'moisture' : 'temperature';
     const next = { [axis]: { min, max }, [other]: v?.[other] ?? { min: 0.4, max: 0.6 } };
     const r = checkValue(def, next);
-    if (!r.ok) return onError('From 0 to 1, low end first');
-    void commitField(entity.id, def.key, r.value).then(onError);
+    if (!r.ok) return refuse(onError, 'From 0 to 1, low end first');
+    return landedOk(onError, await commitField(entity.id, def.key, r.value));
   };
   return (
     <div className="bench-climate">
@@ -507,10 +535,13 @@ function StepsControl({ world, entity, def, onError }: ControlProps): ReactNode 
   const raw = fieldValue(entity, def.key);
   const steps: Step[] = Array.isArray(raw) ? (raw as Step[]) : [];
   const focus = useFieldFocus(entity.id, def.key);
-  const save = (next: Step[]): void => {
+  const save = async (next: Step[]): Promise<boolean> => {
     const r = checkValue(def, next);
-    if (!r.ok) return onError(r.error);
-    void commitField(entity.id, def.key, next.length === 0 ? null : next).then(onError);
+    if (!r.ok) return refuse(onError, r.error);
+    return landedOk(
+      onError,
+      await commitField(entity.id, def.key, next.length === 0 ? null : next),
+    );
   };
   const items = Object.values(world.entities)
     .filter((t) => t.id !== entity.id)
@@ -535,7 +566,7 @@ function StepsControl({ world, entity, def, onError }: ControlProps): ReactNode 
           first={i === 0}
           id={`bench-${fieldId(entity.id, def.key)}`}
           onChange={(next) => save(steps.map((x, j) => (j === i ? next : x)))}
-          onRemove={() => save(steps.filter((_, j) => j !== i))}
+          onRemove={() => void save(steps.filter((_, j) => j !== i))}
         />
       ))}
       <Button
@@ -543,7 +574,7 @@ function StepsControl({ world, entity, def, onError }: ControlProps): ReactNode 
         size="sm"
         variant="ghost"
         className="bench-add"
-        onClick={() => save([...steps, { text: 'New step' }])}
+        onClick={() => void save([...steps, { text: 'New step' }])}
         {...(steps.length === 0 ? { id: `bench-${fieldId(entity.id, def.key)}` } : {})}
       >
         <IconPlus /> Step
@@ -570,7 +601,7 @@ function StepRow({
   items: { value: string; label: string; hint: string; glyph: ReactNode }[];
   first: boolean;
   id: string;
-  onChange: (s: Step) => void;
+  onChange: (s: Step) => Promise<boolean>;
   onRemove: () => void;
 }): ReactNode {
   const {
@@ -580,12 +611,16 @@ function StepRow({
     theirs,
     choose,
     rebase,
+    landed,
   } = useTypedDraft(step.text, entityId);
   const needs = step.needs ?? [];
   const commit = (force = false): void => {
     // With an outside change waiting, leaving the step decides nothing.
     if (theirs !== null && !force) return;
-    if (dirty()) onChange({ ...step, text: text.trim() === '' ? step.text : text.trim() });
+    if (!dirty()) return;
+    void onChange({ ...step, text: text.trim() === '' ? step.text : text.trim() }).then(
+      (ok) => ok && landed(text),
+    );
   };
   return (
     <div className="bench-step" data-step={index}>
@@ -629,7 +664,7 @@ function StepRow({
               key={n}
               world={world}
               id={n}
-              onRemove={() => onChange({ ...step, needs: needs.filter((x) => x !== n) })}
+              onRemove={() => void onChange({ ...step, needs: needs.filter((x) => x !== n) })}
             />
           ))}
           <Combobox
@@ -637,7 +672,7 @@ function StepRow({
             className="bench-needs-pick"
             items={items.filter((it) => !needs.includes(it.value))}
             value={null}
-            onChange={(x) => onChange({ ...step, needs: [...needs, x] })}
+            onChange={(x) => void onChange({ ...step, needs: [...needs, x] })}
           />
         </div>
       </div>

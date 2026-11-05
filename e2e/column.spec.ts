@@ -478,6 +478,35 @@ test.describe('the Bench', () => {
     await expect.poll(() => read(carbon, item)).toMatch(/weight: 5/);
   });
 
+  test('a commit undone at once resets the field, and leaving it writes nothing back', async () => {
+    const { page } = carbon;
+    await focusOn(carbon, 'reef-ray');
+    const identity = field(page, 'identity').locator('input');
+    const before = await identity.inputValue();
+    await identity.click();
+    await identity.fill('Typed, then undone.');
+    // Enter commits, and an undo goes straight after it (what ctrl+z sends), with the
+    // renderer busy meanwhile. Both patches landing in one render can't be forced from here
+    // (React may render between the two messages); bench/draft-state.test.ts covers it.
+    await page.evaluate(() => {
+      const input = document.activeElement as HTMLInputElement;
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      void window.carbon.invoke('world:undo', null);
+      const t = performance.now();
+      while (performance.now() - t < 400) {
+        // busy
+      }
+    });
+    const snap = await carbon.invoke('world:snapshot', null);
+    expect(snap.history.redoLabel).toBe('Edit identity of Reef Ray');
+    await expect(identity).toHaveValue(before);
+    // Leaving the field doesn't write the undone text back.
+    await page.keyboard.press('Escape');
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    await page.waitForTimeout(300);
+    expect(read(carbon, 'entities/creature/reef-ray.md')).not.toContain('Typed, then undone.');
+  });
+
   test('deleting an entity takes its critique notes with it', async () => {
     const { page } = carbon;
     const count = async (): Promise<number> =>

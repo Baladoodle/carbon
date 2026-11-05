@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { Button } from '../ui';
+import { chosen, initialDraft, landed, observe, rebased, typed } from './draft-state';
 import { outsideStamp } from './outside';
 
 export interface TypedDraft {
@@ -11,41 +12,36 @@ export interface TypedDraft {
   choose: (keep: 'mine' | 'theirs') => void;
   /** Call when typing starts: only outside changes from then on count. */
   rebase: () => void;
+  /**
+   * Call once a commit of the draft has landed: until the next keystroke the
+   * draft follows the stored value again. A commit and an undo of it can land
+   * in one render, leaving the stored value what it was before, so a reset on
+   * a changed value alone would keep the undone text as a dirty draft.
+   * `committed` is the text that was sent: typed past it since, the draft stays.
+   */
+  landed: (committed: string) => void;
 }
 
 /**
  * A draft that follows the stored value, except that a change from outside
  * carbon while you're typing doesn't replace what you typed (docs/SYSTEM.md §4:
  * conflicts with unsaved edits ask which to keep). Changes carbon made itself
- * (an accepted suggestion, an undo) still replace it.
+ * (an accepted suggestion, an undo) still replace it. The rules are the pure
+ * transitions in `draft-state.ts`.
  */
 export function useTypedDraft(stored: string, entityId: string): TypedDraft {
-  const [draft, setDraft] = useState(stored);
-  const [base, setBase] = useState({ text: stored, stamp: outsideStamp(entityId) });
-  const [theirs, setTheirs] = useState<string | null>(null);
-  if (stored !== base.text) {
-    const stamp = outsideStamp(entityId);
-    const typing = draft !== base.text || theirs !== null;
-    setBase({ text: stored, stamp });
-    if (stamp !== base.stamp && typing) setTheirs(stored);
-    else {
-      setDraft(stored);
-      setTheirs(null);
-    }
-  }
+  const [state, setState] = useState(() => initialDraft(stored, outsideStamp(entityId)));
+  // Derived state, set during render: no extra frame.
+  const seen = observe(state, stored, outsideStamp(entityId));
+  if (seen !== state) setState(seen);
   return {
-    draft,
-    setDraft,
-    dirty: () => draft !== stored,
-    theirs,
-    choose: (keep) => {
-      setTheirs(null);
-      if (keep === 'theirs') setDraft(stored);
-    },
-    rebase: () => {
-      const stamp = outsideStamp(entityId);
-      if (stamp !== base.stamp) setBase({ text: base.text, stamp });
-    },
+    draft: seen.draft,
+    setDraft: (v) => setState((s) => typed(s, v)),
+    dirty: () => seen.draft !== stored,
+    theirs: seen.theirs,
+    choose: (keep) => setState((s) => chosen(s, keep, stored)),
+    landed: (committed) => setState((s) => landed(s, committed)),
+    rebase: () => setState((s) => rebased(s, outsideStamp(entityId))),
   };
 }
 

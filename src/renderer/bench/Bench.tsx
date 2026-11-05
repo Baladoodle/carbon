@@ -608,7 +608,7 @@ function AttributeRow({
 }): ReactNode {
   const stored = entity.attributes[attrKey];
   const text = stored === undefined ? '' : stored < 0 ? `−${-stored}` : String(stored);
-  const { draft, setDraft, theirs, choose, rebase } = useTypedDraft(text, entity.id);
+  const { draft, setDraft, theirs, choose, rebase, landed } = useTypedDraft(text, entity.id);
   const [error, setError] = useState<string | null>(null);
   const ai = entity.ai_fields.includes(`attributes.${attrKey}`);
   const commit = async (force = false): Promise<void> => {
@@ -620,7 +620,10 @@ function AttributeRow({
     if (n === null) return setError('A number');
     if (min !== undefined && n < min) return setError(`At least ${min}`);
     if (max !== undefined && n > max) return setError(`At most ${max}`);
-    setError(await commitAttribute(entity.id, attrKey, n));
+    const sent = draft;
+    const error = await commitAttribute(entity.id, attrKey, n);
+    setError(error);
+    if (error === null) landed(sent);
   };
   return (
     <div className="bench-field bench-attr" data-bench-field={`attributes.${attrKey}`}>
