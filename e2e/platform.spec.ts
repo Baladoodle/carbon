@@ -120,6 +120,23 @@ test('export: choose by kind, draft with the AI, edit, write and mark exported',
   for (const b of bands) expect(redone.world.entities[b.id]?.state).toBe('exported');
 });
 
+test('the export choice is reachable from the palette: every kind and band', async () => {
+  await carbon.gotoView('export', '7');
+  const chip = page().getByTestId('export-band-low-sky');
+  await expect(chip).toHaveAttribute('aria-pressed', 'false');
+  await page().locator('body').press('Control+k');
+  await page().keyboard.type('choose by band low sky');
+  await expect(page().getByTestId('palette').locator('[data-highlighted]')).toContainText(
+    'Low Sky',
+  );
+  await page().keyboard.press('Enter');
+  await expect(chip).toHaveAttribute('aria-pressed', 'true');
+  await page().locator('body').press('Control+k');
+  await page().keyboard.type('clear the export choice');
+  await page().keyboard.press('Enter');
+  await expect(chip).toHaveAttribute('aria-pressed', 'false');
+});
+
 test('external edits flow in; a clash with an unsaved edit asks which to keep', async () => {
   const file = path.join(carbon.worldDir, GLIDE);
   // A plain external edit: taken as is.
