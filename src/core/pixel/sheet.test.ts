@@ -5,6 +5,7 @@ import { decodePng } from './png';
 import { describe, expect, it } from 'vitest';
 import { filterImage } from './filter';
 import { GUIDE_CELL, GUIDE_GUTTER, cropSheet, drawGuide, sheetLayout } from './sheet';
+import type { CroppedCell } from './sheet';
 import type { SheetLayout } from './sheet';
 import type { RgbaImage } from './types';
 
@@ -255,5 +256,90 @@ describe('the recorded real sheet (images-core, gpt-image-2.6-flare, 100 items, 
       expect([image.width, image.height]).toEqual([16, 16]);
       expect(report.opaquePixels).toBeGreaterThan(20);
     }
+  });
+});
+
+describe('opaque sheets: the real sprites over a grungy backdrop and over the repainted guide', () => {
+  const dir = resolve(import.meta.dirname, '../../../fixtures/pixel/sheets');
+  const real = decodePng(readFileSync(`${dir}/items-sheet-100-flare.png`));
+  const layout = sheetLayout(100, { w: 2880, h: 2880 });
+  const W = real.width;
+  const H = real.height;
+  const hash = (x: number, y: number, s: number): number => {
+    let h = (x * 374761393 + y * 668265263 + s * 982451653) >>> 0;
+    h = Math.imul(h ^ (h >>> 13), 1274126177) >>> 0;
+    return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+  };
+  /** Composite the real (transparent) sheet over an opaque background, as a model without transparency returns it. */
+  const over = (bg: (x: number, y: number) => [number, number, number]): RgbaImage => {
+    const data = new Uint8ClampedArray(W * H * 4);
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const o = (y * W + x) * 4;
+        const a = real.data[o + 3]! / 255;
+        const b = bg(x, y);
+        for (let c = 0; c < 3; c++) data[o + c] = real.data[o + c]! * a + b[c]! * (1 - a);
+        data[o + 3] = 255;
+      }
+    }
+    return { width: W, height: H, data };
+  };
+  const reference = cropSheet(real, layout);
+  // every visibly painted pixel (alpha ≥ 8; the backdrop carries 1–6) counted: the full extent, soft glows included
+  const visible = cropSheet(
+    { ...real, data: real.data.map((v, i) => (i % 4 === 3 ? (v >= 8 ? 255 : 0) : v)) },
+    layout,
+  );
+  /**
+   * Same sprites as the transparent original: no flags, and each box lies between the alpha-128 box and
+   * the box of every visible pixel (a soft glow below alpha 128 shows once composited), within the 3 px
+   * antialiased fringe the composite blends.
+   */
+  const expectLikeReference = (cells: CroppedCell[]): void => {
+    expect(cells.map((c) => c.segmentation)).toEqual(Array(100).fill('colour'));
+    expect(cells.filter((c) => c.flags.length).map((c) => [c.index, c.flags])).toEqual([]);
+    cells.forEach((c, i) => {
+      const [b, inner, outer] = [c.bbox!, reference[i]!.bbox!, visible[i]!.bbox!];
+      const edges = (r: typeof b): number[] => [r.x, r.y, r.x + r.w, r.y + r.h];
+      const [e, lo, hi] = [edges(b), edges(inner), edges(outer)];
+      // left/top edges: outer ≤ e ≤ inner; right/bottom: inner ≤ e ≤ outer
+      expect(e[0]!).toBeGreaterThanOrEqual(hi[0]! - 3);
+      expect(e[0]!).toBeLessThanOrEqual(lo[0]! + 3);
+      expect(e[1]!).toBeGreaterThanOrEqual(hi[1]! - 3);
+      expect(e[1]!).toBeLessThanOrEqual(lo[1]! + 3);
+      expect(e[2]!).toBeLessThanOrEqual(hi[2]! + 3);
+      expect(e[2]!).toBeGreaterThanOrEqual(lo[2]! - 3);
+      expect(e[3]!).toBeLessThanOrEqual(hi[3]! + 3);
+      expect(e[3]!).toBeGreaterThanOrEqual(lo[3]! - 3);
+    });
+  };
+
+  it('a grungy, textured backdrop (blotches and per-pixel grain) stays background', () => {
+    const grunge = (x: number, y: number): [number, number, number] => {
+      const blotch = (hash(x >> 5, y >> 5, 1) - 0.5) * 36 + (hash(x >> 3, y >> 3, 2) - 0.5) * 16;
+      const grain = (hash(x, y, 3) - 0.5) * 16;
+      const v = 96 + blotch + grain;
+      return [v + 8, v, v - 10];
+    };
+    expectLikeReference(cropSheet(over(grunge), layout));
+  });
+
+  it('a light parchment with stains and coarse grain stays background', () => {
+    const parchment = (x: number, y: number): [number, number, number] => {
+      const stain = hash(x >> 6, y >> 6, 5) < 0.2 ? -28 : 0;
+      const v = 205 + stain + (hash(x >> 2, y >> 2, 6) - 0.5) * 22 + (hash(x, y, 7) - 0.5) * 10;
+      return [v + 6, v - 4, v - 22];
+    };
+    expectLikeReference(cropSheet(over(parchment), layout));
+  });
+
+  it('the new guide repainted as the background (MID-GREY cells, DARK GREY gutter, with noise) stays background', () => {
+    const guide = drawGuide(layout, { w: W, h: H });
+    const repainted = (x: number, y: number): [number, number, number] => {
+      const o = (y * W + x) * 4;
+      const n = (hash(x, y, 4) - 0.5) * 14;
+      return [guide.data[o]! + n, guide.data[o + 1]! + n, guide.data[o + 2]! + n];
+    };
+    expectLikeReference(cropSheet(over(repainted), layout));
   });
 });

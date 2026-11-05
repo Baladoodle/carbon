@@ -333,6 +333,32 @@ cutting by strict cell bounds flagged 54 of 100 good sprites. Now:
 
 The rule is images-core's, as the coordinator asked.
 
+**Opaque sheets.** A model may ignore the transparent-background request.
+The real sheet came from the old guide and is transparent; its grungy backdrop
+survives only as alpha 1–6. Opaque segmentation handles a textured backdrop and
+the new guide repainted as background:
+
+- **The background is a model, not one colour.** Up to 6 colours are sampled
+  where sprites should not be: the sheet border, the planned gutters' centre
+  lines, and a ring 2 px inside each cell. Each colour's tolerance is
+  1.5 × its 95th-percentile spread + 8 (minimum 32). The percentile ignores
+  sprite pixels that strayed into a ring; the factor reaches a texture's
+  extremes.
+- **Background must be connected to where background is known.** A sprite's
+  interior that matches the backdrop (grey iron on the guide's MID-GREY
+  cells) is enclosed by its outline, so it stays sprite. Thin outlines have
+  1–2 px gaps, so the flood runs against the foreground dilated by `r`
+  (2 px at 1440², 4 at 2880²), then regrows `r` steps through
+  background-coloured pixels to give back the true edge.
+- **Limits:**
+  - A hole of exactly the backdrop colour, fully enclosed by the sprite (the
+    eye of an iron key on grey cells), is kept as sprite.
+  - Where an outline gap is wider than `r`, a matching rim can be nicked.
+  - A soft glow below alpha 128 counts once composited, so boxes can be
+    larger than in the transparent original.
+  - Cropping an opaque 1440² sheet takes about 360 ms, against 130 ms
+    transparent.
+
 **Flags:**
 
 - `empty`: own foreground under 0.5% of the cell.
@@ -353,6 +379,11 @@ The rule is images-core's, as the coordinator asked.
   1440²): all 100 sprites crop, **0 flags** (48 under the old bounds rule),
   each bounding box is centred within its cell, and every crop filters to a
   16×16 icon.
+- **The same real sprites composited opaquely** over a grungy textured
+  backdrop, over a light stained parchment, and over the new guide repainted
+  with noise: **0 flags** each. Every box lies between the transparent
+  original's alpha-128 box and its visible extent (alpha ≥ 8), within the
+  3 px antialiased fringe.
 - **Synthetic cases:**
   - drift into the gutter: whole, unflagged
   - a centre in a gutter: goes to the nearest cell

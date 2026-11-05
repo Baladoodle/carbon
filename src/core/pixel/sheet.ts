@@ -3,6 +3,7 @@
  * guide image, and crop the generated sheet back into one sprite per cell with
  * flags for review. Pure and deterministic.
  */
+import { dilate, ellipseKernel } from './cv';
 import { PixelError } from './errors';
 import type { RgbaImage } from './types';
 
@@ -119,7 +120,8 @@ export interface CropOptions {
   /**
    * How to tell background from sprite: `'alpha'` (transparent sheet), a flat
    * `[r, g, b]` colour, or `'auto'` (default): alpha when the sheet has any
-   * transparency, else the median colour of the sheet's outer border.
+   * transparency, else a model of up to 6 background colours sampled where
+   * sprites should not be (see `backgroundModel`).
    */
   background?: 'auto' | 'alpha' | readonly [number, number, number];
   /** Pixels reported around each cell in `region`, into the gutter. Default: half the gutter. */
@@ -198,29 +200,100 @@ export function cropSheet(
       }
     }
   }
-  const bg = alpha ? null : typeof mode === 'object' ? mode : sheetBorderColour(d, W, H);
-  const fg = new Uint8Array(W * H);
-  for (let i = 0; i < W * H; i++) {
-    const o = i * 4;
-    if ((d[o + 3] ?? 0) < 128) continue;
-    if (bg) {
-      const dist = Math.max(
-        Math.abs((d[o] ?? 0) - bg[0]),
-        Math.abs((d[o + 1] ?? 0) - bg[1]),
-        Math.abs((d[o + 2] ?? 0) - bg[2]),
-      );
-      if (dist <= tolerance) continue;
-    }
-    fg[i] = 1;
-  }
-
-  // cell rectangles in sheet pixels, and a per-axis lookup of which cell a coordinate is in (-1: gutter)
+  // cell rectangles in sheet pixels
   const rects = layout.cells.map((c) => ({
     x0: Math.floor(c.x * sx),
     y0: Math.floor(c.y * sy),
     x1: Math.min(W, Math.ceil((c.x + c.w) * sx)),
     y1: Math.min(H, Math.ceil((c.y + c.h) * sy)),
   }));
+  const bg: BgColour[] | null = alpha
+    ? null
+    : typeof mode === 'object'
+      ? [{ rgb: [mode[0], mode[1], mode[2]], tol: tolerance }]
+      : backgroundModel(d, W, H, layout, sx, sy, rects, tolerance);
+  const fg = new Uint8Array(W * H);
+  for (let i = 0; i < W * H; i++) {
+    const o = i * 4;
+    if ((d[o + 3] ?? 0) < 128) continue;
+    if (bg) {
+      const r = d[o] ?? 0;
+      const g = d[o + 1] ?? 0;
+      const b = d[o + 2] ?? 0;
+      let isBg = false;
+      for (const c of bg) {
+        if (
+          Math.max(Math.abs(r - c.rgb[0]), Math.abs(g - c.rgb[1]), Math.abs(b - c.rgb[2])) <= c.tol
+        ) {
+          isBg = true;
+          break;
+        }
+      }
+      if (isBg) continue;
+    }
+    fg[i] = 1;
+  }
+
+  if (bg) {
+    // Background is what is background-coloured AND connected to where background must be, so a sprite's
+    // interior that matches the backdrop (grey iron on the guide's grey cells) stays sprite. Thin outlines
+    // have 1–2 px gaps, so the fill runs against the foreground dilated by `r` (gaps closed), and then
+    // regrows `r` steps through background-coloured pixels to give back the true edge.
+    const r = Math.max(2, Math.round(4 * Math.min(sx, sy)));
+    const barrier = dilate({ w: W, h: H, data: fg }, ellipseKernel(2 * r + 1)).data;
+    const reached = new Uint8Array(W * H);
+    let queue = new Int32Array(W * H);
+    let qt = 0;
+    backgroundSites(W, H, layout, sx, sy, rects, (x, y) => {
+      const i = y * W + x;
+      if (!barrier[i] && !reached[i]) {
+        reached[i] = 1;
+        queue[qt++] = i;
+      }
+    });
+    const spread = (
+      open: (i: number) => boolean,
+      from: Int32Array,
+      n: number,
+      depth: number,
+    ): void => {
+      let frontier = from.subarray(0, n);
+      for (let step = 0; step < depth && frontier.length; step++) {
+        const next = new Int32Array(W * H);
+        let nt = 0;
+        const go = (j: number): void => {
+          if (!reached[j] && open(j)) {
+            reached[j] = 1;
+            next[nt++] = j;
+          }
+        };
+        for (const i of frontier) {
+          const x = i % W;
+          if (x > 0) go(i - 1);
+          if (x < W - 1) go(i + 1);
+          if (i >= W) go(i - W);
+          if (i + W < W * H) go(i + W);
+        }
+        frontier = next.subarray(0, nt);
+      }
+    };
+    // flood through the gap-closed background (unbounded), then regrow r steps into the true background
+    let qh = 0;
+    while (qh < qt) {
+      const i = queue[qh++] as number;
+      const x = i % W;
+      for (const j of [x > 0 ? i - 1 : -1, x < W - 1 ? i + 1 : -1, i - W, i + W]) {
+        if (j < 0 || j >= W * H || reached[j] || barrier[j]) continue;
+        reached[j] = 1;
+        queue[qt++] = j;
+      }
+    }
+    spread((j) => !fg[j], queue, qt, r);
+    queue = new Int32Array(0);
+    for (let i = 0; i < W * H; i++) fg[i] = reached[i] ? 0 : 1;
+  }
+
+  // which cell a coordinate is in (-1: gutter)
   const colOf = new Int32Array(W).fill(-1);
   const rowOf = new Int32Array(H).fill(-1);
   layout.cells.forEach((c, i) => {
@@ -396,22 +469,135 @@ export function cropSheet(
   });
 }
 
-/** The median colour of the sheet's 1-px outer border (the flat background). */
-function sheetBorderColour(d: Uint8ClampedArray, W: number, H: number): [number, number, number] {
-  const ch: number[][] = [[], [], []];
+interface BgColour {
+  rgb: [number, number, number];
+  /** max channel distance still counted as this background colour */
+  tol: number;
+}
+
+/**
+ * The background of an opaque sheet as up to 6 colours, each with its own
+ * tolerance. Samples come from where sprites should not be: the sheet's outer
+ * border, the centre lines of the planned gutters, and a ring 2 px inside each
+ * cell's edge. That covers a flat backdrop, a textured or grungy one, and a
+ * repainted guide (MID-GREY cells on a DARK GREY gutter: two colours). Samples
+ * are binned (4 bits per channel), merged greedily within 40 levels, and
+ * clusters under 4% of the samples are dropped (sprite pixels that strayed into
+ * a ring). A colour's tolerance is the larger of `tolerance` and its own
+ * spread (1.5 × the 95th-percentile distance of its samples, plus 8): the
+ * percentile ignores sprite pixels that strayed into a ring, the factor reaches
+ * a grungy texture's extremes; sprite interiors that share the colour
+ * are protected by the connectivity rule in `cropSheet`, not by the tolerance.
+ */
+/** Where sprites should not be: the sheet border, the planned gutters' centre lines, a ring 2 px inside each cell. */
+function backgroundSites(
+  W: number,
+  H: number,
+  layout: SheetLayout,
+  sx: number,
+  sy: number,
+  rects: Array<{ x0: number; y0: number; x1: number; y1: number }>,
+  visit: (x: number, y: number) => void,
+): void {
   const take = (x: number, y: number): void => {
-    for (let c = 0; c < 3; c++) ch[c]?.push(d[(y * W + x) * 4 + c] ?? 0);
+    if (x >= 0 && y >= 0 && x < W && y < H) visit(x, y);
   };
-  for (let x = 0; x < W; x++) {
-    take(x, 0);
-    take(x, H - 1);
+  for (let x = 0; x < W; x++) for (const y of [0, 1, H - 2, H - 1]) take(x, y);
+  for (let y = 0; y < H; y++) for (const x of [0, 1, W - 2, W - 1]) take(x, y);
+  const half = layout.gutter / 2;
+  for (const c of layout.cells) {
+    const gx = Math.round((c.x - half) * sx);
+    const gy = Math.round((c.y - half) * sy);
+    for (let y = 0; y < H; y += 2) take(gx, y);
+    for (let x = 0; x < W; x += 2) take(x, gy);
   }
-  for (let y = 1; y < H - 1; y++) {
-    take(0, y);
-    take(W - 1, y);
+  for (const r of rects) {
+    for (let x = r.x0 + 2; x < r.x1 - 2; x += 2) {
+      take(x, r.y0 + 2);
+      take(x, r.y1 - 3);
+    }
+    for (let y = r.y0 + 2; y < r.y1 - 2; y += 2) {
+      take(r.x0 + 2, y);
+      take(r.x1 - 3, y);
+    }
   }
-  const med = (a: number[]): number => a.sort((p, q) => p - q)[a.length >> 1] ?? 0;
-  return [med(ch[0] ?? []), med(ch[1] ?? []), med(ch[2] ?? [])];
+}
+
+function backgroundModel(
+  d: Uint8ClampedArray,
+  W: number,
+  H: number,
+  layout: SheetLayout,
+  sx: number,
+  sy: number,
+  rects: Array<{ x0: number; y0: number; x1: number; y1: number }>,
+  tolerance: number,
+): BgColour[] {
+  const samples: number[] = [];
+  backgroundSites(W, H, layout, sx, sy, rects, (x, y) => {
+    const o = (y * W + x) * 4;
+    samples.push(((d[o] ?? 0) << 16) | ((d[o + 1] ?? 0) << 8) | (d[o + 2] ?? 0));
+  });
+  const bins = new Map<number, number>();
+  for (const v of samples) {
+    const k = ((v >> 20) & 15) * 256 + ((v >> 12) & 15) * 16 + ((v >> 4) & 15);
+    bins.set(k, (bins.get(k) ?? 0) + 1);
+  }
+  const clusters: Array<{ sum: [number, number, number]; n: number }> = [];
+  const centre = (k: number): [number, number, number] => [
+    ((k >> 8) & 15) * 16 + 8,
+    ((k >> 4) & 15) * 16 + 8,
+    (k & 15) * 16 + 8,
+  ];
+  for (const [k, n] of [...bins].sort((a, b) => b[1] - a[1] || a[0] - b[0])) {
+    const c = centre(k);
+    const hit = clusters.find((cl) => {
+      const m = cl.sum.map((v) => v / cl.n);
+      return (
+        Math.max(
+          Math.abs(c[0] - (m[0] ?? 0)),
+          Math.abs(c[1] - (m[1] ?? 0)),
+          Math.abs(c[2] - (m[2] ?? 0)),
+        ) <= 40
+      );
+    });
+    if (hit) {
+      hit.sum = [hit.sum[0] + c[0] * n, hit.sum[1] + c[1] * n, hit.sum[2] + c[2] * n];
+      hit.n += n;
+    } else {
+      clusters.push({ sum: [c[0] * n, c[1] * n, c[2] * n], n });
+    }
+  }
+  const kept = clusters
+    .filter((cl) => cl.n >= 0.04 * samples.length)
+    .sort((a, b) => b.n - a.n)
+    .slice(0, 6)
+    .map((cl) => cl.sum.map((v) => Math.round(v / cl.n)) as [number, number, number]);
+  const dist = (v: number, m: [number, number, number]): number =>
+    Math.max(
+      Math.abs(((v >> 16) & 255) - m[0]),
+      Math.abs(((v >> 8) & 255) - m[1]),
+      Math.abs((v & 255) - m[2]),
+    );
+  const members: number[][] = kept.map(() => []);
+  for (const v of samples) {
+    let best = -1;
+    let bestD = Infinity;
+    kept.forEach((m, i) => {
+      const dd = dist(v, m);
+      if (dd < bestD) {
+        bestD = dd;
+        best = i;
+      }
+    });
+    if (best >= 0 && bestD <= 64) members[best]?.push(bestD);
+  }
+  return kept.map((rgb, i) => {
+    const ds = (members[i] ?? []).sort((a, b) => a - b);
+    // p95 ignores the few sprite pixels that stray into the sampling rings; ×1.5 reaches a texture's extremes
+    const p95 = ds[Math.floor(ds.length * 0.95)] ?? 0;
+    return { rgb, tol: Math.max(tolerance, Math.round(p95 * 1.5) + 8) };
+  });
 }
 
 /** A cell that is one flat colour (luminance range ≤ 4): the background, not a missing sprite. */
