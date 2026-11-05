@@ -80,16 +80,28 @@ export interface GuideOptions {
 }
 
 /** The guide image: a flat background with faint 1-px boxes around each cell. */
-export function sheetGuide(layout: SheetLayout, opts: GuideOptions = {}): RgbaImage {
+export function drawGuide(
+  layout: SheetLayout,
+  canvas: { w: number; h: number } = layout.canvas,
+  opts: GuideOptions = {},
+): RgbaImage {
   const [br, bg, bb] = opts.background ?? [255, 255, 255];
   const [lr, lg, lb] = opts.line ?? [220, 220, 220];
-  const { w: W, h: H } = layout.canvas;
+  const { w: W, h: H } = canvas;
+  const sx = W / layout.canvas.w;
+  const sy = H / layout.canvas.h;
   const data = new Uint8ClampedArray(W * H * 4);
   for (let p = 0; p < data.length; p += 4) data.set([br, bg, bb, 255], p);
   const put = (x: number, y: number): void => {
     if (x >= 0 && y >= 0 && x < W && y < H) data.set([lr, lg, lb, 255], (y * W + x) * 4);
   };
-  for (const c of layout.cells) {
+  for (const cell of layout.cells) {
+    const c = {
+      x: Math.round(cell.x * sx),
+      y: Math.round(cell.y * sy),
+      w: Math.round(cell.w * sx),
+      h: Math.round(cell.h * sy),
+    };
     for (let x = c.x - 1; x <= c.x + c.w; x++) {
       put(x, c.y - 1);
       put(x, c.y + c.h);
@@ -102,9 +114,15 @@ export function sheetGuide(layout: SheetLayout, opts: GuideOptions = {}): RgbaIm
   return { width: W, height: H, data };
 }
 
-export type CellFlag = 'empty' | 'uniform' | 'touches-edge' | 'fragmented';
+export type CellFlag = 'empty' | 'background_only' | 'touches_edge' | 'fragmented';
 
 export interface CropOptions {
+  /**
+   * How to tell background from sprite: `'alpha'` (transparent sheet), a flat
+   * `[r, g, b]` colour, or `'auto'` (default): alpha when the sheet has any
+   * transparency, else the median colour of each cell's border.
+   */
+  background?: 'auto' | 'alpha' | readonly [number, number, number];
   /** Pixels added around each cell, into the gutter. Default: half the gutter. */
   margin?: number;
   /** Max channel distance from the background colour that still counts as background. Default 32. */
@@ -118,7 +136,7 @@ export interface CroppedCell {
   /** The region cut from the sheet (cell plus margin), in sheet coordinates. */
   region: { x: number; y: number; w: number; h: number };
   /** The sprite's bounding box, in sheet coordinates, or null when nothing was found. */
-  box: { x: number; y: number; w: number; h: number } | null;
+  bbox: { x: number; y: number; w: number; h: number } | null;
   /** The sprite padded to a square; background pixels are transparent. Null when empty. */
   crop: RgbaImage | null;
   flags: CellFlag[];
@@ -144,13 +162,17 @@ export function cropSheet(
   const tolerance = opts.tolerance ?? 32;
   const minFill = opts.minFill ?? 0.005;
   const d = sheet.data;
-  let hasAlpha = false;
-  for (let p = 3; p < d.length; p += 4) {
-    if ((d[p] ?? 255) < 255) {
-      hasAlpha = true;
-      break;
+  const mode = opts.background ?? 'auto';
+  let hasAlpha = mode === 'alpha';
+  if (mode === 'auto') {
+    for (let p = 3; p < d.length; p += 4) {
+      if ((d[p] ?? 255) < 255) {
+        hasAlpha = true;
+        break;
+      }
     }
   }
+  const fixed = typeof mode === 'string' ? null : mode;
   return layout.cells.map((cell) => {
     const x0 = Math.max(0, Math.floor((cell.x - margin) * sx));
     const y0 = Math.max(0, Math.floor((cell.y - margin) * sy));
@@ -159,7 +181,7 @@ export function cropSheet(
     const rw = x1 - x0;
     const rh = y1 - y0;
     const at = (x: number, y: number): number => ((y0 + y) * sheet.width + x0 + x) * 4;
-    const bgColour = hasAlpha ? null : borderColour(d, at, rw, rh);
+    const bgColour = hasAlpha ? null : (fixed ?? borderColour(d, at, rw, rh));
     const fg = new Uint8Array(rw * rh);
     let lo = 255;
     let hi = 0;
@@ -190,8 +212,8 @@ export function cropSheet(
     const segmentation = hasAlpha ? 'alpha' : 'colour';
     const flags: CellFlag[] = [];
     if (count < minFill * rw * rh) {
-      flags.push(!hasAlpha && hi - lo <= 4 ? 'uniform' : 'empty');
-      return { index: cell.index, region, box: null, crop: null, flags, segmentation };
+      flags.push(!hasAlpha && hi - lo <= 4 ? 'background_only' : 'empty');
+      return { index: cell.index, region, bbox: null, crop: null, flags, segmentation };
     }
     let bx0 = rw;
     let by0 = rh;
@@ -206,7 +228,7 @@ export function cropSheet(
         if (y > by1) by1 = y;
       }
     }
-    if (bx0 === 0 || by0 === 0 || bx1 === rw - 1 || by1 === rh - 1) flags.push('touches-edge');
+    if (bx0 === 0 || by0 === 0 || bx1 === rw - 1 || by1 === rh - 1) flags.push('touches_edge');
     if (largeComponents(fg, rw, rh, count) > 1) flags.push('fragmented');
     const bw = bx1 - bx0 + 1;
     const bh = by1 - by0 + 1;
@@ -230,7 +252,7 @@ export function cropSheet(
     return {
       index: cell.index,
       region,
-      box: { x: x0 + bx0, y: y0 + by0, w: bw, h: bh },
+      bbox: { x: x0 + bx0, y: y0 + by0, w: bw, h: bh },
       crop: { width: side, height: side, data: out },
       flags,
       segmentation,

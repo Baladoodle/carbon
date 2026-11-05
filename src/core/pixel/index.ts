@@ -4,7 +4,7 @@ export { PRESET_SETTINGS, resolveSettings } from './presets';
 export { decodePng, encodePng } from './png';
 export { iconPrompt, sheetPrompt, paletteWords } from './prompts';
 export type { IconSubject, IconWorld, IconArt, SheetPromptOptions } from './prompts';
-export { sheetLayout, sheetGuide, cropSheet, MAX_SHEET_ITEMS } from './sheet';
+export { sheetLayout, drawGuide, cropSheet, MAX_SHEET_ITEMS } from './sheet';
 export type {
   SheetLayout,
   SheetCell,

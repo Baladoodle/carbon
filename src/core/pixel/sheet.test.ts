@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { filterImage } from './filter';
 import { sheetPrompt } from './prompts';
 import type { IconSubject } from './prompts';
-import { cropSheet, sheetGuide, sheetLayout } from './sheet';
+import { cropSheet, drawGuide, sheetLayout } from './sheet';
 import type { SheetLayout } from './sheet';
 import type { RgbaImage } from './types';
 
@@ -64,10 +64,10 @@ describe('sheetLayout', () => {
   });
 });
 
-describe('sheetGuide', () => {
+describe('drawGuide', () => {
   it('draws faint boxes just outside each cell on a flat background', () => {
     const l = sheetLayout(4, { w: 64, h: 64 }, { gutter: 4 });
-    const g = sheetGuide(l);
+    const g = drawGuide(l);
     const px = (x: number, y: number): number[] => [
       ...g.data.slice((y * 64 + x) * 4, (y * 64 + x) * 4 + 4),
     ];
@@ -75,6 +75,17 @@ describe('sheetGuide', () => {
     expect(px(c.x - 1, c.y + 3)).toEqual([220, 220, 220, 255]);
     expect(px(c.x + 3, c.y + 3)).toEqual([255, 255, 255, 255]);
     expect(px(0, 0)).toEqual([255, 255, 255, 255]);
+  });
+});
+
+describe('drawGuide at another size', () => {
+  it('scales the boxes to the requested canvas', () => {
+    const l = sheetLayout(4, { w: 64, h: 64 }, { gutter: 4 });
+    const g = drawGuide(l, { w: 128, h: 128 });
+    expect([g.width, g.height]).toEqual([128, 128]);
+    const c = l.cells[0]!;
+    const p = ((c.y * 2 + 6) * 128 + c.x * 2 - 1) * 4;
+    expect([...g.data.slice(p, p + 4)]).toEqual([220, 220, 220, 255]);
   });
 });
 
@@ -89,7 +100,7 @@ describe('cropSheet', () => {
     expect(cells.map((c) => c.segmentation)).toEqual(Array(4).fill(segmentation));
     const [good, empty, edge, frag] = cells;
     expect(good!.flags).toEqual([]);
-    expect(good!.box).toEqual({
+    expect(good!.bbox).toEqual({
       x: layout.cells[0]!.x + 20,
       y: layout.cells[0]!.y + 30,
       w: 40,
@@ -99,9 +110,9 @@ describe('cropSheet', () => {
     // padded to square: top rows transparent, sprite centred vertically
     expect(good!.crop!.data[3]).toBe(0);
     expect(good!.crop!.data[20 * 40 * 4 + 3]).toBe(255);
-    expect(empty!.flags).toEqual([segmentation === 'colour' ? 'uniform' : 'empty']);
+    expect(empty!.flags).toEqual([segmentation === 'colour' ? 'background_only' : 'empty']);
     expect(empty!.crop).toBeNull();
-    expect(edge!.flags).toContain('touches-edge');
+    expect(edge!.flags).toContain('touches_edge');
     expect(frag!.flags).toEqual(['fragmented']);
     // a crop goes straight through the item filter
     expect(filterImage(good!.crop!, { target: { w: 16, h: 16 }, preset: 'item' }).image.width).toBe(
@@ -109,11 +120,40 @@ describe('cropSheet', () => {
     );
   });
 
-  it('flags a noisy but nearly empty cell as empty, not uniform', () => {
+  it('flags a nearly empty cell with a speck as empty, not background_only', () => {
     const img = makeSheet(layout, [250, 250, 245, 255]);
     const e = layout.cells[1]!;
     paint(img, e.x + 40, e.y + 40, [0, 0, 0, 255]);
     expect(cropSheet(img, layout)[1]!.flags).toEqual(['empty']);
+  });
+
+  it('survives background noise and honours an explicit background', () => {
+    const img = makeSheet(layout, [250, 250, 245, 255]);
+    // deterministic ±12 jitter on every channel, as a lossy or dithered model output has
+    for (let p = 0; p < img.data.length; p += 4) {
+      const n = ((p * 2654435761) >>> 0) % 25;
+      for (let c = 0; c < 3; c++) img.data[p + c] = img.data[p + c]! + n - 12;
+    }
+    const auto = cropSheet(img, layout);
+    const fixed = cropSheet(img, layout, { background: [250, 250, 245] });
+    for (const cells of [auto, fixed]) {
+      expect(cells[0]!.flags).toEqual([]);
+      expect(cells[0]!.bbox).toEqual({
+        x: layout.cells[0]!.x + 20,
+        y: layout.cells[0]!.y + 30,
+        w: 40,
+        h: 20,
+      });
+      expect(cells[1]!.flags).toEqual(['empty']); // noisy, so not background_only
+      expect(cells[3]!.flags).toEqual(['fragmented']);
+    }
+  });
+
+  it("forces alpha segmentation with background: 'alpha'", () => {
+    const img = makeSheet(layout, null);
+    const cells = cropSheet(img, layout, { background: 'alpha' });
+    expect(cells[0]!.segmentation).toBe('alpha');
+    expect(cells[0]!.flags).toEqual([]);
   });
 
   it('scales the grid when the model returns a different size', () => {

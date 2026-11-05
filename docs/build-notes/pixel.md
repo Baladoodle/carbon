@@ -73,13 +73,13 @@ This was added after the contract gained §2a, which arrived in the merge. It
 doesn't depend on Genforge.
 
 ```ts
-import { sheetLayout, sheetGuide, sheetPrompt, cropSheet } from '@core/pixel';
+import { sheetLayout, drawGuide, sheetPrompt, cropSheet } from '@core/pixel';
 
 const layout = sheetLayout(items.length, { w: 1024, h: 1024 });   // ≤100; near-square, max 10×10; gutter 2% of the short side
-const guide = sheetGuide(layout);                                // white, 1-px #DCDCDC boxes just outside each cell → send as reference
+const guide = drawGuide(layout, { w: 1024, h: 1024 });                                // white, 1-px #DCDCDC boxes just outside each cell → send as reference
 const prompt = sheetPrompt(items, layout, world, art, { background: 'fully transparent' });
-const cells = cropSheet(decodePng(bytes), layout);               // scales the grid if the model returned another size
-// cells[i]: { index, region, box, crop: RgbaImage | null, flags, segmentation: 'alpha' | 'colour' }
+const cells = cropSheet(decodePng(bytes), layout, { background: 'auto' }); // or 'alpha' | [r,g,b]               // scales the grid if the model returned another size
+// cells[i]: { index, region, bbox, crop: RgbaImage | null, flags, segmentation: 'alpha' | 'colour' }
 // then: filterImage(cell.crop, { target: { w: 16, h: 16 }, preset: 'item' })
 ```
 
@@ -94,13 +94,16 @@ How the cropper works:
   with the background made transparent.
 - **Flags:**
   - `empty`: foreground under 0.5% of the region
-  - `uniform`: empty, and the luminance range is ≤ 4, so it's just the flat
+  - `background_only`: empty, and the luminance range is ≤ 4, so it's just the flat
     background
-  - `touches-edge`: the foreground reaches the region's border, so it may
+  - `touches_edge`: the foreground reaches the region's border, so it may
     bleed into a neighbour. The test shows that a sprite crossing into the next
     cell flags that next cell too, which is what you want
   - `fragmented`: more than one large 8-connected component, meaning at least
     15% of the largest and 1% of the foreground
+- **Noise:** a test jitters every channel by ±12; the default tolerance (32)
+  still finds the exact boxes, and a speck-or-noise cell is `empty`, not
+  `background_only`.
 - **Speed:** cropping all 100 cells of a 1024² sheet takes about 96 ms, and
   filtering them all to 16² another 37 ms. At 2048², cropping takes about
   344 ms.
@@ -120,7 +123,7 @@ src/core/pixel/
   quantize.ts     deterministic median cut
   png.ts          decodePng / encodePng over fast-png
   prompts.ts      iconPrompt, sheetPrompt, paletteWords
-  sheet.ts        sheetLayout, sheetGuide, cropSheet (IMAGES.md §2a)
+  sheet.ts        sheetLayout, drawGuide, cropSheet (IMAGES.md §2a)
   errors.ts       PixelError
   UPSTREAM.json   provenance (not-ported)
   *.test.ts       filter, png, prompts, sheet, parity, perf
