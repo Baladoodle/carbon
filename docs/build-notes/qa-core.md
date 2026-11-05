@@ -341,13 +341,30 @@ They all held: no defect there.
 
 ## 8. Tests and the full runs
 
-The counts below are on the final merged branch.
+The runs below are on the final branch, with polish (`592c80e`) merged in.
 
-- Unit and property tests: 646 at the start, **FINAL_UNIT** at the end, in
-  FINAL_FILES files, plus 1 skipped (the opt-in write benchmark).
-- e2e: 108 at the start, **FINAL_E2E** at the end (the hook's self-test).
-- `npm run check`: CHECK_RESULT.
-- The full `npm run test:e2e`: E2E_RESULT.
+- **Unit and property tests:** 646 at the start, **717** at the end, plus 1
+  skipped (the opt-in write benchmark).
+- **e2e:** **112** (polish's 111 plus the unhandled-rejection self-test).
+- **`npm run check`, twice:**
+  - Run 1: lint, prettier, `tsc` and 717 unit tests passed, but 1 of the 21
+    smoke tests failed (see below).
+  - Run 2: everything passed, including all 21 smoke tests.
+  - Run 3, on the final commit: everything passed again. Runs 2 and 3 are
+    the two green runs.
+- **The full `npm run test:e2e`, twice:** 112 of 112 both times.
+
+**The one failure.** It was the smoke test `integration.spec › every rail key
+opens its view…`: a Bench rename, then `ctrl+z`, and the Name input still read
+"Glide II". I couldn't reproduce it afterwards: 15 of 15 runs alone, 15 of 15
+with every core busy, and it passed in both full runs.
+
+The cause, from reading the code (§9): the Bench's drafts reset only when the
+stored value *differs* from the last one rendered. If the rename's patch and
+the undo's patch both reach the mirror before the Bench renders in between,
+the stored value goes Glide → Glide, and the draft keeps "Glide II". It's a
+real but rare Bench defect, and it's not caused by this branch. Nothing here
+changes the renderer's patch handling or the Bench.
 
 ## 9. Still open
 
@@ -367,5 +384,13 @@ The counts below are on the final merged branch.
   drops an entry when a note comes back with a different hash.
 - **`IpcAiGateway.run` returning `ok` after an abort** (review-b §6) is in
   `src/renderer/ai`, outside my scope.
+- **A Bench draft can survive an undo that lands in the same render as its
+  commit** (the intermittent smoke failure in §8). `useDraft`, `useTypedDraft`
+  and `useSynced` (in `bench/`) detect "the stored value changed" by comparing
+  values. When a commit and its undo both land before one render, the value is
+  the same as before, the draft isn't reset, and it shows the undone text as
+  dirty. Leaving the field would then commit it again, undoing the undo. The
+  fix belongs in the Bench (UI scope): reset on the mirror's revision for that
+  field, not on the value.
 - **Electron's own unhandled errors in the *renderer*** aren't hooked. Only
   main's are, as asked.
