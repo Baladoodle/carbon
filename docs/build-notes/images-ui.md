@@ -8,10 +8,17 @@ recorded real images.
 
 **Merged in before the final runs** (for the coordinator):
 
-- `origin/claude/blissful-einstein-8u27ty` up to `f1d9c4c`, which brings the
-  critique worker's work, the §2a sheets spec and the 2.5-flare default in the
-  docs
-- `origin/claude/blissful-einstein-8u27ty-images-core` up to `103ff10`
+- `origin/claude/blissful-einstein-8u27ty` up to `eac34bb`, which brings the
+  critique and expand workers' work, the §2a sheets spec, the 2.5-flare
+  default and the k-then-x triage fix
+- `origin/claude/blissful-einstein-8u27ty-images-core` up to `25f7f93`
+- **Conflicts resolved:**
+  - `ui/icons.tsx`: kept both `IconImage` and `IconExpand`.
+  - Taste: the Rules pane is now the base's `ResizablePane`, holding Rules
+    and Art direction stacked.
+  - `package.json`: images-core's `openai`, `pngjs` and `@types/pngjs`, plus
+    the base's `fast-png`. The base hasn't merged images-core yet.
+  - The spread files: the base's version, plus one guard (§4).
 
 ---
 
@@ -185,16 +192,25 @@ takes `itemsAt(target, point)` and draws the same entries and look as `Menu`.
 - **Keys:** `keys.spec` passes, and the GUIDE table is regenerated
   (`npm run guide:keys`).
 - **Full `npm run test:e2e`:**
-  - Two runs in a row after the final merges (with the sheet review):
-    **134 of 134**, both times. Two earlier full runs were green too.
-  - A run just before them had one failure, in `acceptance.spec`: `x` in a
-    spread showed no kill prompt. It passed 3 of 3 alone and in both later
-    full runs, and nothing in this work touches spread keys. It's worth
-    watching as a possible load flake.
+  - After the final merges: **147 of 147**, twice in a row.
+  - The screens spec alone: 5 of 5.
+- **The acceptance flake, found and fixed** (`views/spread/view.tsx`):
+  - It failed twice in earlier full runs: `x` right after a kill reason
+    showed no prompt.
+  - The cause: the answered reason prompt hadn't re-rendered away yet, and
+    it swallows every key while it's open. So the next `x` never reached the
+    spread.
+  - The fix: the prompt checks the live session and steps aside once it's
+    been answered.
+  - The base's k-then-x fix (the focus advances before the round trip) is a
+    different window, and doesn't cover this one.
+  - New test, `spreads.spec › a fast x after a kill`: it dispatches the
+    reason and `x` in one synchronous burst. It fails on the base's code
+    every time and passes with the guard.
 - **`screens.spec` race** (from the coordinator): the `+ Field` loop now
   waits, after each pick, for the menu to close and exactly one more field to
   show, before it looks at `+ Field` again. No sleeps, no retries.
-- **Units:** 814 passed. Lint, prettier and `tsc` are clean.
+- **Units:** 1,051 passed. Lint, prettier and `tsc` are clean.
 
 ## 5. Screens (`docs/screens/`, 2×)
 
