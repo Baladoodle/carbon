@@ -29,9 +29,19 @@ logged after it.
 **Low quality by default**, for concept art and icons alike. Medium and high
 are a per-call choice, never a default.
 
-**The model defaults to `gpt-image-2.6-flare`** (Images 2.6; Genforge used
-2.5-flare). `gpt-image-2.6-sunburst` is selectable in settings and per call.
-Both are available on the API project used for development.
+**The model defaults to `gpt-image-2.5-flare`**, as in Genforge. A measured
+comparison on 2026-11-05 (same prompt, 1024², the same per-token price) gave
+these output tokens:
+
+| Model | Low | Medium |
+|---|---|---|
+| 2.5-flare | 196 (≈ $0.006) | 439 (≈ $0.013) |
+| 2.6-flare | 824 (≈ $0.025) | 1,449 (≈ $0.044) |
+
+The user chose 2.5 as the default. `gpt-image-2.6-flare` and
+`gpt-image-2.6-sunburst` stay selectable in settings and per call. Icon
+requests **always** send `background: 'transparent'`: without it, 2.5-flare
+painted a checkerboard pattern into the pixels instead of real transparency.
 
 ## 2. The ported Genforge pieces (`src/core/pixel/`)
 
@@ -137,7 +147,7 @@ interface ImageMeta {
   - Generate, and edit with references (an icon from a concept, as a
     reference).
   - The model and quality are configurable. The defaults are
-    `gpt-image-2.6-flare` and `low`. Verify the pricing against OpenAI's
+    `gpt-image-2.5-flare` and `low`. Verify the pricing against OpenAI's
     documentation, and record the date in the settings defaults.
   - Use a transparent background for icons where the model supports it.
 - **The key** comes from the system keyring (service `carbon`, account
