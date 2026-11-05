@@ -374,6 +374,9 @@
 .bench-note-text {
   flex: 1 1 160px;
 }
+.bench-note-rewrite {
+  color: var(--ai);
+}
 .bench-note-link {
   padding: 0;
   border: 0;

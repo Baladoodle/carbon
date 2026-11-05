@@ -1,0 +1,48 @@
+{
+  "entityId": "thermal-charm",
+  "about": "The reported conflict: the writer proposes a pure-number identity and the critic flags it. Before the quality bar the parse kept it (the note lands on a just-filled field); the self-check now drops it, and the critic's note is on the still-empty identity.",
+  "fill": {
+    "proposals": {
+      "identity": { "value": "+10% speed", "note": "simple and readable" },
+      "description": {
+        "value": "A brass charm that drinks the heat of Low Sky thermals and gives it back as lift.",
+        "note": null
+      },
+      "slot": { "value": "wrist", "note": null },
+      "change": {
+        "value": "Each jump inside a rising thermal carries you one island higher.",
+        "note": "ties it to the band's air"
+      },
+      "tradeoff": {
+        "value": "In still air it cools and weighs you down.",
+        "note": null
+      },
+      "moment": null,
+      "route": null
+    }
+  },
+  "critique": {
+    "change,description,identity,slot,tradeoff": {
+      "notes": [
+        {
+          "kind": "just_a_number",
+          "text": "Its identity is only \"+10% speed\": say what the charm lets you do.",
+          "entities": [],
+          "field": "identity",
+          "ruleId": null
+        }
+      ]
+    },
+    "change,description,slot,tradeoff": {
+      "notes": [
+        {
+          "kind": "weak_identity",
+          "text": "Thermal Charm has no one-line identity yet.",
+          "entities": [],
+          "field": "identity",
+          "ruleId": null
+        }
+      ]
+    }
+  }
+}

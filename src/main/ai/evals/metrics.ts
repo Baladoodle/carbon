@@ -335,8 +335,10 @@ export function buildReport(
   world: World,
   runs: readonly CaseRun[],
   skipped: readonly string[] = [],
+  /** Metrics measured outside the cases (the self-consistency eval), with their spend. */
+  extra: { metrics: readonly Metric[]; costUsd: number } = { metrics: [], costUsd: 0 },
 ): Report {
-  const metrics = computeMetrics(world, runs);
+  const metrics = [...computeMetrics(world, runs), ...extra.metrics];
   const usage = runs.reduce<Usage>(
     (a, r) => ({
       input: a.input + r.usage.input,
@@ -359,7 +361,7 @@ export function buildReport(
     at,
     model,
     cases: runs.length,
-    costUsd: runs.reduce((a, r) => a + r.costUsd, 0),
+    costUsd: runs.reduce((a, r) => a + r.costUsd, 0) + extra.costUsd,
     usage,
     metrics,
     unrun,

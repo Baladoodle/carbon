@@ -98,6 +98,16 @@ function EntityBench({ world, entity }: { world: World; entity: Entity }): React
   const needed = useStore(neededStore, (s) => (s?.entity === entity.id ? s : null));
   const numbers = useNumbers();
   const notes = useNotes(entity.id);
+  // Notes about a field the AI wrote (and you haven't edited) offer Rewrite.
+  useBench((s) => s.rewrites);
+  const rewritable = notes.filter((n) => benchAi.rewritableNote(n.id) !== null);
+  const rewriteNote = (noteId: string): void => {
+    const r = benchAi.rewritableNote(noteId);
+    if (!r) return;
+    // The rewrite waits in its field: tab accepts it, esc dismisses it.
+    requestFieldFocus(r.entity, r.field);
+    void settled(entity.id).then(() => benchAi.rewrite(noteId));
+  };
   useFocusRequest(root, entity.id);
   // A refused state change shows every field the target state needs, not only the first step's.
   const revealAfter = useRef<string | null>(null);
@@ -269,6 +279,20 @@ function EntityBench({ world, entity }: { world: World; entity: Entity }): React
       hidden: true,
       run: () => focusSibling(root.current, -1),
     },
+    ...rewritable.map((n, i): Action => {
+      const field = benchAi.rewritableNote(n.id)?.field ?? '';
+      const label = defOf(kind, field)?.label ?? field;
+      return {
+        id: `bench.rewrite.${n.id}`,
+        label: `Rewrite ${label.toLowerCase()}: ${n.text.length > 60 ? `${n.text.slice(0, 59)}…` : n.text}`,
+        group: 'Bench',
+        // r rewrites the first such note; the palette lists each.
+        ...(i === 0 ? { keys: ['r'] } : {}),
+        // Not while a Why or kill dialog is open (the palette itself may be).
+        enabled: () => stateDialog.get() === null,
+        run: () => rewriteNote(n.id),
+      };
+    }),
     {
       id: 'bench.dismissNotes',
       label: `Dismiss the notes on ${entity.name}`,
@@ -518,6 +542,17 @@ function EntityBench({ world, entity }: { world: World; entity: Entity }): React
                 data-severity={n.severity}
               >
                 <span className="bench-note-text">{n.text}</span>
+                {rewritable.includes(n) && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="bench-note-rewrite"
+                    data-testid="note-rewrite"
+                    onClick={() => rewriteNote(n.id)}
+                  >
+                    Rewrite
+                  </Button>
+                )}
                 {n.entities
                   .filter((x) => x !== entity.id)
                   .map((x) => (

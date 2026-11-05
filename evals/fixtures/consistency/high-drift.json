@@ -1,0 +1,19 @@
+{
+  "entityId": "high-drift",
+  "fill": {
+    "proposals": {
+      "description": {
+        "value": "Broken islands circle an empty point high above the Low Sky; nothing holds them but the habit of orbit.",
+        "note": null
+      },
+      "character": { "value": "Silent, cold, slowly turning", "note": "fits debris" },
+      "danger": { "value": { "min": 6, "max": 9 }, "note": null },
+      "air": { "value": "thin and still between gusts", "note": null },
+      "light": { "value": "hard white sun, black shadows", "note": null },
+      "hazard": { "value": "islands drift apart while you cross", "note": null }
+    }
+  },
+  "critique": {
+    "air,character,danger,description,hazard,light": { "notes": [] }
+  }
+}
