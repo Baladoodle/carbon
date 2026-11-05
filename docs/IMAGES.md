@@ -12,7 +12,7 @@ carbon. This document is the contract for the image work. `PRODUCT.md`,
 
 | Image | For | Size | Where it shows |
 |---|---|---|---|
-| **Concept** | any entity | 1024×1024 or 1536×1024 | the Bench header, the Codex thumbnail column, a faint background in its Climate panel (biomes) |
+| **Concept** | any entity | 1024×1024 or 1536×1024 | the Bench header, the Codex thumbnail column, and **filling its Climate panel** (biomes: the image covers the panel, with the name on a soft scrim) |
 | **Icon** | items, plus any kind the schema marks `icon: true` | 16×16, with a 4× preview | Column chips, the Codex, the Bench, export specs |
 
 An icon is made in one of two ways:
@@ -22,8 +22,16 @@ An icon is made in one of two ways:
 2. **Filtered from the entity's concept image:** the `item` filter only, with
    **no API call**.
 
-Both are deliberate. Every generation is a keypress or a confirmed batch, with
-the cost shown before it runs and the actual cost logged after.
+**Deliberate, always.** Nothing generates on its own: every image comes from a
+keypress, a button or a confirmed batch. The cost is shown before the call and
+logged after it.
+
+**Low quality by default**, for concept art and icons alike. Medium and high
+are a per-call choice, never a default.
+
+**The model defaults to `gpt-image-2.6-flare`** (Images 2.6; Genforge used
+2.5-flare). `gpt-image-2.6-sunburst` is selectable in settings and per call.
+Both are available on the API project used for development.
 
 ## 2. The ported Genforge pieces (`src/core/pixel/`)
 
@@ -93,10 +101,9 @@ interface ImageMeta {
   implementation using the official `openai` npm SDK.
   - Generate, and edit with references (an icon from a concept, as a
     reference).
-  - The model and quality are configurable. The default model is the one
-    Genforge uses (`gpt-image-2.5-flare`); verify it's current, and the
-    pricing, against OpenAI's documentation, and record the date in the
-    settings defaults. Icons default to `low` quality.
+  - The model and quality are configurable. The defaults are
+    `gpt-image-2.6-flare` and `low`. Verify the pricing against OpenAI's
+    documentation, and record the date in the settings defaults.
   - Use a transparent background for icons where the model supports it.
 - **The key** comes from the system keyring (service `carbon`, account
   `openai-api-key`), then `OPENAI_API_KEY`. It is never logged and never
@@ -134,8 +141,22 @@ direction's palette words.
 | **Batch** | Select entities in the Codex, or a Column lane or cell, and run "Generate icons (N)" or "Generate concepts (N)" from the palette. A dialog lists every prompt (each editable), the model and quality, the call count and the estimated total; nothing runs until you confirm. It runs with concurrency 2, shows progress, can be cancelled, and gives a receipt per item. Entities that already have one are skipped unless "replace" is ticked |
 | **Column** | Item chips show their icon (16×16, `image-rendering: pixelated`) before the name |
 | **Codex** | An image column: the icon, or a concept thumbnail |
-| **Climate** | A biome panel shows its concept image faintly behind its glass |
+| **Climate** | A biome panel with a concept image is filled by it (cover, cropped to the panel), with the name and signature on a soft scrim so the text stays readable. An empty panel shows a quiet generate affordance on hover or selection, and the panel's menu has **Generate concept** |
 | **Export** | Specs list each entity's icon and concept paths, and copy them into `exports/<spec>/images/` so Claude Code can move icons into Infinite's `assets/items/` |
+
+**In place, everywhere.** The image actions live where the entity is drawn:
+
+- the Climate panel: its menu, plus a button on hover or selection
+- the Column chip menu
+- the Codex row menu and bulk bar
+- the Bench `…` menu and image strip
+- the palette
+
+One key works on whatever is selected in any view: suggested `ctrl+g` for
+concept and `ctrl+shift+g` for icon. Check them against the duplicate-key test.
+
+Nothing sends a request until the prompt confirmation (`enter`). It shows the
+editable prompt, the model, the quality and the estimated cost.
 
 `VISUAL.md` applies:
 
