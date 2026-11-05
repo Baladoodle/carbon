@@ -361,7 +361,8 @@ const sameCellEntities = (a: readonly CellEntity[], b: readonly CellEntity[]): b
         x.name === y.name &&
         x.state === y.state &&
         x.inferred === y.inferred &&
-        x.group === y.group
+        x.group === y.group &&
+        x.icon === y.icon
       );
     }));
 

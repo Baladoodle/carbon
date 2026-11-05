@@ -26,6 +26,7 @@ export function ArtDirectionSection(): ReactNode {
   });
   // A kind just added, before its note has text (so its input shows and takes focus).
   const [adding, setAdding] = useState<EntityKind | null>(null);
+  const picked = useRef<EntityKind | null>(null);
   if (!art || !labels) return null;
 
   const save = async (p: {
@@ -67,7 +68,6 @@ export function ArtDirectionSection(): ReactNode {
                 setKind(k, v);
               }}
               aria-label={`${labels[k]} art note`}
-              autoFocus={adding === k}
               data-testid="taste-art-kind-input"
             />
             <IconButton
@@ -93,8 +93,23 @@ export function ArtDirectionSection(): ReactNode {
                 <IconPlus /> Kind
               </Button>
             }
-            items={rest.map((k) => ({ label: labels[k], onSelect: () => setAdding(k) }))}
-            onClosed={() => undefined}
+            items={rest.map((k) => ({
+              label: labels[k],
+              onSelect: () => {
+                picked.current = k;
+                setAdding(k);
+              },
+            }))}
+            // Focus the new note once the menu has let go of focus (its trap would take it back).
+            onClosed={() =>
+              requestAnimationFrame(() =>
+                document
+                  .querySelector<HTMLInputElement>(
+                    `[data-testid="taste-art-kind"][data-kind="${picked.current ?? ''}"] input`,
+                  )
+                  ?.focus(),
+              )
+            }
           />
         )}
       </div>

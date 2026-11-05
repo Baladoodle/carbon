@@ -997,34 +997,52 @@ function Inbox({
   const cells = [...(geo.inbox?.cells.values() ?? [])];
   return (
     <div className="column-inbox" data-testid="column-inbox" style={{ height: height + 1 }}>
-      <svg
-        width={geo.width}
-        height={height}
-        onPointerDown={(e) => {
-          const chip = (e.target as Element).closest('[data-id]');
-          const r = e.currentTarget.getBoundingClientRect();
-          const x = e.clientX - r.left;
-          const lane = laneAtX(geo, x);
-          onPick({ row: INBOX_ROW, lane, entity: chip?.getAttribute('data-id') ?? null });
+      <ContextMenu
+        itemsAt={(t) => {
+          const id = t.closest('[data-id]')?.getAttribute('data-id');
+          const w = currentWorld();
+          return id && w ? imageMenu(w, id) : null;
         }}
       >
-        <text x={8} y={18} className="column-inbox-label">
-          Inbox
-        </text>
-        <text x={8} y={32} className="column-band-span">
-          {count}
-        </text>
-        {geo.laneX.map((x) => (
-          <line key={x} x1={x + 0.5} y1={0} x2={x + 0.5} y2={height} className="column-lane-line" />
-        ))}
-        {rect && <CursorMark rect={{ ...rect, h: height }} />}
-        {geo.inbox?.bands && (
-          <Cell cell={geo.inbox.bands} cursorId={cursor.row === INBOX_ROW ? cursor.entity : null} />
-        )}
-        {cells.map((c) => (
-          <Cell key={c.key} cell={c} cursorId={cursor.row === INBOX_ROW ? cursor.entity : null} />
-        ))}
-      </svg>
+        <svg
+          width={geo.width}
+          height={height}
+          onPointerDown={(e) => {
+            const chip = (e.target as Element).closest('[data-id]');
+            const r = e.currentTarget.getBoundingClientRect();
+            const x = e.clientX - r.left;
+            const lane = laneAtX(geo, x);
+            onPick({ row: INBOX_ROW, lane, entity: chip?.getAttribute('data-id') ?? null });
+          }}
+        >
+          <text x={8} y={18} className="column-inbox-label">
+            Inbox
+          </text>
+          <text x={8} y={32} className="column-band-span">
+            {count}
+          </text>
+          {geo.laneX.map((x) => (
+            <line
+              key={x}
+              x1={x + 0.5}
+              y1={0}
+              x2={x + 0.5}
+              y2={height}
+              className="column-lane-line"
+            />
+          ))}
+          {rect && <CursorMark rect={{ ...rect, h: height }} />}
+          {geo.inbox?.bands && (
+            <Cell
+              cell={geo.inbox.bands}
+              cursorId={cursor.row === INBOX_ROW ? cursor.entity : null}
+            />
+          )}
+          {cells.map((c) => (
+            <Cell key={c.key} cell={c} cursorId={cursor.row === INBOX_ROW ? cursor.entity : null} />
+          ))}
+        </svg>
+      </ContextMenu>
     </div>
   );
 }

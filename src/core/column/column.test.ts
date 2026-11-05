@@ -46,7 +46,10 @@ import {
   cellKey,
   CELL_PAD,
   CHIP_H,
+  CHIP_ICON,
+  chipWidth,
   fitText,
+  iconOf,
   frameOf,
   INBOX_ROW,
   laneWidths,
@@ -313,6 +316,55 @@ const ce = (id: string, name = id, group = ''): CellEntity => ({
   state: 'idea',
   inferred: false,
   group,
+});
+
+describe('icons on chips (docs/IMAGES.md §6)', () => {
+  const ICON = '01JC0000000000000000000000';
+  const withIcon = (w: World, id: string): World => ({
+    ...w,
+    images: {
+      [id]: {
+        icon: ICON,
+        all: [
+          {
+            id: ICON,
+            entity: id,
+            kind: 'icon',
+            origin: { by: 'fake', prompt: 'p', size: '1024x1024' },
+            created: '2026-11-05T00:00:00.000Z',
+            hashes: { output: 'a'.repeat(64) },
+          },
+        ],
+      },
+    },
+  });
+
+  it('makes room for the icon before the name', () => {
+    expect(chipWidth('Lantern', measure, true)).toBe(chipWidth('Lantern', measure) + CHIP_ICON);
+    const l = layoutCell(
+      { x: 0, y: 0, w: 400, h: 60 },
+      [ce('a', 'Alpha'), { ...ce('b', 'Alpha'), icon: ICON }],
+      measure,
+    );
+    expect(l.glyphs[1]!.w - l.glyphs[0]!.w).toBe(CHIP_ICON);
+    expect(l.glyphs[1]!.icon).toBe(ICON);
+    expect(l.glyphs[0]!.icon).toBeUndefined();
+  });
+
+  it('a chosen icon re-lays out the cell, and the model equals a fresh build', () => {
+    const w = sampleWorld();
+    const before = columnModel(w);
+    const next = withIcon(w, 'spore-lantern');
+    expect(iconOf(next, 'spore-lantern')).toBe(ICON);
+    const m = columnModel(next, { world: w, model: before });
+    expect(m).toEqual(columnModel(next));
+    const entry = (mm: typeof m) =>
+      [...mm.index.cells.values()].flat().find((c) => c.id === 'spore-lantern');
+    expect(entry(before)?.icon).toBeUndefined();
+    expect(entry(m)?.icon).toBe(ICON);
+    // Taking the icon away again goes back to the plain chip.
+    expect(entry(columnModel(w, { world: next, model: m }))?.icon).toBeUndefined();
+  });
 });
 
 describe('layoutCell', () => {
