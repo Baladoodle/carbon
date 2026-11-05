@@ -27,7 +27,7 @@ import {
 } from '../ui';
 import { benchAi, commitField } from './controller';
 import { refTargets } from '@core/bench/relations';
-import { outsideStamp } from './outside';
+import { ConflictPrompt, useTypedDraft } from './draft';
 import { benchStore, fieldId, setBench, useBench } from './store';
 import { checkValue, formatValue, isTextual, parseNumber, parseText } from '@core/bench/value';
 
@@ -189,65 +189,6 @@ function Control(props: ControlProps): ReactNode {
   }
 }
 
-/** A draft that follows the stored value until you type, and commits on blur / enter. */
-function useDraft(stored: string): [string, (v: string) => void, () => boolean] {
-  const [draft, setDraft] = useState(stored);
-  const [base, setBase] = useState(stored);
-  if (stored !== base) {
-    // The stored value changed (an accept, an undo, an external edit): show it.
-    setBase(stored);
-    setDraft(stored);
-  }
-  return [draft, setDraft, () => draft !== stored];
-}
-
-/**
- * A draft that, unlike `useDraft`, doesn't give way to a change from outside
- * carbon while you're typing (docs/SYSTEM.md §4: conflicts with unsaved edits
- * ask which to keep). Changes carbon made itself (an accepted suggestion, an
- * undo) still replace it. `theirs` is the outside value waiting for a choice.
- */
-function useTypedDraft(
-  stored: string,
-  entityId: string,
-): {
-  draft: string;
-  setDraft: (v: string) => void;
-  dirty: () => boolean;
-  theirs: string | null;
-  choose: (keep: 'mine' | 'theirs') => void;
-  /** Call when typing starts: only outside changes from then on count. */
-  rebase: () => void;
-} {
-  const [draft, setDraft] = useState(stored);
-  const [base, setBase] = useState({ text: stored, stamp: outsideStamp(entityId) });
-  const [theirs, setTheirs] = useState<string | null>(null);
-  if (stored !== base.text) {
-    const stamp = outsideStamp(entityId);
-    const typing = draft !== base.text || theirs !== null;
-    setBase({ text: stored, stamp });
-    if (stamp !== base.stamp && typing) setTheirs(stored);
-    else {
-      setDraft(stored);
-      setTheirs(null);
-    }
-  }
-  return {
-    draft,
-    setDraft,
-    dirty: () => draft !== stored,
-    theirs,
-    choose: (keep) => {
-      setTheirs(null);
-      if (keep === 'theirs') setDraft(stored);
-    },
-    rebase: () => {
-      const stamp = outsideStamp(entityId);
-      if (stamp !== base.stamp) setBase({ text: base.text, stamp });
-    },
-  };
-}
-
 function TextControl({ entity, def, suggestion, onError, variant }: ControlProps): ReactNode {
   const stored = formatValue(def, fieldValue(entity, def.key));
   const { draft, setDraft, dirty, theirs, choose, rebase } = useTypedDraft(stored, entity.id);
@@ -274,26 +215,14 @@ function TextControl({ entity, def, suggestion, onError, variant }: ControlProps
   };
   const conflict =
     theirs === null ? null : (
-      <div className="bench-conflict" role="alert" data-testid="field-conflict">
-        <span className="bench-conflict-text">
-          Changed outside carbon: <q>{theirs === '' ? '(empty)' : theirs}</q>
-        </span>
-        <span className="bench-conflict-actions">
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => {
-              choose('mine');
-              void commit(true);
-            }}
-          >
-            Keep mine
-          </Button>
-          <Button size="sm" variant="ghost" onClick={() => choose('theirs')}>
-            Use theirs
-          </Button>
-        </span>
-      </div>
+      <ConflictPrompt
+        theirs={theirs}
+        onKeepMine={() => {
+          choose('mine');
+          void commit(true);
+        }}
+        onUseTheirs={() => choose('theirs')}
+      />
     );
   const common = {
     ref: el,
@@ -422,9 +351,13 @@ function RefControl({ world, entity, def, onError }: ControlProps): ReactNode {
   );
 }
 
-/** Number pairs (range, climate): each input commits when the pair is valid. */
+/**
+ * Number pairs (range, climate): each input commits when the pair is valid. An outside
+ * edit that lands in an end you're typing in waits for Keep mine / Use theirs.
+ */
 function NumberPair({
   id,
+  entityId,
   labels,
   values,
   onCommit,
@@ -433,6 +366,7 @@ function NumberPair({
   first,
 }: {
   id: string;
+  entityId: string;
   labels: [string, string];
   values: [number | undefined, number | undefined];
   onCommit: (a: number | null, b: number | null) => void;
@@ -442,15 +376,22 @@ function NumberPair({
 }): ReactNode {
   const fmt = (n: number | undefined): string =>
     n === undefined ? '' : n < 0 ? `−${-n}` : String(n);
-  const [a, setA, dirtyA] = useDraft(fmt(values[0]));
-  const [b, setB, dirtyB] = useDraft(fmt(values[1]));
-  const commit = (): void => {
-    if (!dirtyA() && !dirtyB()) return;
-    onCommit(parseNumber(a), parseNumber(b));
+  const a = useTypedDraft(fmt(values[0]), entityId);
+  const b = useTypedDraft(fmt(values[1]), entityId);
+  const waiting = a.theirs !== null || b.theirs !== null;
+  const commit = (force = false): void => {
+    if (waiting && !force) return;
+    if (!a.dirty() && !b.dirty()) return;
+    onCommit(parseNumber(a.draft), parseNumber(b.draft));
   };
   const blur = (): void => {
     onBlur();
     commit();
+  };
+  const focus = (): void => {
+    a.rebase();
+    b.rebase();
+    onFocus();
   };
   const key = (e: { key: string; preventDefault: () => void }): void => {
     if (e.key === 'Enter') {
@@ -459,28 +400,44 @@ function NumberPair({
     }
   };
   return (
-    <div className="bench-pair">
-      <Input
-        id={first ? id : undefined}
-        mono
-        aria-label={labels[0]}
-        value={a}
-        onChange={(e) => setA(e.target.value)}
-        onFocus={onFocus}
-        onBlur={blur}
-        onKeyDown={key}
-      />
-      <span className="t-3">…</span>
-      <Input
-        mono
-        aria-label={labels[1]}
-        value={b}
-        onChange={(e) => setB(e.target.value)}
-        onFocus={onFocus}
-        onBlur={blur}
-        onKeyDown={key}
-      />
-    </div>
+    <>
+      <div className="bench-pair">
+        <Input
+          id={first ? id : undefined}
+          mono
+          aria-label={labels[0]}
+          value={a.draft}
+          onChange={(e) => a.setDraft(e.target.value)}
+          onFocus={focus}
+          onBlur={blur}
+          onKeyDown={key}
+        />
+        <span className="t-3">…</span>
+        <Input
+          mono
+          aria-label={labels[1]}
+          value={b.draft}
+          onChange={(e) => b.setDraft(e.target.value)}
+          onFocus={focus}
+          onBlur={blur}
+          onKeyDown={key}
+        />
+      </div>
+      {waiting && (
+        <ConflictPrompt
+          theirs={`${fmt(values[0])} … ${fmt(values[1])}`}
+          onKeepMine={() => {
+            a.choose('mine');
+            b.choose('mine');
+            commit(true);
+          }}
+          onUseTheirs={() => {
+            a.choose('theirs');
+            b.choose('theirs');
+          }}
+        />
+      )}
+    </>
   );
 }
 
@@ -490,6 +447,7 @@ function RangeControl({ entity, def, onError }: ControlProps): ReactNode {
   return (
     <NumberPair
       id={`bench-${fieldId(entity.id, def.key)}`}
+      entityId={entity.id}
       first
       labels={[`${def.label} from`, `${def.label} to`]}
       values={[v?.min, v?.max]}
@@ -527,6 +485,7 @@ function ClimateControl({ entity, def, onError }: ControlProps): ReactNode {
           <span className="t-2 t-meta bench-climate-axis">{axis}</span>
           <NumberPair
             id={`bench-${fieldId(entity.id, def.key)}`}
+            entityId={entity.id}
             first={i === 0}
             labels={[`${axis} from`, `${axis} to`]}
             values={[v?.[axis]?.min, v?.[axis]?.max]}
@@ -565,6 +524,7 @@ function StepsControl({ world, entity, def, onError }: ControlProps): ReactNode 
       {steps.map((s, i) => (
         <StepRow
           key={i}
+          entityId={entity.id}
           index={i}
           step={s}
           world={world}
@@ -590,6 +550,7 @@ function StepsControl({ world, entity, def, onError }: ControlProps): ReactNode 
 }
 
 function StepRow({
+  entityId,
   index,
   step,
   world,
@@ -599,6 +560,7 @@ function StepRow({
   onChange,
   onRemove,
 }: {
+  entityId: string;
   index: number;
   step: Step;
   world: World;
@@ -608,9 +570,18 @@ function StepRow({
   onChange: (s: Step) => void;
   onRemove: () => void;
 }): ReactNode {
-  const [text, setText, dirty] = useDraft(step.text);
+  const {
+    draft: text,
+    setDraft: setText,
+    dirty,
+    theirs,
+    choose,
+    rebase,
+  } = useTypedDraft(step.text, entityId);
   const needs = step.needs ?? [];
-  const commit = (): void => {
+  const commit = (force = false): void => {
+    // With an outside change waiting, leaving the step decides nothing.
+    if (theirs !== null && !force) return;
     if (dirty()) onChange({ ...step, text: text.trim() === '' ? step.text : text.trim() });
   };
   return (
@@ -622,7 +593,8 @@ function StepRow({
             aria-label={`Step ${index + 1}`}
             value={text}
             onChange={(e) => setText(e.target.value)}
-            onBlur={commit}
+            onFocus={rebase}
+            onBlur={() => commit()}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 e.preventDefault();
@@ -638,6 +610,16 @@ function StepRow({
             onClick={onRemove}
           />
         </div>
+        {theirs !== null && (
+          <ConflictPrompt
+            theirs={theirs}
+            onKeepMine={() => {
+              choose('mine');
+              commit(true);
+            }}
+            onUseTheirs={() => choose('theirs')}
+          />
+        )}
         <div className="bench-needs">
           {needs.map((n) => (
             <EntityChip

@@ -26,6 +26,7 @@ import { finishEditing } from '../ai/triggers';
 import { entityConsequences } from '@core/numbers';
 import { useNumbers } from '../views/numbers/analysis';
 import { benchAi, commitAttribute, settled } from './controller';
+import { ConflictPrompt, useTypedDraft } from './draft';
 import { watchOutside } from './outside';
 import { FieldRow, focusSibling, useFocusRequest } from './fields';
 import { Relations } from './Relations';
@@ -603,10 +604,12 @@ function AttributeRow({
 }): ReactNode {
   const stored = entity.attributes[attrKey];
   const text = stored === undefined ? '' : stored < 0 ? `−${-stored}` : String(stored);
-  const [draft, setDraft] = useSynced(text);
+  const { draft, setDraft, theirs, choose, rebase } = useTypedDraft(text, entity.id);
   const [error, setError] = useState<string | null>(null);
   const ai = entity.ai_fields.includes(`attributes.${attrKey}`);
-  const commit = async (): Promise<void> => {
+  const commit = async (force = false): Promise<void> => {
+    // With an outside change waiting, leaving the field decides nothing.
+    if (theirs !== null && !force) return;
     if (draft === text) return setError(null);
     if (draft.trim() === '') return setError(await commitAttribute(entity.id, attrKey, null));
     const n = parseNumber(draft);
@@ -630,7 +633,10 @@ function AttributeRow({
           value={draft}
           invalid={error !== null}
           onChange={(e) => setDraft(e.target.value)}
-          onFocus={() => setBench({ field: null })}
+          onFocus={() => {
+            rebase();
+            setBench({ field: null });
+          }}
           onBlur={() => void commit()}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
@@ -642,20 +648,19 @@ function AttributeRow({
         />
         {unit && <span className="t-3 t-meta">{unit}</span>}
       </div>
+      {theirs !== null && (
+        <ConflictPrompt
+          theirs={theirs}
+          onKeepMine={() => {
+            choose('mine');
+            void commit(true);
+          }}
+          onUseTheirs={() => choose('theirs')}
+        />
+      )}
       {error && <div className="ui-field-error">{error}</div>}
     </div>
   );
-}
-
-/** Local state that resets when its source value changes (an undo, an AI accept, an external edit). */
-function useSynced<T>(source: T): [T, (v: T) => void] {
-  const [v, setV] = useState(source);
-  const [base, setBase] = useState(source);
-  if (!Object.is(base, source)) {
-    setBase(source);
-    setV(source);
-  }
-  return [v, setV];
 }
 
 async function remove(e: Entity): Promise<void> {

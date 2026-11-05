@@ -339,6 +339,127 @@ test.describe('the Bench', () => {
     await expect.poll(() => read(carbon, 'entities/creature/reef-ray.md')).toContain('Mine again.');
   });
 
+  test('range, climate, route and attribute drafts ask too, when an outside edit lands', async () => {
+    const { page } = carbon;
+    type Doc = Parameters<typeof entityToMarkdown>[0];
+    const editOutside = (rel: string, change: (e: Doc) => Doc): void => {
+      const file = path.join(carbon.worldDir, rel);
+      const r = entityFromMarkdown(readFileSync(file, 'utf8'));
+      if (!r.ok) throw new Error(r.error.message);
+      writeFileSync(file, entityToMarkdown(change(r.value)));
+    };
+    const ask = async (
+      input: Locator,
+      conflict: Locator,
+      mine: string,
+      outside: () => void,
+      theirs: RegExp,
+      keep: 'Keep mine' | 'Use theirs',
+    ): Promise<void> => {
+      await input.click();
+      await input.fill(mine);
+      outside();
+      await expect(conflict).toContainText(theirs);
+      await expect(input).toHaveValue(mine);
+      // Leaving the field decides nothing.
+      await input.press('Enter');
+      await expect(conflict).toBeVisible();
+      await conflict.getByRole('button', { name: keep }).click();
+      await expect(conflict).toHaveCount(0);
+    };
+
+    const open = async (name: string, id: string, timeout?: number): Promise<void> => {
+      await page.locator('body').press('Control+k');
+      await page.keyboard.type(name);
+      await page.keyboard.press('Enter');
+      await expect(bench(page)).toHaveAttribute('data-entity', id, { timeout });
+    };
+    // A range: a band's danger.
+    const band = 'entities/band/hollows.md';
+    await open('Hollows', 'hollows');
+    await ask(
+      field(page, 'danger').getByLabel('Danger to'),
+      field(page, 'danger').getByTestId('field-conflict'),
+      '9',
+      () =>
+        editOutside(band, (e) => ({ ...e, fields: { ...e.fields, danger: { min: 2, max: 7 } } })),
+      /2 … 7/,
+      'Keep mine',
+    );
+    await expect.poll(() => read(carbon, band)).toMatch(/danger:\s+min: 2\s+max: 9/);
+
+    // A climate: a biome's temperature.
+    const biome = 'entities/biome/ash-vents.md';
+    await open('Ash Vents', 'ash-vents');
+    const temp = field(page, 'climate').getByLabel('temperature from');
+    await ask(
+      temp,
+      field(page, 'climate').getByTestId('field-conflict'),
+      '0.7',
+      () =>
+        editOutside(biome, (e) => ({
+          ...e,
+          fields: {
+            ...e.fields,
+            climate: { temperature: { min: 0.6, max: 1 }, moisture: { min: 0, max: 0.25 } },
+          },
+        })),
+      /0\.6 … 1/,
+      'Use theirs',
+    );
+    await expect(temp).toHaveValue('0.6');
+    expect(read(carbon, biome)).toMatch(/temperature:\s+min: 0\.6/);
+
+    // A route step and an attribute: an item of its own that has both, written from outside
+    // (an item carbon just wrote would be inside the store's settle window, where an outside
+    // edit goes to the whole-file conflict dialog instead).
+    const item = 'entities/item/test-kite.md';
+    const anklet = entityFromMarkdown(read(carbon, 'entities/item/cloud-anklet.md'));
+    if (!anklet.ok) throw new Error(anklet.error.message);
+    writeFileSync(
+      path.join(carbon.worldDir, item),
+      entityToMarkdown({
+        ...anklet.value,
+        id: 'test-kite',
+        name: 'Test Kite',
+        relations: [],
+        fields: { subkind: 'tool', route: [{ text: 'Find a cloud' }] },
+        attributes: { weight: 3 },
+      }),
+    );
+    // The watcher picks the new file up a moment later.
+    await expect(async () => {
+      await page.keyboard.press('Escape');
+      await open('Test Kite', 'test-kite', 1_000);
+    }).toPass({ timeout: 15_000 });
+    await expect(field(page, 'route').getByLabel('Step 1', { exact: true })).toHaveValue(
+      'Find a cloud',
+    );
+    await ask(
+      field(page, 'route').getByLabel('Step 1', { exact: true }),
+      field(page, 'route').getByTestId('field-conflict'),
+      'Climb a cloud',
+      () =>
+        editOutside(item, (e) => ({
+          ...e,
+          fields: { ...e.fields, route: [{ text: 'Catch a cloud' }] },
+        })),
+      /Catch a cloud/,
+      'Keep mine',
+    );
+    await expect.poll(() => read(carbon, item)).toContain('Climb a cloud');
+    const weight = field(page, 'attributes.weight').locator('input');
+    await ask(
+      weight,
+      field(page, 'attributes.weight').getByTestId('field-conflict'),
+      '5',
+      () => editOutside(item, (e) => ({ ...e, attributes: { weight: 4 } })),
+      /4/,
+      'Keep mine',
+    );
+    await expect.poll(() => read(carbon, item)).toMatch(/weight: 5/);
+  });
+
   test('deleting an entity takes its critique notes with it', async () => {
     const { page } = carbon;
     const count = async (): Promise<number> =>
