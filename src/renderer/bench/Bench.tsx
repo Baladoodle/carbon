@@ -578,7 +578,7 @@ function useOptional(
     defs.map((d) => d.key),
     also,
   );
-  // Derived state, set during render (like useSynced below): no extra frame.
+  // Derived state, set during render: no extra frame.
   if (split.shown.some((k) => !sticky.includes(k)))
     setSticky([...new Set([...sticky, ...split.shown])]);
   const byKey = new Map(defs.map((d) => [d.key, d]));
