@@ -1,10 +1,24 @@
-export { filterImage, linearToByte, srgbToLinear, MAX_TARGET } from './filter';
+export { filterImage, MAX_TARGET } from './filter';
 export { PixelError } from './errors';
-export { PRESET_SETTINGS, resolveSettings } from './presets';
+export { PRESET_SETTINGS, UPSTREAM_REVISION } from './presets';
 export { decodePng, encodePng } from './png';
-export { iconPrompt, sheetPrompt, paletteWords } from './prompts';
+export {
+  iconPrompt,
+  sheetPrompt,
+  paletteWords,
+  colourPhrase,
+  TAIL as ICON_PROMPT_TAIL,
+} from './prompts';
 export type { IconSubject, IconWorld, IconArt, SheetPromptOptions } from './prompts';
-export { sheetLayout, drawGuide, cropSheet, MAX_SHEET_ITEMS } from './sheet';
+export {
+  sheetLayout,
+  drawGuide,
+  cropSheet,
+  MAX_SHEET_ITEMS,
+  GUIDE_CELL,
+  GUIDE_GUTTER,
+  GUIDE_NAMES,
+} from './sheet';
 export type {
   SheetLayout,
   SheetCell,
@@ -19,7 +33,6 @@ export type {
   RgbaImage,
   PixelPreset,
   PixelSettings,
-  ResolvedPixelSettings,
   FilterOptions,
   FilterReport,
   FilterResult,

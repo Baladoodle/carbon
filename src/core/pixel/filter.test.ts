@@ -1,230 +1,252 @@
+/**
+ * Properties of the ported filter. Pixel values themselves are pinned by
+ * parity.test.ts against the real Genforge; these hold for any input.
+ */
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
-import { filterImage, linearToByte, srgbToLinear } from './filter';
-import { medianCut, quantize } from './quantize';
-import { PRESET_SETTINGS, resolveSettings } from './presets';
+import { filterImage } from './filter';
+import { PRESET_SETTINGS, UPSTREAM_REVISION } from './presets';
 import { PIXEL_PRESETS } from './types';
-import type { PixelPreset, RgbaImage } from './types';
+import type { PixelPreset, PixelSettings, RgbaImage } from './types';
 
-const img = (width: number, height: number, f: (x: number, y: number) => number[]): RgbaImage => {
-  const data = new Uint8ClampedArray(width * height * 4);
-  for (let y = 0; y < height; y++)
-    for (let x = 0; x < width; x++) data.set(f(x, y), (y * width + x) * 4);
-  return { width, height, data };
-};
-
+/** Random sprites: blobs of colour on transparency, with soft and hard alpha. */
 const imageArb = fc
-  .record({ w: fc.integer({ min: 1, max: 40 }), h: fc.integer({ min: 1, max: 40 }) })
-  .chain(({ w, h }) =>
-    fc
-      .uint8Array({ minLength: w * h * 4, maxLength: w * h * 4 })
-      .map((bytes): RgbaImage => ({ width: w, height: h, data: new Uint8ClampedArray(bytes) })),
-  );
-const targetArb = fc.record({
-  w: fc.integer({ min: 1, max: 32 }),
-  h: fc.integer({ min: 1, max: 32 }),
-});
+  .record({
+    w: fc.integer({ min: 1, max: 48 }),
+    h: fc.integer({ min: 1, max: 48 }),
+    seed: fc.integer({ min: 0, max: 2 ** 31 - 1 }),
+    soft: fc.boolean(),
+  })
+  .map(({ w, h, seed, soft }): RgbaImage => {
+    let s = seed;
+    const rnd = (): number => (s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+    const data = new Uint8ClampedArray(w * h * 4);
+    const blobs = Array.from({ length: 1 + Math.floor(rnd() * 4) }, () => ({
+      x: rnd() * w,
+      y: rnd() * h,
+      r: 1 + rnd() * Math.max(w, h) * 0.5,
+      c: [rnd() * 255, rnd() * 255, rnd() * 255],
+    }));
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        for (const b of blobs) {
+          const d = Math.hypot(x - b.x, y - b.y) / b.r;
+          if (d < 1) data.set([...b.c, soft ? 255 * (1 - d) : 255], (y * w + x) * 4);
+        }
+      }
+    }
+    return { width: w, height: h, data };
+  });
+const sizeArb = fc.integer({ min: 1, max: 32 });
 const presetArb = fc.constantFrom(...PIXEL_PRESETS);
+const target = (preset: PixelPreset, w: number, h: number): { w: number; h: number } =>
+  preset === 'item' ? { w, h: w } : { w, h };
 
 describe('filterImage properties', () => {
-  it('is deterministic, exact-sized, in range, and NaN-free', () => {
+  it('is deterministic, exact-sized, in range, and leaves its input alone', () => {
     fc.assert(
-      fc.property(imageArb, targetArb, presetArb, (src, target, preset) => {
-        const a = filterImage(src, { target, preset });
-        const b = filterImage(src, { target, preset });
-        expect(a.image.width).toBe(target.w);
-        expect(a.image.height).toBe(target.h);
-        expect(a.image.data.length).toBe(target.w * target.h * 4);
-        expect(a.image.data).toEqual(b.image.data);
-        for (const v of a.image.data) expect(Number.isInteger(v) && v >= 0 && v <= 255).toBe(true);
-        expect(Number.isFinite(a.report.colors)).toBe(true);
-      }),
-      { numRuns: 150 },
-    );
-  });
-
-  it('does not mutate its input', () => {
-    fc.assert(
-      fc.property(imageArb, presetArb, (src, preset) => {
+      fc.property(imageArb, sizeArb, sizeArb, presetArb, (src, w, h, preset) => {
         const before = src.data.slice();
-        filterImage(src, { target: { w: 7, h: 5 }, preset });
+        const t = target(preset, w, h);
+        const a = filterImage(src, { target: t, preset });
+        const b = filterImage(src, { target: t, preset });
+        expect([a.image.width, a.image.height, a.image.data.length]).toEqual([
+          t.w,
+          t.h,
+          t.w * t.h * 4,
+        ]);
+        expect(a.image.data).toEqual(b.image.data);
+        expect(a.report).toEqual(b.report);
+        for (const v of a.image.data) expect(Number.isInteger(v) && v >= 0 && v <= 255).toBe(true);
         expect(src.data).toEqual(before);
       }),
-      { numRuns: 50 },
+      { numRuns: 120 },
     );
   });
 
-  it('cuts alpha to 0 or 255 for presets with a threshold, and texture is opaque', () => {
+  it('gives binary alpha and zero colour on transparent pixels for item, sprite and texture', () => {
     fc.assert(
-      fc.property(imageArb, targetArb, presetArb, (src, target, preset) => {
-        const { image, report } = filterImage(src, { target, preset });
-        for (let p = 3; p < image.data.length; p += 4) {
-          if (report.settings.alphaThreshold !== null) expect([0, 255]).toContain(image.data[p]);
-          if (report.settings.tileable) expect(image.data[p]).toBe(255);
-        }
-      }),
+      fc.property(
+        imageArb,
+        sizeArb,
+        sizeArb,
+        fc.constantFrom<PixelPreset>('item', 'sprite', 'texture'),
+        (src, w, h, preset) => {
+          const d = filterImage(src, { target: target(preset, w, h), preset }).image.data;
+          for (let p = 0; p < d.length; p += 4) {
+            expect([0, 255]).toContain(d[p + 3]);
+            if (d[p + 3] === 0) expect([d[p], d[p + 1], d[p + 2]]).toEqual([0, 0, 0]);
+          }
+        },
+      ),
       { numRuns: 100 },
     );
   });
 
-  it('respects the palette size', () => {
+  it('keeps texture within its 16-colour palette (no outline stage adds shades)', () => {
     fc.assert(
-      fc.property(imageArb, targetArb, presetArb, (src, target, preset) => {
-        const { report } = filterImage(src, { target, preset });
-        if (report.settings.paletteSize !== null) {
-          expect(report.colors).toBeLessThanOrEqual(report.settings.paletteSize);
-        }
+      fc.property(imageArb, sizeArb, sizeArb, (src, w, h) => {
+        expect(
+          filterImage(src, { target: { w, h }, preset: 'texture' }).report.colors,
+        ).toBeLessThanOrEqual(16);
       }),
-      { numRuns: 100 },
+      { numRuns: 60 },
     );
   });
 
-  it('is idempotent at the same size for presets without a rim', () => {
-    const presets = PIXEL_PRESETS.filter((p) => PRESET_SETTINGS[p].rim === 0);
-    expect(presets).toEqual(['sprite', 'texture', 'none']);
+  it('is idempotent for none, the only preset Genforge itself is idempotent for', () => {
+    // Measured on Genforge: none 0/138 differ on a second pass; item 136, sprite 99, texture 40.
     fc.assert(
-      fc.property(imageArb, targetArb, fc.constantFrom(...presets), (src, target, preset) => {
-        const once = filterImage(src, { target, preset }).image;
-        const twice = filterImage(once, { target, preset }).image;
-        expect(twice.data).toEqual(once.data);
+      fc.property(imageArb, sizeArb, sizeArb, (src, w, h) => {
+        const once = filterImage(src, { target: { w, h }, preset: 'none' }).image;
+        expect(filterImage(once, { target: { w, h }, preset: 'none' }).image.data).toEqual(
+          once.data,
+        );
       }),
-      { numRuns: 100 },
+      { numRuns: 60 },
     );
   });
 
-  it('gives transparent pixels canonical zero colour', () => {
+  it('snaps every opaque pixel onto an explicit palette, outline shades included', () => {
+    const palette = ['#101820', '#c04030', '#f0d080', '#30a050'];
+    const allowed = new Set(palette.map((c) => parseInt(c.slice(1), 16)));
     fc.assert(
-      fc.property(imageArb, targetArb, presetArb, (src, target, preset) => {
-        const d = filterImage(src, { target, preset }).image.data;
-        for (let p = 0; p < d.length; p += 4) {
-          if (d[p + 3] === 0) expect([d[p], d[p + 1], d[p + 2]]).toEqual([0, 0, 0]);
-        }
-      }),
-      { numRuns: 50 },
+      fc.property(
+        imageArb,
+        fc.constantFrom<PixelPreset>('item', 'sprite', 'texture'),
+        (src, preset) => {
+          const settings = {
+            ...PRESET_SETTINGS[preset],
+            colors: { count: 16, palette },
+          } as PixelSettings;
+          const d = filterImage(src, { target: { w: 16, h: 16 }, preset, settings }).image.data;
+          for (let p = 0; p < d.length; p += 4) {
+            if (d[p + 3])
+              expect(
+                allowed.has(((d[p] ?? 0) << 16) | ((d[p + 1] ?? 0) << 8) | (d[p + 2] ?? 0)),
+              ).toBe(true);
+          }
+        },
+      ),
+      { numRuns: 40 },
     );
   });
 });
 
-describe('filterImage stages', () => {
-  it('none at the same size is the identity on opaque images', () => {
-    const src = img(5, 3, (x, y) => [x * 40, y * 80, 7, 255]);
-    expect(filterImage(src, { target: { w: 5, h: 3 }, preset: 'none' }).image.data).toEqual(
-      src.data,
-    );
-  });
+describe('filterImage contract', () => {
+  const src: RgbaImage = { width: 4, height: 4, data: new Uint8ClampedArray(64).fill(255) };
 
-  it('averages in linear light when asked', () => {
-    const src = img(2, 1, (x) => (x === 0 ? [0, 0, 0, 255] : [255, 255, 255, 255]));
-    const gamma = filterImage(src, { target: { w: 1, h: 1 }, preset: 'none' }).image.data;
-    const linear = filterImage(src, {
-      target: { w: 1, h: 1 },
-      preset: 'none',
-      settings: { linearLight: true },
-    }).image.data;
-    expect(gamma[0]).toBe(128);
-    expect(linear[0]).toBe(188); // sRGB(0.5) = 187.5 → 188
-  });
-
-  it('halo fix keeps transparent black out of edge colour', () => {
-    const src = img(2, 1, (x) => (x === 0 ? [0, 0, 0, 0] : [200, 100, 50, 255]));
-    const on = filterImage(src, {
-      target: { w: 1, h: 1 },
-      preset: 'none',
-      settings: { haloFix: true },
-    });
-    const off = filterImage(src, { target: { w: 1, h: 1 }, preset: 'none' });
-    expect([...on.image.data]).toEqual([200, 100, 50, 128]);
-    expect(off.image.data[0]).toBe(100);
-  });
-
-  it('uses exact fractional area weights', () => {
-    const src = img(3, 1, (x) => [x === 1 ? 255 : 0, 0, 0, 255]);
-    const d = filterImage(src, { target: { w: 2, h: 1 }, preset: 'none' }).image.data;
-    // each output covers 1.5 source px: [0, half of 255] → 255 * 0.5/1.5 = 85
-    expect([d[0], d[4]]).toEqual([85, 85]);
-  });
-
-  it('item darkens the outer rim and keeps the interior', () => {
-    const src = img(5, 5, () => [200, 200, 200, 255]);
-    const d = filterImage(src, { target: { w: 5, h: 5 }, preset: 'item' }).image.data;
-    expect(d[0]).toBe(150); // edge pixel, 200 * 0.75
-    expect(d[(2 * 5 + 2) * 4]).toBe(200); // centre
-  });
-
-  it('reports what it did', () => {
-    const src = img(4, 4, (x) => [x * 60, 0, 0, x < 2 ? 0 : 255]);
+  it('reports the preset, the settings that ran and the upstream revision', () => {
     const { report } = filterImage(src, { target: { w: 2, h: 2 }, preset: 'sprite' });
-    expect(report).toMatchObject({
+    expect(report).toEqual({
       preset: 'sprite',
+      settings: PRESET_SETTINGS.sprite,
       source: { w: 4, h: 4 },
       target: { w: 2, h: 2 },
-      opaquePixels: 2,
-      colors: 1,
-      provisional: true,
-      upstream: null,
+      colors: report.colors,
+      opaquePixels: report.opaquePixels,
+      upstream: UPSTREAM_REVISION,
+    });
+    expect(filterImage(src, { target: { w: 2, h: 2 }, preset: 'none' }).report.settings).toBeNull();
+  });
+
+  it('uses Genforge presets verbatim (genforge/plans.py)', () => {
+    expect(PRESET_SETTINGS).toEqual({
+      item: { downscale: 'item', colors: { count: 16 }, hairlines: true },
+      sprite: {
+        downscale: 'edge_preserving',
+        colors: { count: 16, pick: 'variance' },
+        outline: 'rim',
+      },
+      texture: { downscale: 'area', colors: { count: 16, pick: 'variance' }, outline: 'none' },
+      none: null,
     });
   });
 
-  it('rejects bad input', () => {
-    const src = img(2, 2, () => [0, 0, 0, 255]);
-    expect(() => filterImage(src, { target: { w: 0, h: 4 }, preset: 'item' })).toThrow(/target/);
-    expect(() => filterImage(src, { target: { w: 1.5, h: 4 }, preset: 'item' })).toThrow(/target/);
+  it('none at the same size is a copy, and upscales by nearest neighbour', () => {
+    const img: RgbaImage = {
+      width: 2,
+      height: 1,
+      data: Uint8ClampedArray.from([1, 2, 3, 4, 5, 6, 7, 8]),
+    };
+    expect([...filterImage(img, { target: { w: 2, h: 1 }, preset: 'none' }).image.data]).toEqual([
+      1, 2, 3, 4, 5, 6, 7, 8,
+    ]);
+    expect([...filterImage(img, { target: { w: 4, h: 1 }, preset: 'none' }).image.data]).toEqual([
+      1, 2, 3, 4, 1, 2, 3, 4, 5, 6, 7, 8, 5, 6, 7, 8,
+    ]);
+  });
+
+  it('runs the other staged modes: hard and inner outlines, nearest, cleanup, a threshold', () => {
+    const blob: RgbaImage = {
+      width: 8,
+      height: 8,
+      data: Uint8ClampedArray.from({ length: 256 }, (_, i) =>
+        i % 4 === 3 ? (i % 12 < 6 ? 255 : 0) : (i * 37) & 255,
+      ),
+    };
+    for (const settings of [
+      { downscale: 'area', outline: { mode: 'hard', color: '#ff0000' } },
+      { downscale: 'area', outline: 'hard' },
+      { downscale: 'nearest', outline: { mode: 'inner', darken: 0.5 }, cleanup: { stray: true } },
+      { downscale: 'edge_preserving', colors: 8, cleanup: { min_cluster: 3 }, alpha: 0.25 },
+      { downscale: 'area', colors: { count: 6, pick: 'range' }, outline: 'rim' },
+    ] as PixelSettings[]) {
+      const { image } = filterImage(blob, { target: { w: 6, h: 6 }, preset: 'texture', settings });
+      expect(image.data.length).toBe(144);
+    }
+    const hard = filterImage(blob, {
+      target: { w: 6, h: 6 },
+      preset: 'texture',
+      settings: { downscale: 'area', outline: { mode: 'hard', color: '#ff0000' } },
+    }).image.data;
+    expect([...hard.slice(0, 4)]).toEqual([255, 0, 0, 255]);
+  });
+
+  it('handles an empty (fully transparent) source in every preset', () => {
+    const empty: RgbaImage = { width: 8, height: 8, data: new Uint8ClampedArray(256) };
+    for (const preset of PIXEL_PRESETS) {
+      const { image, report } = filterImage(empty, { target: { w: 4, h: 4 }, preset });
+      expect(image.data.every((v) => v === 0)).toBe(true);
+      expect(report.opaquePixels).toBe(0);
+    }
+  });
+
+  it('rejects bad input and settings that are not ported', () => {
+    expect(() => filterImage(src, { target: { w: 0, h: 4 }, preset: 'sprite' })).toThrow(/target/);
+    expect(() => filterImage(src, { target: { w: 1.5, h: 4 }, preset: 'sprite' })).toThrow(
+      /target/,
+    );
+    expect(() => filterImage(src, { target: { w: 4, h: 2 }, preset: 'item' })).toThrow(/square/);
     expect(() =>
       filterImage(
         { ...src, data: new Uint8ClampedArray(3) },
-        { target: { w: 1, h: 1 }, preset: 'item' },
+        { target: { w: 1, h: 1 }, preset: 'none' },
       ),
     ).toThrow(/bytes/);
     expect(() =>
       filterImage(
         { width: 0, height: 1, data: new Uint8ClampedArray(0) },
-        { target: { w: 1, h: 1 }, preset: 'item' },
+        { target: { w: 1, h: 1 }, preset: 'none' },
       ),
     ).toThrow(/source size/);
     expect(() =>
       filterImage(src, { target: { w: 1, h: 1 }, preset: 'bogus' as PixelPreset }),
     ).toThrow(/preset/);
-    expect(() => resolveSettings('item', { alphaThreshold: 2 })).toThrow(/alphaThreshold/);
-    expect(() => resolveSettings('item', { paletteSize: 0 })).toThrow(/paletteSize/);
-    expect(() => resolveSettings('item', { rim: -1 })).toThrow(/rim/);
-  });
-
-  it('ignores undefined overrides', () => {
-    expect(resolveSettings('item', { rim: undefined })).toEqual(PRESET_SETTINGS.item);
-  });
-});
-
-describe('colour helpers', () => {
-  it('sRGB round-trips every byte', () => {
-    for (let i = 0; i < 256; i++) expect(linearToByte(srgbToLinear(i))).toBe(i);
-    expect(linearToByte(-1)).toBe(0);
-    expect(linearToByte(2)).toBe(255);
-  });
-});
-
-describe('quantize', () => {
-  it('leaves images with few colours alone and caps many', () => {
-    const d = new Uint8ClampedArray(64 * 4);
-    for (let i = 0; i < 64; i++) d.set([i * 4, 255 - i * 4, (i * 37) & 255, 255], i * 4);
-    const copy = d.slice();
-    quantize(copy, 64);
-    expect(copy).toEqual(d);
-    quantize(copy, 5);
-    const seen = new Set<string>();
-    for (let p = 0; p < copy.length; p += 4) seen.add(`${copy[p]},${copy[p + 1]},${copy[p + 2]}`);
-    expect(seen.size).toBeLessThanOrEqual(5);
-  });
-
-  it('stops splitting when boxes are single colours', () => {
-    expect(
-      medianCut(
-        new Map([
-          [0x000000, 1],
-          [0xffffff, 1],
-          [0x808080, 1],
-        ]),
-        2,
-      ),
-    ).toHaveLength(2);
+    const bad =
+      (settings: unknown): (() => unknown) =>
+      () =>
+        filterImage(src, {
+          target: { w: 2, h: 2 },
+          preset: 'sprite',
+          settings: settings as PixelSettings,
+        });
+    expect(bad({ dither: 'ordered' })).toThrow(/dither/);
+    expect(bad({ before: { blur: 1 } })).toThrow(/before/);
+    expect(bad({ outline: 'outer' })).toThrow(/outer/);
+    expect(bad({ downscale: 'median' })).toThrow(/median/);
+    expect(bad({ cleanup: { symmetry: true } })).toThrow(/symmetry/);
+    expect(bad({ alpha: 'smooth' })).toThrow(/smooth/);
+    expect(bad({ colors: { palette: ['red'] } })).toThrow(/#rrggbb/);
   });
 });

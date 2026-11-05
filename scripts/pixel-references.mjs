@@ -3,15 +3,19 @@
 //
 // Usage:
 //   node scripts/pixel-references.mjs --genforge <path/to/tools/genforge> [--python <bin>]
-//        [--presets item,sprite,texture,none] [--targets 16x16,32x32] [--cmd '<template>']
+//        [--revision <sha>] [--presets item,sprite,texture,none] [--targets 16x16,...] [--cmd '<template>']
 //
 // The command template's placeholders are {python} {genforge} {src} {out} {preset} {w} {h}.
-// The default below follows docs/IMAGES.md ("python tools/genforge filter … --preset <p>");
-// its size and output flags are UNVERIFIED (Genforge's source was not readable when this was
-// written; see docs/build-notes/pixel.md). Check `genforge filter --help` and pass --cmd if
-// they differ. Nothing here calls an image provider: filtering is local.
+// The default is Genforge's own CLI (`genforge filter SRC --target WxH --preset P --out OUT`,
+// genforge/cli.py). Nothing here calls an image provider: filtering is local. Genforge writes a
+// JSON receipt beside each output; it is moved into manifest.json so the reference tree holds
+// only PNGs.
+//
+// Genforge: `--genforge upstream/genforge` (committed copy) with a venv made by
+//   python3 -m venv <venv> && <venv>/bin/pip install ./upstream/genforge
+// and `--python <venv>/bin/python`.
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, readdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
 
 const args = Object.fromEntries(
@@ -31,27 +35,39 @@ if (!args.genforge) {
 const genforge = resolve(args.genforge);
 const python = args.python ?? join(genforge, '..', '..', '.venv', 'bin', 'python');
 const presets = (args.presets ?? 'item,sprite,texture,none').split(',');
-const targets = (args.targets ?? '16x16,32x32').split(',').map((t) => t.split('x').map(Number));
+// item needs a square target (genforge/cli.py); the others also get non-square and odd sizes.
+const DEFAULT_TARGETS = {
+  item: '16x16,24x24,32x32',
+  sprite: '16x16,32x32,24x16,13x21',
+  texture: '16x16,32x32,24x16,13x21',
+  none: '16x16,32x32,24x16,13x21',
+};
+const targetsFor = (preset) =>
+  (args.targets ?? DEFAULT_TARGETS[preset] ?? '16x16,32x32')
+    .split(',')
+    .map((t) => t.split('x').map(Number));
 const template =
-  args.cmd ?? '{python} -m genforge filter {src} --preset {preset} --size {w}x{h} --out {out}';
+  args.cmd ??
+  '{python} -m genforge filter {src} --target {w}x{h} --preset {preset} --out {out} --replace';
 
 const root = resolve('fixtures/pixel');
 const sources = readdirSync(join(root, 'sources'))
   .filter((f) => f.endsWith('.png'))
   .sort();
 
-let revision = 'unknown';
-try {
-  revision = execFileSync('git', ['-C', genforge, 'rev-parse', 'HEAD'], {
-    encoding: 'utf8',
-  }).trim();
-} catch {
-  /* not a git checkout */
-}
+let revision = args.revision ?? 'unknown';
+if (!args.revision)
+  try {
+    revision = execFileSync('git', ['-C', genforge, 'rev-parse', 'HEAD'], {
+      encoding: 'utf8',
+    }).trim();
+  } catch {
+    /* not a git checkout */
+  }
 
 const made = [];
 for (const preset of presets) {
-  for (const [w, h] of targets) {
+  for (const [w, h] of targetsFor(preset)) {
     const dir = join(root, 'reference', preset, `${w}x${h}`);
     mkdirSync(dir, { recursive: true });
     for (const file of sources) {
@@ -73,12 +89,23 @@ for (const preset of presets) {
         cwd: genforge,
         stdio: ['ignore', 'ignore', 'inherit'],
       });
-      made.push(`${preset}/${w}x${h}/${basename(file)}`);
+      const receipt = out.replace(/\.png$/, '.json');
+      const meta = JSON.parse(readFileSync(receipt, 'utf8'));
+      rmSync(receipt);
+      made.push({ path: `${preset}/${w}x${h}/${basename(file)}`, output_hash: meta.output_hash });
     }
   }
 }
 writeFileSync(
   join(root, 'reference', 'manifest.json'),
-  JSON.stringify({ genforge: { revision }, command: template, references: made }, null, 2) + '\n',
+  JSON.stringify(
+    {
+      genforge: { revision, path: args.genforge },
+      command: template.replace(python, '{python}'),
+      references: made,
+    },
+    null,
+    2,
+  ) + '\n',
 );
 console.log(`wrote ${made.length} references (genforge ${revision})`);

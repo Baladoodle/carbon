@@ -74,42 +74,41 @@ export function sheetLayout(
   return { canvas: { ...canvas }, cols, rows, gutter, cells };
 }
 
+/**
+ * The guide follows Genforge's tile drafts (genforge/walls/draft.py, prompts.py):
+ * flat colours on an invisible grid, no drawn lines, every colour named in the
+ * prompt's words. Cells are MID-GREY (Genforge's GROUND, 140) squares on a DARK
+ * GREY (its FACE, 78) gutter; `sheetPrompt` names them the same way.
+ */
+export const GUIDE_CELL: readonly [number, number, number] = [140, 140, 140];
+export const GUIDE_GUTTER: readonly [number, number, number] = [78, 78, 78];
+export const GUIDE_NAMES = { cell: 'MID-GREY', gutter: 'DARK GREY' } as const;
+
 export interface GuideOptions {
-  background?: readonly [number, number, number];
-  line?: readonly [number, number, number];
+  cell?: readonly [number, number, number];
+  gutter?: readonly [number, number, number];
 }
 
-/** The guide image: a flat background with faint 1-px boxes around each cell. */
+/** The guide image at `canvas` size (the layout's by default): flat cells on a flat gutter. */
 export function drawGuide(
   layout: SheetLayout,
   canvas: { w: number; h: number } = layout.canvas,
   opts: GuideOptions = {},
 ): RgbaImage {
-  const [br, bg, bb] = opts.background ?? [255, 255, 255];
-  const [lr, lg, lb] = opts.line ?? [220, 220, 220];
+  const [gr, gg, gb] = opts.gutter ?? GUIDE_GUTTER;
+  const [cr, cg, cb] = opts.cell ?? GUIDE_CELL;
   const { w: W, h: H } = canvas;
   const sx = W / layout.canvas.w;
   const sy = H / layout.canvas.h;
   const data = new Uint8ClampedArray(W * H * 4);
-  for (let p = 0; p < data.length; p += 4) data.set([br, bg, bb, 255], p);
-  const put = (x: number, y: number): void => {
-    if (x >= 0 && y >= 0 && x < W && y < H) data.set([lr, lg, lb, 255], (y * W + x) * 4);
-  };
+  for (let p = 0; p < data.length; p += 4) data.set([gr, gg, gb, 255], p);
   for (const cell of layout.cells) {
-    const c = {
-      x: Math.round(cell.x * sx),
-      y: Math.round(cell.y * sy),
-      w: Math.round(cell.w * sx),
-      h: Math.round(cell.h * sy),
-    };
-    for (let x = c.x - 1; x <= c.x + c.w; x++) {
-      put(x, c.y - 1);
-      put(x, c.y + c.h);
-    }
-    for (let y = c.y - 1; y <= c.y + c.h; y++) {
-      put(c.x - 1, y);
-      put(c.x + c.w, y);
-    }
+    const x0 = Math.round(cell.x * sx);
+    const y0 = Math.round(cell.y * sy);
+    const x1 = Math.min(W, Math.round((cell.x + cell.w) * sx));
+    const y1 = Math.min(H, Math.round((cell.y + cell.h) * sy));
+    for (let y = y0; y < y1; y++)
+      for (let x = x0; x < x1; x++) data.set([cr, cg, cb, 255], (y * W + x) * 4);
   }
   return { width: W, height: H, data };
 }

@@ -1,19 +1,77 @@
 {
-  "upstream": "Baladoodle/infinite:tools/genforge",
-  "status": "not-ported",
-  "statusReason": "The Infinite repository is private and could not be attached to this session (add_repo was refused; an unauthenticated clone needs credentials). No Genforge source was read, so nothing in src/core/pixel is derived from it yet.",
-  "revision": null,
+  "upstream": "https://github.com/Baladoodle/infinite (tools/genforge)",
+  "revision": "52e6547bac6e4022abcc21e0820359ea3966a649",
+  "copy": "upstream/genforge/ in this repository (without prototypes/), see upstream/README.md",
+  "status": "ported",
+  "parity": "exact: 135 committed references (fixtures/pixel/reference, all four presets, square/non-square/odd targets) and 1,520 fuzz cases (scripts/pixel-fuzz.py, three seeds), 0 differing pixels",
+  "runtime": {
+    "python": "3.13.18",
+    "pillow": "12.3.0",
+    "numpy": "2.5.4",
+    "opencv-python-headless": "4.14.0.94"
+  },
   "files": [
-    { "path": "genforge/filters/__init__.py", "sha256": null },
-    { "path": "genforge/filters/items.py", "sha256": null },
-    { "path": "genforge/filters/topology.py", "sha256": null },
-    { "path": "prompts/items/*.txt", "sha256": null },
-    { "path": "docs/filters.md", "sha256": null }
+    {
+      "source": "genforge/filters/__init__.py",
+      "sha256": "2c0c646e91692e6ab049e426f5520040e19066065be1ccf1411f1e20c9517ea2",
+      "ported_to": ["src/core/pixel/filter.ts"],
+      "scope": "render, run/_prepare/_finish, _downscale (edge_preserving, area, nearest, item), _palette, _map (no dither), _outline (none, inner, hard, rim), _cleanup, _snap, _alpha_threshold"
+    },
+    {
+      "source": "genforge/filters/items.py",
+      "sha256": "e9aa6a6dc0a2bc1ea823571e628be0711710854e82fd9d828650054992f801ee",
+      "ported_to": ["src/core/pixel/items.ts"],
+      "scope": "all of render_item/convert_item: halo_attenuate, tight_alpha_crop, fit_material (_premultiplied_resize), quantize_material (_median_cut_palette), apply_local_inner_rim (inward anchors, border variant, rim median cut, run smoothing), hairlines; not the unused _tiny_border_color/_tiny_outline_pixels/_exterior helpers"
+    },
+    {
+      "source": "genforge/filters/topology.py",
+      "sha256": "128a44c7230110196e1e91e303c15eb0ba74f6017e53f652a578934bcaaefbb4",
+      "ported_to": ["src/core/pixel/topology.ts"],
+      "scope": "_label_components, _negative_space, _pool_source (no symmetry branch), _promote_edges, _has_component_path, _component_path_evidence, _preserve_component_paths, _grammar_mask, _contour, _apply_material_rim, _hue_family, allocate_adaptive_palette; not slice_sheet_components, apply_inner_border, _apply_selective_vibrance, _apply_pixel_palette_style"
+    },
+    {
+      "source": "genforge/imaging.py",
+      "sha256": "6db993fa8656c680452bb9e0efd19d34623d5eeb91d2291e78aa95c0e0b28bc6",
+      "ported_to": ["src/core/pixel/filter.ts"],
+      "scope": "resample (preset none)"
+    },
+    {
+      "source": "genforge/plans.py",
+      "sha256": "70a1d8c5364f0f030c8c239dc313cefd36876a20d9a2d8d2b6778db39953f307",
+      "ported_to": ["src/core/pixel/presets.ts"],
+      "scope": "PRESETS, verbatim"
+    },
+    {
+      "source": "docs/filters.md",
+      "sha256": "8eff18c9e70c58e37ff04d42ac342d7e9f38bbf98c67409f4b9a1e09f3463c54",
+      "ported_to": [],
+      "scope": "reference"
+    },
+    {
+      "source": "prompts/items/*.txt (42 files; sha256 of their sorted sha256sum listing)",
+      "sha256": "39d4c59698368a15674dd43177ea1c24f179c84c18412c01dd4aeeaae7eb1796",
+      "ported_to": ["src/core/pixel/prompts.ts"],
+      "scope": "the item house style: opening, presentation clauses, verbatim closing conventions (prompts.test.ts reads the files)"
+    },
+    {
+      "source": "genforge/walls/draft.py, genforge/walls/prompts.py",
+      "sha256": null,
+      "ported_to": ["src/core/pixel/sheet.ts", "src/core/pixel/prompts.ts"],
+      "scope": "approach only: flat named guide colours (GROUND 140, FACE 78), no grid lines, 'Return the same framing at the same size'"
+    }
   ],
-  "portNotes": [
-    "filter.ts, presets.ts and quantize.ts are carbon's provisional pipeline (area-average resample, optional linear light, alpha-weighted halo fix, alpha threshold, 4-neighbour rim darkening, median-cut palette). They are NOT Genforge's maths and report provisional: true.",
-    "Genforge stages named in the brief and not implemented: the inner-rim path, topology-preserving pooling (topology.py), and the material rim as Genforge defines it.",
-    "prompts.ts follows the conventions docs/IMAGES.md lists for prompts/items/*.txt; the wording is carbon's.",
-    "When the source is available: record the revision and each file's sha256 here, port the stages, regenerate fixtures/pixel/reference with scripts/pixel-references.mjs, and set report.provisional to false and report.upstream to the revision."
+  "pillow": {
+    "emulated_in": "src/core/pixel/pil.ts",
+    "from": "Pillow 12.3.0 src/libImaging/Resample.c (precompute_coeffs, normalize_coeffs_8bpc, ImagingResampleInner), BoxBlur.c (_gaussian_blur_radius, ImagingLineBoxBlur8, ImagingBoxBlur), Geometry.c (ImagingScaleAffine), Convert.c (rgbA2rgba, rgba2rgbA), PIL/Image.py resize; checked byte-for-byte by pil.test.ts against fixtures/pixel/pillow (scripts/pixel-pillow.py)"
+  },
+  "opencv": {
+    "emulated_in": "src/core/pixel/cv.ts",
+    "from": "OpenCV 4 getStructuringElement(MORPH_ELLIPSE), erode/dilate with the default border, connectedComponentsWithStats (8-way); checked against the definition by cv.test.ts and end to end by the item references"
+  },
+  "port_notes": [
+    "NumPy float32 semantics are reproduced where they decide pixels: comparisons of float32 arrays with Python floats happen in float32 (NEP 50); strided float32 block sums use NumPy's pairwise sum over buffered chunks of whole rows (8192 elements), contiguous blocks one pairwise run; axis-(0,1) sums of (h,w,3) accumulate sequentially. Established empirically against NumPy 2.5.4.",
+    "Python round()/np.rint are half-to-even (py.ts roundHalfEven); colorsys is ported verbatim; Python float % is reproduced.",
+    "Set and dict iteration orders in items.py (boundary sets, outline dicts) were checked not to affect results: palettes and smoothing are order-independent by construction (total-order sorts, deferred updates).",
+    "Not ported (rejected with PixelError, none used by a preset): before (blur/sharpen/grading), vibrance, dither, noise (needs NumPy's PCG64 stream), outline: outer, cleanup.symmetry, alpha: smooth, downscale: median, render_family/render_batch/palette_for_batch."
   ]
 }

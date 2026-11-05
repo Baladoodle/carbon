@@ -124,6 +124,22 @@ const sources = {
     }
     return NONE;
   }),
+  // 9. A bow at provider resolution: a thick curved limb and a 2-px string, the case Genforge's
+  //    `hairlines` stage exists for (the area average erases the string).
+  'bow-1024': image(
+    1024,
+    1024,
+    (x, y) => {
+      const d = Math.hypot(x - 760, y - 512);
+      const limb = Math.abs(d - 440) < 34 && x < 690;
+      const tip = Math.abs(d - 440) < 44 && x < 690 && Math.abs(y - 512) > 380;
+      if (tip) return [70, 40, 20, 255];
+      if (limb) return [150 + (y % 64) / 4, 95, 45, 255];
+      if (Math.abs(x - 540) < 1.2 && Math.abs(y - 512) < 392) return [235, 228, 205, 255];
+      return NONE;
+    },
+    2,
+  ),
   // 8. Non-square, opaque, seeded value noise (texture, odd scale factors).
   'noise-300x200': image(
     300,

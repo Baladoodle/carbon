@@ -1,9 +1,7 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { filterImage } from './filter';
-import { sheetPrompt } from './prompts';
-import type { IconSubject } from './prompts';
-import { cropSheet, drawGuide, sheetLayout } from './sheet';
+import { GUIDE_CELL, GUIDE_GUTTER, cropSheet, drawGuide, sheetLayout } from './sheet';
 import type { SheetLayout } from './sheet';
 import type { RgbaImage } from './types';
 
@@ -65,27 +63,32 @@ describe('sheetLayout', () => {
 });
 
 describe('drawGuide', () => {
-  it('draws faint boxes just outside each cell on a flat background', () => {
+  it('fills each cell flat MID-GREY on a flat DARK GREY gutter, with no lines (Genforge drafts)', () => {
     const l = sheetLayout(4, { w: 64, h: 64 }, { gutter: 4 });
     const g = drawGuide(l);
     const px = (x: number, y: number): number[] => [
       ...g.data.slice((y * 64 + x) * 4, (y * 64 + x) * 4 + 4),
     ];
     const c = l.cells[0]!;
-    expect(px(c.x - 1, c.y + 3)).toEqual([220, 220, 220, 255]);
-    expect(px(c.x + 3, c.y + 3)).toEqual([255, 255, 255, 255]);
-    expect(px(0, 0)).toEqual([255, 255, 255, 255]);
+    expect(px(c.x, c.y)).toEqual([...GUIDE_CELL, 255]);
+    expect(px(c.x + c.w - 1, c.y + c.h - 1)).toEqual([...GUIDE_CELL, 255]);
+    expect(px(c.x - 1, c.y)).toEqual([...GUIDE_GUTTER, 255]);
+    expect(px(0, 0)).toEqual([...GUIDE_GUTTER, 255]);
+    const colours = new Set<string>();
+    for (let i = 0; i < g.data.length; i += 4) colours.add(g.data.slice(i, i + 3).join());
+    expect(colours.size).toBe(2);
   });
-});
 
-describe('drawGuide at another size', () => {
-  it('scales the boxes to the requested canvas', () => {
+  it('scales the cells to the requested canvas and takes custom colours', () => {
     const l = sheetLayout(4, { w: 64, h: 64 }, { gutter: 4 });
-    const g = drawGuide(l, { w: 128, h: 128 });
+    const g = drawGuide(l, { w: 128, h: 128 }, { cell: [1, 2, 3], gutter: [9, 9, 9] });
     expect([g.width, g.height]).toEqual([128, 128]);
     const c = l.cells[0]!;
-    const p = ((c.y * 2 + 6) * 128 + c.x * 2 - 1) * 4;
-    expect([...g.data.slice(p, p + 4)]).toEqual([220, 220, 220, 255]);
+    const at = (x: number, y: number): number[] => [
+      ...g.data.slice((y * 128 + x) * 4, (y * 128 + x) * 4 + 4),
+    ];
+    expect(at(c.x * 2, c.y * 2)).toEqual([1, 2, 3, 255]);
+    expect(at(c.x * 2 - 1, c.y * 2)).toEqual([9, 9, 9, 255]);
   });
 });
 
@@ -170,58 +173,5 @@ describe('cropSheet', () => {
     expect(() =>
       cropSheet({ width: 2, height: 2, data: new Uint8ClampedArray(1) }, layout),
     ).toThrow(/bytes/);
-  });
-});
-
-describe('sheetPrompt', () => {
-  const world = { entities: { iron: { kind: 'material' as const, name: 'Iron' } } };
-  const e = (id: string, name: string, extra: Partial<IconSubject> = {}): IconSubject => ({
-    id,
-    kind: 'item',
-    name,
-    identity: '',
-    description: '',
-    fields: {},
-    relations: [],
-    ...extra,
-  });
-
-  it('states the house style once, then each cell by position', () => {
-    const items = [
-      e('p', 'Pickaxe', {
-        fields: { subkind: 'tool' },
-        relations: [{ type: 'made_from', target: 'iron' }],
-      }),
-      e('o', 'Orb', { identity: 'sees through walls' }),
-      e('a', 'Ash', { kind: 'material' }),
-    ];
-    const l = sheetLayout(3, { w: 1024, h: 1024 });
-    const p = sheetPrompt(
-      items,
-      l,
-      world,
-      { direction: 'warm ochre', notes: { item: 'worn' } },
-      {
-        background: 'flat pure white #FFFFFF',
-      },
-    );
-    expect(p).toContain('3 separate game inventory icons on a 2×2 grid');
-    expect(p).toContain('row 1, col 1: Pickaxe, a chunky tool of Iron, diagonal from lower left');
-    expect(p).toContain('row 1, col 2: Orb, a chunky item (sees through walls), upright');
-    expect(p).toContain('(sees through walls)');
-    expect(p).toContain('row 2, col 1: Ash, a chunky material, upright');
-    expect(p).toContain('Palette: warm ochre.');
-    expect(p).toContain('Art note (item): worn.');
-    expect(p).not.toContain('Art note (material)');
-    expect(p).toContain('Background: flat pure white #FFFFFF');
-    expect(p).toMatch(/no item touches or crosses a cell edge/);
-    expect(p.match(/Never:/g)).toHaveLength(1);
-    expect(sheetPrompt(items, l, world)).toContain('Background: fully transparent');
-  });
-
-  it('rejects a mismatched grid', () => {
-    expect(() => sheetPrompt([e('a', 'A')], sheetLayout(2, { w: 256, h: 256 }), world)).toThrow(
-      /cells/,
-    );
   });
 });
