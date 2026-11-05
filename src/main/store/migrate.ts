@@ -59,9 +59,17 @@ export async function migrateWorldDir(
   const next = r.files;
 
   // 1. The backup, complete before anything else changes.
+  // A backup is never overwritten: a folder that already exists gets a suffix.
+  // The bytes are copied as they are on disk (a BOM or CRLF included), not as
+  // carbon reads them.
   await ensureMetaDir(dir);
-  const backup = `${META.backups}/${stamp(opts.at)}-format-${from}`;
-  for (const [rel, content] of files) await writeFileAtomic(path.join(dir, backup, rel), content);
+  const name = `${META.backups}/${stamp(opts.at)}-format-${from}`;
+  let backup = name;
+  for (let n = 2; await exists(path.join(dir, backup)); n++) backup = `${name}-${n}`;
+  for (const [rel, content] of files) {
+    const bytes = await readFile(path.join(dir, rel)).catch(() => content);
+    await writeFileAtomic(path.join(dir, backup, rel), bytes);
+  }
   const manifest: Manifest = {
     from,
     to,
@@ -137,7 +145,7 @@ export async function recoverMigration(
   for (const rel of current.keys())
     if (!backedUp.has(rel)) await removeFileDurable(path.join(dir, rel));
   for (const rel of files) {
-    const content = await readFile(path.join(dir, marker.backup, rel), 'utf8');
+    const content = await readFile(path.join(dir, marker.backup, rel));
     await writeFileAtomic(path.join(dir, rel), content);
   }
   await removeMeta(dir, META.migration);
